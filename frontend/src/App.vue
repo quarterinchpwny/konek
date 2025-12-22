@@ -2,7 +2,7 @@
   <div id="app">
     <header class="bg-gray-900 text-white p-4 shadow-md">
       <nav class="container mx-auto flex justify-between items-center">
-        <h1 class="text-2xl font-bold">Gemini File Browser</h1>
+        <h1 class="text-2xl font-bold"> File Browser</h1>
         <div>
           <!-- Navigation could go here if more views are added -->
         </div>

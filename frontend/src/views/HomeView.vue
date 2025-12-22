@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <div
+    <!-- <div
       v-if="!sshStore.isConnected"
       class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
     >
@@ -32,7 +32,7 @@
           {{ sshStore.isLoading ? "Connecting..." : "Connect" }}
         </button>
       </div>
-    </div>
+    </div> -->
 
     <div class="grid grid-cols-2">
       <div class="terminal-view">
