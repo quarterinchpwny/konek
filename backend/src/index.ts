@@ -137,15 +137,14 @@ class PollingService {
   async startMonitoring(hostId: number) {
     if (this.intervals.has(hostId)) return;
 
-      const [config] = await db
-    .select()
-    .from(serverHosts)
-    .where(eq(serverHosts.id, hostId));
-
+    const [config] = await db
+      .select()
+      .from(serverHosts)
+      .where(eq(serverHosts.id, hostId));
 
     if (!config) {
-        console.error(`Host with ID ${hostId} not found in database.`);
-        return;
+      console.error(`Host with ID ${hostId} not found in database.`);
+      return;
     }
 
     // Initial fetch
@@ -229,11 +228,14 @@ app.post("/api/connect", async (c) => {
   const body = await c.req.json();
   const { hostId } = body;
 
-  if (typeof hostId !== 'number') {
+  if (typeof hostId !== "number") {
     return c.json({ error: "Invalid host ID provided" }, 400);
   }
 
-  const [hostConfig] = await db.select().from(serverHosts).where(eq(serverHosts.id, hostId));
+  const [hostConfig] = await db
+    .select()
+    .from(serverHosts)
+    .where(eq(serverHosts.id, hostId));
 
   if (!hostConfig) {
     return c.json({ error: `Host with ID ${hostId} not found` }, 404);
@@ -278,7 +280,10 @@ app.post("/api/connect", async (c) => {
     try {
       client.connect(config);
     } catch (err: any) {
-      console.error(`Failed to initiate SSH connection for host ID ${hostId}:`, err);
+      console.error(
+        `Failed to initiate SSH connection for host ID ${hostId}:`,
+        err
+      );
       resolve(c.json({ status: "error", message: err.message }, 500));
     }
   });
@@ -395,20 +400,29 @@ app.post("/api/hosts", async (c) => {
     const { alias, hostname, port, username, password } = await c.req.json();
 
     if (!alias || !hostname || !username) {
-      return c.json({ error: "Missing required fields: alias, hostname, username" }, 400);
+      return c.json(
+        { error: "Missing required fields: alias, hostname, username" },
+        400
+      );
     }
 
-    const newHost = await db.insert(serverHosts).values({
-      alias,
-      hostname,
-      port: port || 22,
-      username,
-      password,
-    }).returning();
+    const newHost = await db
+      .insert(serverHosts)
+      .values({
+        alias,
+        hostname,
+        port: port || 22,
+        username,
+        password,
+      })
+      .returning();
     return c.json(newHost[0], 201);
   } catch (error: any) {
-    if (error.message.includes('UNIQUE constraint failed')) {
-      return c.json({ error: `Host with hostname ${c.req.json.hostname} already exists.` }, 409);
+    if (error.message.includes("UNIQUE constraint failed")) {
+      return c.json(
+        { error: `Host with hostname ${c.req.json.hostname} already exists.` },
+        409
+      );
     }
     console.error("Error saving host:", error);
     return c.json({ error: "Failed to save host information" }, 500);
@@ -434,7 +448,8 @@ app.put("/api/hosts/:id", async (c) => {
       return c.json({ error: "Invalid host ID" }, 400);
     }
 
-    const [updatedHost] = await db.update(serverHosts)
+    const [updatedHost] = await db
+      .update(serverHosts)
       .set(updatedHostData)
       .where(eq(serverHosts.id, id))
       .returning();
@@ -458,7 +473,10 @@ app.delete("/api/hosts/:id", async (c) => {
       return c.json({ error: "Invalid host ID" }, 400);
     }
 
-    const result = await db.delete(serverHosts).where(eq(serverHosts.id, id)).returning({ id: serverHosts.id });
+    const result = await db
+      .delete(serverHosts)
+      .where(eq(serverHosts.id, id))
+      .returning({ id: serverHosts.id });
 
     if (result.length === 0) {
       return c.json({ error: "Host not found" }, 404);
@@ -470,7 +488,6 @@ app.delete("/api/hosts/:id", async (c) => {
     return c.json({ error: "Failed to delete host information" }, 500);
   }
 });
-
 
 // --- NEW Routes: Server Stats (Based on server-stats.ts) ---
 
@@ -537,7 +554,7 @@ console.log(`Server is running on port ${port}`);
 const server = serve({
   fetch: app.fetch,
   port,
-  hostname: "0.0.0.0"
+  // hostname: "0.0.0.0"
 });
 
 // --- WebSocket for Terminal ---
