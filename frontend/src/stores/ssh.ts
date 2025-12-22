@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
+console.log('SSH Store API_URL:', API_URL);
 
 export const useSshStore = defineStore('ssh', () => {
   const sessionId = ref<string | null>(localStorage.getItem('sessionId'));
