@@ -1,4 +1,7 @@
 import { serve } from "@hono/node-server";
+import { db } from "./db";
+import { serverHosts } from "./db/schema";
+import { sql, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Client as SSHClient, ConnectConfig } from "ssh2";
@@ -23,12 +26,10 @@ interface CommandHistoryItem {
 
 // Data needed to connect to a host for monitoring
 interface MonitoredHostConfig {
-  id: string;
-  host: string;
-  port: number;
+  id: number;
+  hostIp: string;
   username: string;
   password?: string;
-  privateKey?: string;
 }
 
 interface ServerMetrics {
@@ -53,8 +54,9 @@ const historyStore: CommandHistoryItem[] = [];
 
 // MOCK DB: Monitored Hosts
 // In production,'sshData' and 'sshCredentials' tables
-const monitoredHosts = new Map<string, MonitoredHostConfig>();
-const metricsCache = new Map<string, ServerMetrics>();
+const monitoredHosts = new Map<number, MonitoredHostConfig>();
+
+const metricsCache = new Map<number, ServerMetrics>();
 
 // --- Helper: Simple SSH Command Execution (Promisified) ---
 const execCommand = (client: SSHClient, cmd: string): Promise<string> => {
@@ -130,44 +132,49 @@ async function collectSystemMetrics(client: SSHClient): Promise<ServerMetrics> {
 // --- Service: Polling Manager ---
 // Logic adapted from PollingManager in server-stats.ts
 class PollingService {
-  private intervals = new Map<string, NodeJS.Timeout>();
+  private intervals = new Map<number, NodeJS.Timeout>();
 
-  startMonitoring(config: MonitoredHostConfig) {
-    if (this.intervals.has(config.id)) return;
+  async startMonitoring(hostId: number) {
+    if (this.intervals.has(hostId)) return;
 
-    // Store config for reference
-    monitoredHosts.set(config.id, config);
+      const [config] = await db
+    .select()
+    .from(serverHosts)
+    .where(sql`id = ${hostId}`);
+
+
+    if (!config) {
+        console.error(`Host with ID ${hostId} not found in database.`);
+        return;
+    }
 
     // Initial fetch
     this.poll(config);
 
     // Schedule polling (every 10s)
     const interval = setInterval(() => this.poll(config), 10000);
-    this.intervals.set(config.id, interval);
-    console.log(`Started monitoring host: ${config.id}`);
+    this.intervals.set(hostId, interval);
+    console.log(`Started monitoring host: ${hostId}`);
   }
 
-  stopMonitoring(id: string) {
+  stopMonitoring(id: number) {
     const interval = this.intervals.get(id);
     if (interval) clearInterval(interval);
     this.intervals.delete(id);
-    monitoredHosts.delete(id);
     metricsCache.delete(id);
   }
 
-  private async poll(config: MonitoredHostConfig) {
+  private async poll(config: typeof serverHosts.$inferSelect) {
     const client = new SSHClient();
 
     // Config adapted from buildSshConfig
     const sshConfig: ConnectConfig = {
-      host: config.host,
-      port: config.port,
+      host: config.hostIp,
+      port: 22, // Assuming default SSH port
       username: config.username,
       readyTimeout: 10000,
+      password: config.password, // Directly using password from DB (unencrypted for now)
     };
-
-    if (config.privateKey) sshConfig.privateKey = config.privateKey;
-    else if (config.password) sshConfig.password = config.password;
 
     return new Promise<void>((resolve) => {
       client.on("ready", async () => {
@@ -359,31 +366,106 @@ app.get("/api/terminal/history/:hostId", async (c) => {
   return c.json(uniqueCommands.slice(0, 500));
 });
 
+// --- Drizzle DB Routes for Server Hosts ---
+
+app.post("/api/hosts", async (c) => {
+  try {
+    const { alias, hostname, port, username, password } = await c.req.json();
+
+    if (!alias || !hostname || !username) {
+      return c.json({ error: "Missing required fields: alias, hostname, username" }, 400);
+    }
+
+    const newHost = await db.insert(serverHosts).values({
+      alias,
+      hostname,
+      port: port || 22,
+      username,
+      password,
+    }).returning();
+    return c.json(newHost[0], 201);
+  } catch (error: any) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return c.json({ error: `Host with hostname ${c.req.json.hostname} already exists.` }, 409);
+    }
+    console.error("Error saving host:", error);
+    return c.json({ error: "Failed to save host information" }, 500);
+  }
+});
+
+app.get("/api/hosts", async (c) => {
+  try {
+    const hosts = await db.select().from(serverHosts);
+    return c.json(hosts);
+  } catch (error) {
+    console.error("Error fetching hosts:", error);
+    return c.json({ error: "Failed to fetch host information" }, 500);
+  }
+});
+
+app.put("/api/hosts/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+    const updatedHostData = await c.req.json();
+
+    if (isNaN(id)) {
+      return c.json({ error: "Invalid host ID" }, 400);
+    }
+
+    const [updatedHost] = await db.update(serverHosts)
+      .set(updatedHostData)
+      .where(eq(serverHosts.id, id))
+      .returning();
+
+    if (!updatedHost) {
+      return c.json({ error: "Host not found" }, 404);
+    }
+
+    return c.json(updatedHost);
+  } catch (error) {
+    console.error("Error updating host:", error);
+    return c.json({ error: "Failed to update host information" }, 500);
+  }
+});
+
+app.delete("/api/hosts/:id", async (c) => {
+  try {
+    const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json({ error: "Invalid host ID" }, 400);
+    }
+
+    const result = await db.delete(serverHosts).where(eq(serverHosts.id, id)).returning({ id: serverHosts.id });
+
+    if (result.length === 0) {
+      return c.json({ error: "Host not found" }, 404);
+    }
+
+    return c.json({ message: `Host with ID ${id} deleted successfully` });
+  } catch (error) {
+    console.error("Error deleting host:", error);
+    return c.json({ error: "Failed to delete host information" }, 500);
+  }
+});
+
+
 // --- NEW Routes: Server Stats (Based on server-stats.ts) ---
 
 /**
  * Register a host for background monitoring.
- * Since we don't have a DB in this mock, the client must send credentials to 'start' monitoring.
  */
 app.post("/api/stats/register", async (c) => {
   const body = await c.req.json();
-  const { id, host, port, username, password, privateKey } = body;
+  const { id } = body; // Expecting host ID from DB
 
-  if (!id || !host || !username) {
-    return c.json({ error: "Missing required fields" }, 400);
+  if (!id) {
+    return c.json({ error: "Missing host ID" }, 400);
   }
 
-  const config: MonitoredHostConfig = {
-    id: String(id),
-    host,
-    port: port || 22,
-    username,
-    password,
-    privateKey,
-  };
-
   // Start the background poller
-  pollingService.startMonitoring(config);
+  // The polling service will fetch the full config from the DB
+  pollingService.startMonitoring(id);
 
   return c.json({ message: "Monitoring started", hostId: id });
 });
@@ -393,6 +475,9 @@ app.post("/api/stats/register", async (c) => {
  */
 app.post("/api/stats/stop", async (c) => {
   const { id } = await c.req.json();
+  if (!id) {
+    return c.json({ error: "Missing host ID" }, 400);
+  }
   pollingService.stopMonitoring(id);
   return c.json({ message: "Monitoring stopped" });
 });
@@ -402,7 +487,7 @@ app.post("/api/stats/stop", async (c) => {
  */
 app.get("/api/stats/:id", (c) => {
   const id = c.req.param("id");
-  const metrics = metricsCache.get(id);
+  const metrics = metricsCache.get(Number(id));
 
   if (!metrics) {
     // Return empty/null structure if not ready yet
