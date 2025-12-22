@@ -429,6 +429,7 @@ app.post("/api/hosts", async (c) => {
 app.get("/api/hosts", async (c) => {
   try {
     const hosts = await db.select().from(serverHosts);
+    console.log("Hosts data from DB:", hosts); // Debugging log
     return c.json(hosts);
   } catch (error) {
     console.error("Error fetching hosts:", error);
