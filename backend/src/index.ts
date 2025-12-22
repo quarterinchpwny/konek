@@ -1,42 +1,214 @@
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { Client as SSHClient } from 'ssh2';
-import { v4 as uuidv4 } from 'uuid';
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { Client as SSHClient, ConnectConfig } from "ssh2";
+import { v4 as uuidv4 } from "uuid";
+import { WebSocketServer, WebSocket } from "ws";
 
-// Types
+// --- Types ---
+
 interface SSHSession {
   client: SSHClient;
   isConnected: boolean;
   lastActive: number;
+  host: string;
 }
 
-// State - Keeping it simple (In-Memory) as per your original design
+interface CommandHistoryItem {
+  userId: string;
+  hostId: string;
+  command: string;
+  executedAt: number;
+}
+
+// Data needed to connect to a host for monitoring
+interface MonitoredHostConfig {
+  id: string;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+}
+
+interface ServerMetrics {
+  cpu: number; // Percentage
+  memory: { total: number; used: number; free: number; percent: number };
+  disk: Array<{
+    mount: string;
+    used: string;
+    available: string;
+    percent: string;
+  }>;
+  uptime: string;
+  timestamp: number;
+}
+
+// --- State (In-Memory) ---
+
 const sessions = new Map<string, SSHSession>();
+
+// MOCK DB: History
+const historyStore: CommandHistoryItem[] = [];
+
+// MOCK DB: Monitored Hosts
+// In production,'sshData' and 'sshCredentials' tables
+const monitoredHosts = new Map<string, MonitoredHostConfig>();
+const metricsCache = new Map<string, ServerMetrics>();
+
+// --- Helper: Simple SSH Command Execution (Promisified) ---
+const execCommand = (client: SSHClient, cmd: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    client.exec(cmd, (err, stream) => {
+      if (err) return reject(err);
+      let output = "";
+      stream.on("data", (data: Buffer) => (output += data.toString()));
+      stream.on("close", () => resolve(output.trim()));
+      stream.on("error", (e: Error) => reject(e));
+    });
+  });
+};
+
+// --- Helper: Metrics Collectors (Inlined Logic) ---
+
+async function collectSystemMetrics(client: SSHClient): Promise<ServerMetrics> {
+  // 1. CPU Usage (Simplified: reads /proc/stat twice with delay)
+  // Logic adapted from server-stats.ts
+  const getCpu = async () => {
+    const raw = await execCommand(client, "cat /proc/stat | grep 'cpu '");
+    return raw.split(/\s+/).slice(1).map(Number);
+  };
+
+  const start = await getCpu();
+  await new Promise((r) => setTimeout(r, 1000)); // Wait 1s
+  const end = await getCpu();
+
+  const idleDiff = end[3] - start[3];
+  const totalStart = start.reduce((a, b) => a + b, 0);
+  const totalEnd = end.reduce((a, b) => a + b, 0);
+  const totalDiff = totalEnd - totalStart;
+  const cpuPercent = 100 * (1 - idleDiff / totalDiff);
+
+  // 2. Memory (using 'free -b')
+  const memRaw = await execCommand(client, "free -b | grep Mem:");
+  const memParts = memRaw.split(/\s+/);
+  const totalMem = parseInt(memParts[1], 10);
+  const usedMem = parseInt(memParts[2], 10);
+
+  // 3. Disk (using 'df -h')
+  const diskRaw = await execCommand(
+    client,
+    "df -h --output=source,size,used,avail,pcent,target | grep '^/'"
+  );
+  const disks = diskRaw.split("\n").map((line) => {
+    const parts = line.split(/\s+/);
+    return {
+      mount: parts[5],
+      used: parts[2],
+      available: parts[3],
+      percent: parts[4],
+    };
+  });
+
+  // 4. Uptime
+  const uptime = await execCommand(client, "uptime -p");
+
+  return {
+    cpu: parseFloat(cpuPercent.toFixed(1)),
+    memory: {
+      total: totalMem,
+      used: usedMem,
+      free: totalMem - usedMem,
+      percent: parseFloat(((usedMem / totalMem) * 100).toFixed(1)),
+    },
+    disk: disks,
+    uptime: uptime.replace("up ", ""),
+    timestamp: Date.now(),
+  };
+}
+
+// --- Service: Polling Manager ---
+// Logic adapted from PollingManager in server-stats.ts
+class PollingService {
+  private intervals = new Map<string, NodeJS.Timeout>();
+
+  startMonitoring(config: MonitoredHostConfig) {
+    if (this.intervals.has(config.id)) return;
+
+    // Store config for reference
+    monitoredHosts.set(config.id, config);
+
+    // Initial fetch
+    this.poll(config);
+
+    // Schedule polling (every 10s)
+    const interval = setInterval(() => this.poll(config), 10000);
+    this.intervals.set(config.id, interval);
+    console.log(`Started monitoring host: ${config.id}`);
+  }
+
+  stopMonitoring(id: string) {
+    const interval = this.intervals.get(id);
+    if (interval) clearInterval(interval);
+    this.intervals.delete(id);
+    monitoredHosts.delete(id);
+    metricsCache.delete(id);
+  }
+
+  private async poll(config: MonitoredHostConfig) {
+    const client = new SSHClient();
+
+    // Config adapted from buildSshConfig
+    const sshConfig: ConnectConfig = {
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      readyTimeout: 10000,
+    };
+
+    if (config.privateKey) sshConfig.privateKey = config.privateKey;
+    else if (config.password) sshConfig.password = config.password;
+
+    return new Promise<void>((resolve) => {
+      client.on("ready", async () => {
+        try {
+          const metrics = await collectSystemMetrics(client);
+          metricsCache.set(config.id, metrics);
+        } catch (err) {
+          console.error(`Error collecting metrics for ${config.id}:`, err);
+        } finally {
+          client.end();
+          resolve();
+        }
+      });
+
+      client.on("error", (err) => {
+        console.error(`Connection error for ${config.id}:`, err.message);
+        resolve(); // Resolve anyway to keep timer going
+      });
+
+      client.connect(sshConfig);
+    });
+  }
+}
+
+const pollingService = new PollingService();
 
 const app = new Hono();
 
-// Middleware
-app.use('/*', cors({
-  origin: ['http://localhost:5173'], // Your Vue App URL
-  credentials: true,
-}));
+// --- Middleware ---
 
-// Helper: Cleanup Session
-const cleanupSession = (sessionId: string) => {
-  const session = sessions.get(sessionId);
-  if (session) {
-    session.client.end();
-    sessions.delete(sessionId);
-    console.log(`Session ${sessionId} closed`);
-  }
-};
+app.use(
+  "/*",
+  cors({
+    origin: ["http://localhost:5174", "http://localhost:5173"],
+    credentials: true,
+  })
+);
 
-/**
- * 1. CONNECT Endpoint
- * Handles SSH connection and stores the client instance in memory.
- */
-app.post('/api/connect', async (c) => {
+// --- Existing Routes (Terminal & Files) ---
+
+app.post("/api/connect", async (c) => {
   const body = await c.req.json();
   const { host, port, username, password, privateKey } = body;
 
@@ -44,25 +216,27 @@ app.post('/api/connect', async (c) => {
     const client = new SSHClient();
     const sessionId = uuidv4();
 
-    client.on('ready', () => {
+    client.on("ready", () => {
       sessions.set(sessionId, {
         client,
         isConnected: true,
         lastActive: Date.now(),
+        host,
       });
-      
-      resolve(c.json({ 
-        status: 'success', 
-        sessionId, 
-        message: 'Connected successfully' 
-      }));
+
+      resolve(
+        c.json({
+          status: "success",
+          sessionId,
+          message: "Connected successfully",
+        })
+      );
     });
 
-    client.on('error', (err) => {
-      resolve(c.json({ status: 'error', message: err.message }, 500));
+    client.on("error", (err) => {
+      resolve(c.json({ status: "error", message: err.message }, 500));
     });
 
-    // Connection Config
     const config: any = {
       host,
       port: port || 22,
@@ -76,57 +250,51 @@ app.post('/api/connect', async (c) => {
     try {
       client.connect(config);
     } catch (err: any) {
-      resolve(c.json({ status: 'error', message: err.message }, 500));
+      resolve(c.json({ status: "error", message: err.message }, 500));
     }
   });
 });
 
-/**
- * 2. LIST FILES Endpoint
- * Equivalent to your `listFiles` route.
- */
-app.get('/api/files/list', async (c) => {
-  const sessionId = c.req.query('sessionId');
-  const path = c.req.query('path') || '/';
+app.get("/api/files/list", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const path = c.req.query("path") || "/";
 
   if (!sessionId || !sessions.has(sessionId)) {
-    return c.json({ error: 'Session not found or disconnected' }, 401);
+    return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
   const session = sessions.get(sessionId)!;
   session.lastActive = Date.now();
 
   return new Promise((resolve) => {
-    // Using 'ls -la' just like your original code
-    // In a production app, consider using SFTP.readdir for better parsing
     const cmd = `ls -la --time-style=long-iso "${path}"`;
 
     session.client.exec(cmd, (err, stream) => {
       if (err) return resolve(c.json({ error: err.message }, 500));
 
-      let output = '';
-      stream.on('data', (data: Buffer) => output += data.toString());
-      
-      stream.on('close', (code: number) => {
-        if (code !== 0) return resolve(c.json({ error: 'Command failed' }, 500));
-        
-        // Simple Parser (You can swap this with your complex parser)
-        const lines = output.split('\n').slice(1); // Skip total
+      let output = "";
+      stream.on("data", (data: Buffer) => (output += data.toString()));
+      stream.on("close", (code: number) => {
+        if (code !== 0)
+          return resolve(c.json({ error: "Command failed" }, 500));
+
+        // Simple LS Parser
+        const lines = output.split("\n").slice(1);
         const files = lines
-          .filter(line => line.trim().length > 0)
-          .map(line => {
+          .filter((line) => line.trim().length > 0)
+          .map((line) => {
             const parts = line.split(/\s+/);
             const permissions = parts[0];
-            const name = parts.slice(7).join(' '); // Rough estimation
+            const name = parts.slice(7).join(" ");
             return {
               name,
               permissions,
-              isDirectory: permissions.startsWith('d'),
+              isDirectory: permissions.startsWith("d"),
               size: parts[4],
-              path: path === '/' ? `/${name}` : `${path}/${name}`
+              path: path === "/" ? `/${name}` : `${path}/${name}`,
             };
           })
-          .filter(f => f.name !== '.' && f.name !== '..');
+          .filter((f) => f.name !== "." && f.name !== "..");
 
         resolve(c.json({ path, files }));
       });
@@ -134,53 +302,161 @@ app.get('/api/files/list', async (c) => {
   });
 });
 
-/**
- * 3. READ FILE Endpoint
- * Streams content back to the frontend.
- */
-app.get('/api/files/read', async (c) => {
-  const sessionId = c.req.query('sessionId');
-  const filePath = c.req.query('path');
+app.get("/api/files/read", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const filePath = c.req.query("path");
 
-  if (!sessionId || !sessions.has(sessionId)) return c.json({ error: 'No Session' }, 401);
-  if (!filePath) return c.json({ error: 'No path provided' }, 400);
+  if (!sessionId || !sessions.has(sessionId))
+    return c.json({ error: "No Session" }, 401);
 
   const session = sessions.get(sessionId)!;
-  
-  // We use SFTP here for safer file reading compared to 'cat'
+
   return new Promise((resolve) => {
     session.client.sftp((err, sftp) => {
-      if (err) return resolve(c.json({ error: 'SFTP not available' }, 500));
-
-      // Hono streaming response
-      const stream = sftp.createReadStream(filePath);
-      
-      // We wrap the Node stream into a Hono-friendly response
-      // For simple text files, we can just buffer it (easier for text editors)
+      if (err) return resolve(c.json({ error: "SFTP not available" }, 500));
+      const stream = sftp.createReadStream(filePath as string);
       const chunks: Buffer[] = [];
-      stream.on('data', chunk => chunks.push(chunk));
-      stream.on('end', () => {
-        const content = Buffer.concat(chunks).toString('utf-8');
-        resolve(c.json({ content }));
-      });
-      stream.on('error', (e) => resolve(c.json({ error: e.message }, 500)));
+      stream.on("data", (chunk) => chunks.push(chunk));
+      stream.on("end", () =>
+        resolve(c.json({ content: Buffer.concat(chunks).toString("utf-8") }))
+      );
+      stream.on("error", (e) => resolve(c.json({ error: e.message }, 500)));
     });
   });
 });
 
-/**
- * 4. DISCONNECT
- */
-app.post('/api/disconnect', async (c) => {
+app.post("/api/disconnect", async (c) => {
   const { sessionId } = await c.req.json();
-  cleanupSession(sessionId);
-  return c.json({ status: 'disconnected' });
+  const session = sessions.get(sessionId);
+  if (session) {
+    session.client.end();
+    sessions.delete(sessionId);
+  }
+  return c.json({ status: "disconnected" });
 });
+
+// --- History Routes (Existing) ---
+
+app.post("/api/terminal/history", async (c) => {
+  const { hostId, command } = await c.req.json();
+  const entry = {
+    userId: "demo-user",
+    hostId: String(hostId),
+    command: command.trim(),
+    executedAt: Date.now(),
+  };
+  historyStore.push(entry);
+  return c.json(entry, 201);
+});
+
+app.get("/api/terminal/history/:hostId", async (c) => {
+  const hostId = c.req.param("hostId");
+  const userHistory = historyStore
+    .filter((h) => h.hostId === hostId)
+    .sort((a, b) => b.executedAt - a.executedAt);
+
+  const uniqueCommands = Array.from(new Set(userHistory.map((h) => h.command)));
+  return c.json(uniqueCommands.slice(0, 500));
+});
+
+// --- NEW Routes: Server Stats (Based on server-stats.ts) ---
+
+/**
+ * Register a host for background monitoring.
+ * Since we don't have a DB in this mock, the client must send credentials to 'start' monitoring.
+ */
+app.post("/api/stats/register", async (c) => {
+  const body = await c.req.json();
+  const { id, host, port, username, password, privateKey } = body;
+
+  if (!id || !host || !username) {
+    return c.json({ error: "Missing required fields" }, 400);
+  }
+
+  const config: MonitoredHostConfig = {
+    id: String(id),
+    host,
+    port: port || 22,
+    username,
+    password,
+    privateKey,
+  };
+
+  // Start the background poller
+  pollingService.startMonitoring(config);
+
+  return c.json({ message: "Monitoring started", hostId: id });
+});
+
+/**
+ * Stop monitoring a host
+ */
+app.post("/api/stats/stop", async (c) => {
+  const { id } = await c.req.json();
+  pollingService.stopMonitoring(id);
+  return c.json({ message: "Monitoring stopped" });
+});
+
+/**
+ * Get latest metrics for a specific host
+ */
+app.get("/api/stats/:id", (c) => {
+  const id = c.req.param("id");
+  const metrics = metricsCache.get(id);
+
+  if (!metrics) {
+    // Return empty/null structure if not ready yet
+    // Matches structure in server-stats.ts
+    return c.json(
+      {
+        error: "Metrics not available or gathering",
+        cpu: null,
+        memory: null,
+        disk: [],
+        uptime: null,
+      },
+      404
+    );
+  }
+
+  return c.json(metrics);
+});
+
+// --- Server Startup ---
 
 const port = 3000;
 console.log(`Server is running on port ${port}`);
 
-serve({
+const server = serve({
   fetch: app.fetch,
-  port
+  port,
+});
+
+// --- WebSocket for Terminal ---
+
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws: WebSocket, req) => {
+  const url = new URL(req.url || "", `http://${req.headers.host}`);
+  const sessionId = url.searchParams.get("sessionId");
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    ws.close();
+    return;
+  }
+
+  const session = sessions.get(sessionId)!;
+  const rows = Number(url.searchParams.get("rows")) || 24;
+  const cols = Number(url.searchParams.get("cols")) || 80;
+
+  session.client.shell({ term: "xterm-color", rows, cols }, (err, stream) => {
+    if (err) {
+      ws.close();
+      return;
+    }
+    ws.on("message", (data) => stream.write(data as Buffer));
+    stream.on("data", (data: Buffer) => ws.send(data));
+    stream.on("close", () => ws.close());
+    ws.on("close", () => stream.end());
+  });
 });

@@ -1,38 +1,6 @@
 <template>
   <div class="h-screen flex flex-col bg-gray-900 text-gray-200 font-mono">
     <div
-      v-if="!sshStore.isConnected"
-      class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-    >
-      <div class="bg-gray-800 p-8 rounded-lg w-96 border border-gray-700">
-        <h2 class="text-xl mb-4 font-bold text-white">SSH Connect</h2>
-        <input
-          v-model="host"
-          placeholder="Host IP"
-          class="w-full mb-3 bg-gray-900 p-2 rounded border border-gray-700"
-        />
-        <input
-          v-model="username"
-          placeholder="Username"
-          class="w-full mb-3 bg-gray-900 p-2 rounded border border-gray-700"
-        />
-        <input
-          v-model="password"
-          type="password"
-          placeholder="Password"
-          class="w-full mb-4 bg-gray-900 p-2 rounded border border-gray-700"
-        />
-        <button
-          @click="handleConnect"
-          :disabled="sshStore.isLoading"
-          class="w-full bg-blue-600 hover:bg-blue-500 text-white p-2 rounded"
-        >
-          {{ sshStore.isLoading ? "Connecting..." : "Connect" }}
-        </button>
-      </div>
-    </div>
-
-    <div
       class="h-14 border-b border-gray-700 flex items-center px-4 bg-gray-800 space-x-4"
     >
       <button @click="goUp" class="p-2 hover:bg-gray-700 rounded text-gray-400">
@@ -64,7 +32,7 @@
       <div
         v-for="file in sshStore.files"
         :key="file.path"
-        @dblclick="handleNavigate(file)"
+        @click="handleNavigate(file)"
         class="grid grid-cols-12 py-2 px-1 hover:bg-gray-800 cursor-pointer rounded select-none items-center"
       >
         <div class="col-span-6 flex items-center space-x-2">
@@ -118,21 +86,9 @@ import {
 const sshStore = useSshStore();
 
 // UI State
-const showConnectModal = ref(true);
-const host = ref("");
-const username = ref("");
-const password = ref("");
+
 const editorContent = ref("");
 const showEditor = ref(false);
-
-const handleConnect = async () => {
-  await sshStore.connect({
-    host: host.value,
-    username: username.value,
-    password: password.value,
-  });
-  showConnectModal.value = false;
-};
 
 const handleNavigate = (file: any) => {
   if (file.isDirectory) {
