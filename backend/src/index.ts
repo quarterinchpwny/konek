@@ -140,7 +140,7 @@ class PollingService {
       const [config] = await db
     .select()
     .from(serverHosts)
-    .where(sql`id = ${hostId}`);
+    .where(eq(serverHosts.id, hostId));
 
 
     if (!config) {
@@ -169,11 +169,11 @@ class PollingService {
 
     // Config adapted from buildSshConfig
     const sshConfig: ConnectConfig = {
-      host: config.hostIp,
-      port: 22, // Assuming default SSH port
+      host: config.hostname,
+      port: config.port || 22, // Use config.port
       username: config.username,
       readyTimeout: 10000,
-      password: config.password, // Directly using password from DB (unencrypted for now)
+      password: config.password,
     };
 
     return new Promise<void>((resolve) => {
@@ -203,12 +203,22 @@ const pollingService = new PollingService();
 
 const app = new Hono();
 
-// --- Middleware ---
+// ---   ---
 
 app.use(
   "/*",
   cors({
-    origin: ["http://localhost:5174", "http://localhost:5173"],
+    origin: (origin) => {
+      if (!origin) return "*"; // curl / server-to-server
+
+      const allowed = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://192.168.1.72:5173",
+      ];
+
+      return allowed.includes(origin) ? origin : "";
+    },
     credentials: true,
   })
 );
@@ -217,7 +227,17 @@ app.use(
 
 app.post("/api/connect", async (c) => {
   const body = await c.req.json();
-  const { host, port, username, password, privateKey } = body;
+  const { hostId } = body;
+
+  if (typeof hostId !== 'number') {
+    return c.json({ error: "Invalid host ID provided" }, 400);
+  }
+
+  const [hostConfig] = await db.select().from(serverHosts).where(eq(serverHosts.id, hostId));
+
+  if (!hostConfig) {
+    return c.json({ error: `Host with ID ${hostId} not found` }, 404);
+  }
 
   return new Promise((resolve) => {
     const client = new SSHClient();
@@ -228,7 +248,7 @@ app.post("/api/connect", async (c) => {
         client,
         isConnected: true,
         lastActive: Date.now(),
-        host,
+        host: hostConfig.hostname, // Use hostname from DB
       });
 
       resolve(
@@ -241,22 +261,24 @@ app.post("/api/connect", async (c) => {
     });
 
     client.on("error", (err) => {
+      console.error(`SSH connection error for host ID ${hostId}:`, err);
       resolve(c.json({ status: "error", message: err.message }, 500));
     });
 
-    const config: any = {
-      host,
-      port: port || 22,
-      username,
+    const config: ConnectConfig = {
+      host: hostConfig.hostname,
+      port: hostConfig.port || 22,
+      username: hostConfig.username,
       readyTimeout: 20000,
     };
 
-    if (privateKey) config.privateKey = privateKey;
-    else if (password) config.password = password;
+    if (hostConfig.password) config.password = hostConfig.password;
+    // Add logic for privateKey if implemented in schema
 
     try {
       client.connect(config);
     } catch (err: any) {
+      console.error(`Failed to initiate SSH connection for host ID ${hostId}:`, err);
       resolve(c.json({ status: "error", message: err.message }, 500));
     }
   });
@@ -515,6 +537,7 @@ console.log(`Server is running on port ${port}`);
 const server = serve({
   fetch: app.fetch,
   port,
+  hostname: "0.0.0.0"
 });
 
 // --- WebSocket for Terminal ---

@@ -12,10 +12,10 @@ export const useSshStore = defineStore('ssh', () => {
   const isLoading = ref(false);
 
   // Actions
-  async function connect(credentials: any) {
+  async function connect(hostId: number) {
     isLoading.value = true;
     try {
-      const res = await axios.post(`${API_URL}/connect`, credentials);
+      const res = await axios.post(`${API_URL}/connect`, { hostId });
       if (res.data.status === 'success') {
         sessionId.value = res.data.sessionId;
         localStorage.setItem('sessionId', res.data.sessionId);

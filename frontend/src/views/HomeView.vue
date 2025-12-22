@@ -35,22 +35,14 @@ const handleConnect = async () => {
 
   try {
     // Connect via sshStore
-    await sshStore.connect({
-      host: hostname,
-      username: username,
-      password: password,
-      port: port,
-    });
+    await sshStore.connect(id);
 
     // Connect via backend API (for session ID)
     const connectResponse = await fetch("http://localhost:3000/api/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        host: hostname,
-        username: username,
-        password: password,
-        port: port,
+        hostId: id,
       }),
     });
     const connectData = await connectResponse.json();
@@ -64,9 +56,6 @@ const handleConnect = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: id, // Use the actual host ID from selectedHost
-          host: hostname, // These might be redundant but safe for existing API
-          username: username,
-          password: password,
         }),
       });
 
