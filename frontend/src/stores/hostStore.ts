@@ -3,7 +3,6 @@ import { ref } from 'vue';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
-console.log('Host Store API_URL:', API_URL);
 
 export interface Host {
   id?: number;
