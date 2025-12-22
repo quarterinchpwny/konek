@@ -205,25 +205,31 @@ const app = new Hono();
 
 // ---   ---
 
+const isDev = process.env.APP_ENV === "development";
+
 app.use(
-  "/*",
+  '*',
   cors({
     origin: (origin) => {
-      if (!origin) return "*"; // curl / server-to-server
+      if (!origin) return origin;
 
-      const allowedOrigins = (
-        process.env.FRONTEND_ORIGIN || "http://localhost:5173"
-      ).split(",");
-
-      if (allowedOrigins.includes(origin)) {
+      if (
+        process.env.APP_ENV === "development" || 
+        origin.includes("localhost") || 
+        origin.includes("192.168.")
+      ) {
         return origin;
       }
 
-      return undefined;
+      const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(",") ?? [];
+      return allowedOrigins.includes(origin) ? origin : undefined;
     },
     credentials: true,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
 
 // --- Existing Routes (Terminal & Files) ---
 
