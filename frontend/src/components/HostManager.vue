@@ -63,6 +63,10 @@
             <div class="text-sm text-gray-300">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</div>
           </div>
           <div class="space-x-2">
+            <button @click="selectHost(host)"
+                    class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800">
+              Select
+            </button>
             <button @click="editHost(host)"
                     class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800">
               Edit
@@ -98,6 +102,8 @@ const defaultForm: Host = {
 const form = reactive<Host>({ ...defaultForm });
 const editingHost = ref<Host | null>(null);
 
+const emits = defineEmits(['select-host']);
+
 onMounted(() => {
   hostStore.fetchHosts();
 });
@@ -127,6 +133,10 @@ function editHost(host: Host) {
 
 function cancelEdit() {
   resetForm();
+}
+
+function selectHost(host: Host) {
+  emits('select-host', host);
 }
 
 async function deleteHost(id: number) {
