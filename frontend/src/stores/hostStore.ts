@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.72:3000/api';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface Host {
   id?: number;

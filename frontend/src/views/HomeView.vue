@@ -38,7 +38,7 @@ const handleConnect = async () => {
     await sshStore.connect(id);
 
     // Connect via backend API (for session ID)
-    const connectResponse = await fetch("http://localhost:3000/api/connect", {
+    const connectResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/connect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -51,7 +51,7 @@ const handleConnect = async () => {
       sessionId.value = connectData.sessionId;
 
       // Register for stats monitoring
-      await fetch("http://localhost:3000/api/stats/register", {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,7 +64,7 @@ const handleConnect = async () => {
         clearInterval(pollingInterval.value);
       }
       pollingInterval.value = setInterval(async () => {
-        const res = await fetch(`http://localhost:3000/api/stats/${id}`); // Use actual host ID
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/${id}`); // Use actual host ID
 
         if (!res.ok) {
           console.error("Stats not ready", await res.text());
@@ -84,7 +84,7 @@ const handleConnect = async () => {
 const disconnectFromHost = async (hostId: number) => {
   // Disconnect SSH session
   if (sessionId.value) {
-    await fetch("http://localhost:3000/api/disconnect", {
+    await fetch(`${import.meta.env.VITE_API_BASE_URL}/disconnect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: sessionId.value }),
@@ -94,7 +94,7 @@ const disconnectFromHost = async (hostId: number) => {
   }
 
   // Stop stats monitoring
-  await fetch("http://localhost:3000/api/stats/stop", {
+  await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/stop`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: hostId }),

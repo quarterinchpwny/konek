@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const useSshStore = defineStore('ssh', () => {
   const sessionId = ref<string | null>(localStorage.getItem('sessionId'));

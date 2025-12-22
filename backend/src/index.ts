@@ -1,3 +1,4 @@
+import 'dotenv/config'; // Load environment variables
 import { serve } from "@hono/node-server";
 import { db } from "./db";
 import { serverHosts } from "./db/schema";
@@ -210,13 +211,9 @@ app.use(
     origin: (origin) => {
       if (!origin) return "*"; // curl / server-to-server
 
-      const allowed = [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://192.168.1.72:5173",
-      ];
+      const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").split(',');
 
-      return allowed.includes(origin) ? origin : "";
+      return allowedOrigins.includes(origin) ? origin : "";
     },
     credentials: true,
   })
@@ -554,7 +551,7 @@ console.log(`Server is running on port ${port}`);
 const server = serve({
   fetch: app.fetch,
   port,
-  // hostname: "0.0.0.0"
+  hostname: "0.0.0.0"
 });
 
 // --- WebSocket for Terminal ---
