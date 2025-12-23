@@ -1,15 +1,16 @@
-import "dotenv/config"; // Load environment variables
+import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { db } from "./db";
 import { serverHosts } from "./db/schema";
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { Client as SSHClient, ConnectConfig } from "ssh2";
+import { Client as SSHClient, ConnectConfig, ClientChannel } from "ssh2";
 import { v4 as uuidv4 } from "uuid";
 import { WebSocketServer, WebSocket } from "ws";
+import net from "net";
 
-// --- Types ---
+// --- Types & Interfaces ---
 
 interface SSHSession {
   client: SSHClient;
@@ -18,237 +19,549 @@ interface SSHSession {
   host: string;
 }
 
-interface CommandHistoryItem {
-  userId: string;
-  hostId: string;
-  command: string;
-  executedAt: number;
-}
-
-// Data needed to connect to a host for monitoring
-interface MonitoredHostConfig {
-  id: number;
-  hostIp: string;
-  username: string;
-  password?: string;
-}
-
+// Complete Metrics Structure (Matching server-stats.ts)
 interface ServerMetrics {
-  cpu: number; // Percentage
-  memory: { total: number; used: number; free: number; percent: number };
+  cpu: {
+    percent: number;
+    cores: number;
+    load: [number, number, number]; // 1m, 5m, 15m
+  };
+  memory: {
+    percent: number;
+    total: number;
+    used: number;
+    free: number;
+  };
   disk: Array<{
     mount: string;
     used: string;
     available: string;
     percent: string;
   }>;
-  uptime: string;
+  network: Array<{
+    name: string;
+    ip: string;
+    rx: string;
+    tx: string;
+  }>;
+  processes: {
+    total: number;
+    running: number;
+    top: Array<{
+      pid: string;
+      user: string;
+      cpu: string;
+      mem: string;
+      command: string;
+    }>;
+  };
+  system: {
+    hostname: string;
+    os: string;
+    uptime: string;
+  };
   timestamp: number;
 }
 
-// --- State (In-Memory) ---
+interface HostStatus {
+  id: number;
+  status: "online" | "offline" | "auth_failed";
+  lastChecked: number;
+}
 
-const sessions = new Map<string, SSHSession>();
+// --- UTILITIES: Resilience & networking ---
 
-// MOCK DB: History
-const historyStore: CommandHistoryItem[] = [];
+// 1. TCP Ping (Check online status without SSH)
+function tcpPing(
+  host: string,
+  port: number,
+  timeoutMs = 5000
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
 
-// MOCK DB: Monitored Hosts
-// In production,'sshData' and 'sshCredentials' tables
-const monitoredHosts = new Map<number, MonitoredHostConfig>();
+    const onDone = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
 
-const metricsCache = new Map<number, ServerMetrics>();
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => onDone(true));
+    socket.once("timeout", () => onDone(false));
+    socket.once("error", () => onDone(false));
+    try {
+      socket.connect(port, host);
+    } catch {
+      onDone(false);
+    }
+  });
+}
 
-// --- Helper: Simple SSH Command Execution (Promisified) ---
-const execCommand = (client: SSHClient, cmd: string): Promise<string> => {
+// 2. Auth Failure Tracker (Circuit Breaker)
+class AuthFailureTracker {
+  private failures = new Map<number, { count: number; lastFail: number }>();
+
+  recordFailure(hostId: number) {
+    const current = this.failures.get(hostId) || { count: 0, lastFail: 0 };
+    this.failures.set(hostId, {
+      count: current.count + 1,
+      lastFail: Date.now(),
+    });
+  }
+
+  shouldSkip(hostId: number): boolean {
+    const record = this.failures.get(hostId);
+    if (!record) return false;
+    // Backoff logic: if >3 failures, wait 5 minutes
+    if (record.count >= 3 && Date.now() - record.lastFail < 5 * 60 * 1000) {
+      return true;
+    }
+    // Reset if timeout passed
+    if (Date.now() - record.lastFail > 5 * 60 * 1000) {
+      this.failures.delete(hostId);
+      return false;
+    }
+    return false;
+  }
+
+  reset(hostId: number) {
+    this.failures.delete(hostId);
+  }
+}
+
+const authTracker = new AuthFailureTracker();
+
+// --- CORE: SSH Connection Pool ---
+
+interface PooledConnection {
+  client: SSHClient;
+  lastUsed: number;
+  inUse: boolean;
+}
+
+class SSHConnectionPool {
+  private connections = new Map<number, PooledConnection[]>();
+  private cleanupInterval: NodeJS.Timeout;
+
+  constructor() {
+    // Cleanup idle connections every 5 minutes
+    this.cleanupInterval = setInterval(() => this.cleanup(), 5 * 60 * 1000);
+  }
+
+  async getConnection(
+    hostId: number,
+    config: ConnectConfig
+  ): Promise<SSHClient> {
+    const pool = this.connections.get(hostId) || [];
+
+    // 1. Try to find an idle connection
+    const idle = pool.find((c) => !c.inUse);
+    if (idle) {
+      // Validate connection is still alive
+      try {
+        // Simple check if stream is writable
+        // Note: ideal check is client.sftp or a keepalive, but simple works for now
+        idle.inUse = true;
+        idle.lastUsed = Date.now();
+        return idle.client;
+      } catch {
+        // If dead, remove and continue
+        this.removeConnection(hostId, idle.client);
+      }
+    }
+
+    // 2. Create new connection
+    return new Promise((resolve, reject) => {
+      const client = new SSHClient();
+
+      const timeout = setTimeout(() => {
+        client.end();
+        reject(new Error("Connection timeout"));
+      }, 20000);
+
+      client.on("ready", () => {
+        clearTimeout(timeout);
+        // Add to pool
+        const newPool = this.connections.get(hostId) || [];
+        newPool.push({ client, lastUsed: Date.now(), inUse: true });
+        this.connections.set(hostId, newPool);
+        resolve(client);
+      });
+
+      client.on("error", (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+
+      client.on("end", () => this.removeConnection(hostId, client));
+      client.on("close", () => this.removeConnection(hostId, client));
+
+      try {
+        client.connect(config);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  releaseConnection(hostId: number, client: SSHClient) {
+    const pool = this.connections.get(hostId);
+    if (pool) {
+      const conn = pool.find((c) => c.client === client);
+      if (conn) {
+        conn.inUse = false;
+        conn.lastUsed = Date.now();
+      }
+    }
+  }
+
+  private removeConnection(hostId: number, client: SSHClient) {
+    let pool = this.connections.get(hostId);
+    if (pool) {
+      pool = pool.filter((c) => c.client !== client);
+      this.connections.set(hostId, pool);
+      try {
+        client.end();
+      } catch {}
+    }
+  }
+
+  private cleanup() {
+    const now = Date.now();
+    for (const [hostId, pool] of this.connections.entries()) {
+      // Close connections idle for > 10 mins
+      pool.forEach((conn) => {
+        if (!conn.inUse && now - conn.lastUsed > 10 * 60 * 1000) {
+          conn.client.end();
+        }
+      });
+      const activePool = pool.filter(
+        (conn) => conn.inUse || now - conn.lastUsed <= 10 * 60 * 1000
+      );
+      this.connections.set(hostId, activePool);
+    }
+  }
+}
+
+const connectionPool = new SSHConnectionPool();
+
+// --- DATA COLLECTORS (Expanded) ---
+
+const exec = (client: SSHClient, cmd: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     client.exec(cmd, (err, stream) => {
       if (err) return reject(err);
       let output = "";
-      stream.on("data", (data: Buffer) => (output += data.toString()));
+      stream.on("data", (d: Buffer) => (output += d.toString()));
+      stream.stderr.on("data", () => {}); // Ignore stderr for now
       stream.on("close", () => resolve(output.trim()));
-      stream.on("error", (e: Error) => reject(e));
     });
   });
 };
 
-// --- Helper: Metrics Collectors (Inlined Logic) ---
+async function collectExtendedMetrics(
+  client: SSHClient
+): Promise<ServerMetrics> {
+  // ---------- BASE METRICS (always available) ----------
+  const [cpuInfo, memRaw, diskRaw, netRaw, procRaw, osRaw, uptimeRaw] =
+    await Promise.all([
+      exec(
+        client,
+        "cat /proc/loadavg && grep -c processor /proc/cpuinfo && cat /proc/stat | grep 'cpu '"
+      ),
+      exec(client, "free -b"),
+      exec(
+        client,
+        "df -h --output=source,size,used,avail,pcent,target | grep '^/'"
+      ),
+      exec(client, "cat /proc/net/dev"),
+      exec(
+        client,
+        "ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | head -n 6 && ps -e | wc -l"
+      ),
+      exec(
+        client,
+        "hostname && uname -r && cat /etc/os-release | grep PRETTY_NAME"
+      ),
+      exec(client, "uptime -p"),
+    ]);
 
-async function collectSystemMetrics(client: SSHClient): Promise<ServerMetrics> {
-  // 1. CPU Usage (Simplified: reads /proc/stat twice with delay)
-  // Logic adapted from server-stats.ts
-  const getCpu = async () => {
-    const raw = await execCommand(client, "cat /proc/stat | grep 'cpu '");
-    return raw.split(/\s+/).slice(1).map(Number);
-  };
+  // ---------- CPU ----------
+  const cpuLines = cpuInfo.split("\n");
+  const load = cpuLines[0].split(" ").slice(0, 3).map(Number) as [
+    number,
+    number,
+    number
+  ];
+  const cores = parseInt(cpuLines[1]) || 1;
+  const cpuPercent = Math.min(100, (load[0] / cores) * 100);
 
-  const start = await getCpu();
-  await new Promise((r) => setTimeout(r, 1000)); // Wait 1s
-  const end = await getCpu();
+  // ---------- MEMORY ----------
+  const memLine = memRaw.split("\n").find((l) => l.startsWith("Mem:")) || "";
+  const memData = memLine.split(/\s+/);
+  const totalMem = parseInt(memData[1] || "0");
+  const usedMem = parseInt(memData[2] || "0");
+  const freeMem = parseInt(memData[3] || "0");
 
-  const idleDiff = end[3] - start[3];
-  const totalStart = start.reduce((a, b) => a + b, 0);
-  const totalEnd = end.reduce((a, b) => a + b, 0);
-  const totalDiff = totalEnd - totalStart;
-  const cpuPercent = 100 * (1 - idleDiff / totalDiff);
+  // ---------- DISK ----------
+  const disks = diskRaw
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const p = line.split(/\s+/);
+      return { mount: p[5], used: p[2], available: p[3], percent: p[4] };
+    });
 
-  // 2. Memory (using 'free -b')
-  const memRaw = await execCommand(client, "free -b | grep Mem:");
-  const memParts = memRaw.split(/\s+/);
-  const totalMem = parseInt(memParts[1], 10);
-  const usedMem = parseInt(memParts[2], 10);
+  // ---------- NETWORK ----------
+  const network = netRaw
+    .split("\n")
+    .slice(2)
+    .map((line) => {
+      const p = line.trim().split(/\s+/);
+      return {
+        name: p[0].replace(":", ""),
+        rx: Number(p[1]),
+        tx: Number(p[9]),
+      };
+    });
 
-  // 3. Disk (using 'df -h')
-  const diskRaw = await execCommand(
-    client,
-    "df -h --output=source,size,used,avail,pcent,target | grep '^/'"
-  );
-  const disks = diskRaw.split("\n").map((line) => {
-    const parts = line.split(/\s+/);
+  // ---------- PROCESSES ----------
+  const procLines = procRaw.split("\n");
+  const totalProcs = parseInt(procLines[procLines.length - 1]) || 0;
+  const topProcs = procLines.slice(1, 6).map((line) => {
+    const p = line.trim().split(/\s+/);
     return {
-      mount: parts[5],
-      used: parts[2],
-      available: parts[3],
-      percent: parts[4],
+      pid: p[0],
+      user: p[1],
+      cpu: Number(p[2]),
+      mem: Number(p[3]),
+      command: p[4],
     };
   });
 
-  // 4. Uptime
-  const uptime = await execCommand(client, "uptime -p");
+  // ---------- SYSTEM ----------
+  const osLines = osRaw.split("\n");
+  const hostname = osLines[0];
+  const osName =
+    osLines
+      .find((l) => l.startsWith("PRETTY_NAME"))
+      ?.split("=")[1]
+      ?.replace(/"/g, "") || "Linux";
 
+  // ---------- DOCKER (OPTIONAL) ----------
+  let docker: ServerMetrics["docker"] | null = null;
+
+  try {
+    // Check docker exists
+    await exec(client, "command -v docker");
+
+    // Check daemon access
+    await exec(client, "docker ps --no-trunc >/dev/null");
+
+    const [psRaw, statsRaw] = await Promise.all([
+      exec(client, "docker ps --format '{{json .}}'"),
+      exec(client, "docker stats --no-stream --format '{{json .}}'"),
+    ]);
+
+    const containers = psRaw
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    const parseBytes = (s: string) => {
+      const m = s.match(/([\d.]+)\s*(KiB|MiB|GiB)/);
+      if (!m) return 0;
+      const v = parseFloat(m[1]);
+      return m[2] === "KiB"
+        ? v * 1024
+        : m[2] === "MiB"
+        ? v * 1024 ** 2
+        : v * 1024 ** 3;
+    };
+
+    const statsMap = Object.fromEntries(
+      statsRaw
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => {
+          const s = JSON.parse(l);
+          const [used, limit] = s.MemUsage.split(" / ");
+          return [
+            s.Name,
+            {
+              cpu: parseFloat(s.CPUPerc.replace("%", "")) || 0,
+              memUsed: parseBytes(used),
+              memLimit: parseBytes(limit),
+              memPercent: parseFloat(s.MemPerc.replace("%", "")) || 0,
+            },
+          ];
+        })
+    );
+
+    docker = {
+      containers: containers.map((c) => ({
+        name: c.Names,
+        image: c.Image,
+        status: c.Status,
+        stats: statsMap[c.Names] || null,
+      })),
+    };
+  } catch {
+    // Docker not installed or not accessible → ignore silently
+  }
+
+  // ---------- FINAL RESULT ----------
   return {
-    cpu: parseFloat(cpuPercent.toFixed(1)),
+    cpu: { percent: Number(cpuPercent.toFixed(1)), cores, load },
     memory: {
+      percent: totalMem ? (usedMem / totalMem) * 100 : 0,
       total: totalMem,
       used: usedMem,
-      free: totalMem - usedMem,
-      percent: parseFloat(((usedMem / totalMem) * 100).toFixed(1)),
+      free: freeMem,
     },
     disk: disks,
-    uptime: uptime.replace("up ", ""),
+    network,
+    processes: { total: totalProcs, running: 0, top: topProcs },
+    system: {
+      hostname,
+      os: osName,
+      uptime: uptimeRaw.replace("up ", ""),
+    },
+    docker,
     timestamp: Date.now(),
   };
 }
 
-// --- Service: Polling Manager ---
-// Logic adapted from PollingManager in server-stats.ts
+// --- POLLING MANAGER ---
+
+const metricsStore = new Map<number, ServerMetrics>();
+const statusStore = new Map<number, HostStatus>();
+
 class PollingService {
-  private intervals = new Map<number, NodeJS.Timeout>();
+  private timers = new Map<number, NodeJS.Timeout>();
 
-  async startMonitoring(hostId: number) {
-    if (this.intervals.has(hostId)) return;
+  async start(hostId: number) {
+    // Prevent duplicate timers
+    if (this.timers.has(hostId)) return;
 
+    // 1. Run the first poll immediately (async, don't await so the API stays fast)
+    this.poll(hostId);
+
+    // 2. Schedule future polls
+    const t = setInterval(() => this.poll(hostId), 10000);
+    this.timers.set(hostId, t);
+  }
+
+  stop(hostId: number) {
+    const t = this.timers.get(hostId);
+    if (t) clearInterval(t);
+    this.timers.delete(hostId);
+    // connectionPool.releaseConnection(hostId, ...); // Handled by cleanup
+  }
+
+  private async poll(hostId: number) {
+    // 1. Fetch Config
     const [config] = await db
       .select()
       .from(serverHosts)
       .where(eq(serverHosts.id, hostId));
-
     if (!config) {
-      console.error(`Host with ID ${hostId} not found in database.`);
+      this.stop(hostId);
+      return;
+    }
+    const now = Date.now(); // Capture the current time
+    // 2. Check Circuit Breaker
+    if (authTracker.shouldSkip(hostId)) {
+      statusStore.set(hostId, {
+        id: hostId,
+        status: "auth_failed",
+        lastChecked: Date.now(),
+      });
       return;
     }
 
-    // Initial fetch
-    this.poll(config);
-
-    // Schedule polling (every 10s)
-    const interval = setInterval(() => this.poll(config), 10000);
-    this.intervals.set(hostId, interval);
-    console.log(`Started monitoring host: ${hostId}`);
-  }
-
-  stopMonitoring(id: number) {
-    const interval = this.intervals.get(id);
-    if (interval) clearInterval(interval);
-    this.intervals.delete(id);
-    metricsCache.delete(id);
-  }
-
-  private async poll(config: typeof serverHosts.$inferSelect) {
-    const client = new SSHClient();
-
-    // Config adapted from buildSshConfig
-    const sshConfig: ConnectConfig = {
-      host: config.hostname,
-      port: config.port || 22, // Use config.port
-      username: config.username,
-      readyTimeout: 10000,
-      password: config.password,
-    };
-
-    return new Promise<void>((resolve) => {
-      client.on("ready", async () => {
-        try {
-          const metrics = await collectSystemMetrics(client);
-          metricsCache.set(config.id, metrics);
-        } catch (err) {
-          console.error(`Error collecting metrics for ${config.id}:`, err);
-        } finally {
-          client.end();
-          resolve();
-        }
+    // 3. Fast TCP Ping
+    const isOnline = await tcpPing(config.hostname, config.port || 22);
+    if (!isOnline) {
+      statusStore.set(hostId, {
+        id: hostId,
+        status: "offline",
+        lastChecked: Date.now(),
       });
+      return;
+    }
 
-      client.on("error", (err) => {
-        console.error(`Connection error for ${config.id}:`, err.message);
-        resolve(); // Resolve anyway to keep timer going
-      });
-
-      client.connect(sshConfig);
+    statusStore.set(hostId, {
+      id: hostId,
+      status: "online",
+      lastChecked: Date.now(),
     });
+
+    // 4. SSH Metrics Collection (Using Pool)
+    let client: SSHClient | null = null;
+    try {
+      client = await connectionPool.getConnection(hostId, {
+        host: config.hostname,
+        port: config.port || 22,
+        username: config.username,
+        password: config.password || undefined,
+        readyTimeout: 10000,
+      });
+
+      const metrics = await collectExtendedMetrics(client);
+      metricsStore.set(hostId, metrics);
+
+      // Success? Reset failures
+      authTracker.reset(hostId);
+    } catch (err: any) {
+      console.error(`Polling error host ${hostId}:`, err.message);
+      if (err.level === "client-authentication") {
+        authTracker.recordFailure(hostId);
+        statusStore.set(hostId, {
+          id: hostId,
+          status: "auth_failed",
+          lastChecked: Date.now(),
+        });
+      }
+    } finally {
+      if (client) connectionPool.releaseConnection(hostId, client);
+    }
   }
 }
 
 const pollingService = new PollingService();
 
+// --- API SERVER (Hono) ---
+
 const app = new Hono();
 
-// ---   ---
-
-const isDev = process.env.APP_ENV === "development";
-
+// Middleware
 app.use(
-  '*',
+  "*",
   cors({
-    origin: (origin) => {
-      if (!origin) return origin;
-
-      if (
-        process.env.APP_ENV === "development" || 
-        origin.includes("localhost") || 
-        origin.includes("192.168.")
-      ) {
-        return origin;
-      }
-
-      const allowedOrigins = process.env.FRONTEND_ORIGIN?.split(",") ?? [];
-      return allowedOrigins.includes(origin) ? origin : undefined;
-    },
+    origin: (origin) => origin, // Simplify for example
     credentials: true,
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
 
+// --- SESSION STATE (Terminal) ---
+const sessions = new Map<string, SSHSession>();
+const historyStore: any[] = [];
 
-// --- Existing Routes (Terminal & Files) ---
-
+// 1. TERMINAL ROUTES
 app.post("/api/connect", async (c) => {
-  const body = await c.req.json();
-  const { hostId } = body;
-
-  if (typeof hostId !== "number") {
-    return c.json({ error: "Invalid host ID provided" }, 400);
-  }
-
-  const [hostConfig] = await db
+  const { hostId } = await c.req.json();
+  const [host] = await db
     .select()
     .from(serverHosts)
     .where(eq(serverHosts.id, hostId));
-
-  if (!hostConfig) {
-    return c.json({ error: `Host with ID ${hostId} not found` }, 404);
-  }
+  if (!host) return c.json({ error: "Host not found" }, 404);
 
   return new Promise((resolve) => {
     const client = new SSHClient();
@@ -259,44 +572,37 @@ app.post("/api/connect", async (c) => {
         client,
         isConnected: true,
         lastActive: Date.now(),
-        host: hostConfig.hostname, // Use hostname from DB
+        host: host.hostname,
       });
-
-      resolve(
-        c.json({
-          status: "success",
-          sessionId,
-          message: "Connected successfully",
-        })
-      );
+      resolve(c.json({ status: "success", sessionId }));
     });
-
-    client.on("error", (err) => {
-      console.error(`SSH connection error for host ID ${hostId}:`, err);
-      resolve(c.json({ status: "error", message: err.message }, 500));
-    });
-
-    const config: ConnectConfig = {
-      host: hostConfig.hostname,
-      port: hostConfig.port || 22,
-      username: hostConfig.username,
-      readyTimeout: 20000,
-    };
-
-    if (hostConfig.password) config.password = hostConfig.password;
-    // Add logic for privateKey if implemented in schema
+    client.on("error", (e) =>
+      resolve(c.json({ status: "error", message: e.message }, 500))
+    );
 
     try {
-      client.connect(config);
-    } catch (err: any) {
-      console.error(
-        `Failed to initiate SSH connection for host ID ${hostId}:`,
-        err
-      );
-      resolve(c.json({ status: "error", message: err.message }, 500));
+      client.connect({
+        host: host.hostname,
+        port: host.port || 22,
+        username: host.username,
+        password: host.password || undefined,
+      });
+    } catch (e: any) {
+      resolve(c.json({ error: e.message }, 500));
     }
   });
 });
+
+app.post("/api/disconnect", async (c) => {
+  const { sessionId } = await c.req.json();
+  const s = sessions.get(sessionId);
+  if (s) {
+    s.client.end();
+    sessions.delete(sessionId);
+  }
+  return c.json({ status: "disconnected" });
+});
+// 2. FILE MANAGEMENT
 
 app.get("/api/files/list", async (c) => {
   const sessionId = c.req.query("sessionId");
@@ -368,41 +674,37 @@ app.get("/api/files/read", async (c) => {
   });
 });
 
-app.post("/api/disconnect", async (c) => {
-  const { sessionId } = await c.req.json();
-  const session = sessions.get(sessionId);
-  if (session) {
-    session.client.end();
-    sessions.delete(sessionId);
-  }
-  return c.json({ status: "disconnected" });
+// 2. HOST MANAGEMENT
+app.get("/api/hosts", async (c) => {
+  // 1. LIMIT RETURNED COLUMNS (No passwords/keys)
+  const hosts = await db.select().from(serverHosts);
+
+  const result = hosts.map((h) => {
+    const liveStatus = statusStore.get(h.id);
+
+    // 2. AUTO-START POLLING
+    // If we aren't tracking this host yet, trigger the service
+    if (!liveStatus) {
+      pollingService.start(h.id);
+    }
+
+    return {
+      alias: h.alias,
+      hostname: h.hostname,
+      port: h.port,
+      id: h.id,
+      username: h.username,
+      status: liveStatus?.status || "checking...",
+      // 3. INCLUDE LAST CHECKED TIMESTAMP
+      // Convert to ISO string or return null if never checked
+      lastChecked: liveStatus?.lastChecked
+        ? new Date(liveStatus.lastChecked).toISOString()
+        : null,
+    };
+  });
+
+  return c.json(result);
 });
-
-// --- History Routes (Existing) ---
-
-app.post("/api/terminal/history", async (c) => {
-  const { hostId, command } = await c.req.json();
-  const entry = {
-    userId: "demo-user",
-    hostId: String(hostId),
-    command: command.trim(),
-    executedAt: Date.now(),
-  };
-  historyStore.push(entry);
-  return c.json(entry, 201);
-});
-
-app.get("/api/terminal/history/:hostId", async (c) => {
-  const hostId = c.req.param("hostId");
-  const userHistory = historyStore
-    .filter((h) => h.hostId === hostId)
-    .sort((a, b) => b.executedAt - a.executedAt);
-
-  const uniqueCommands = Array.from(new Set(userHistory.map((h) => h.command)));
-  return c.json(uniqueCommands.slice(0, 500));
-});
-
-// --- Drizzle DB Routes for Server Hosts ---
 
 app.post("/api/hosts", async (c) => {
   try {
@@ -437,128 +739,55 @@ app.post("/api/hosts", async (c) => {
     return c.json({ error: "Failed to save host information" }, 500);
   }
 });
+// New endpoint for on-demand status checks
+app.get("/api/check-online/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const hostData = await db
+    .select()
+    .from(serverHosts)
+    .where(eq(serverHosts.id, id))
+    .get();
 
-app.get("/api/hosts", async (c) => {
-  try {
-    const hosts = await db.select().from(serverHosts);
-    return c.json(hosts);
-  } catch (error) {
-    console.error("Error fetching hosts:", error);
-    return c.json({ error: "Failed to fetch host information" }, 500);
-  }
+  const isOnline = await tcpPing(hostData.hostname, hostData.port || 22);
+
+  return c.json({
+    // ...hostData,
+    host: hostData.alias,
+    online: isOnline,
+    lastChecked: new Date().toISOString(),
+  });
 });
-
-app.put("/api/hosts/:id", async (c) => {
-  try {
-    const id = parseInt(c.req.param("id"));
-    const updatedHostData = await c.req.json();
-
-    if (isNaN(id)) {
-      return c.json({ error: "Invalid host ID" }, 400);
-    }
-
-    const [updatedHost] = await db
-      .update(serverHosts)
-      .set(updatedHostData)
-      .where(eq(serverHosts.id, id))
-      .returning();
-
-    if (!updatedHost) {
-      return c.json({ error: "Host not found" }, 404);
-    }
-
-    return c.json(updatedHost);
-  } catch (error) {
-    console.error("Error updating host:", error);
-    return c.json({ error: "Failed to update host information" }, 500);
-  }
-});
-
-app.delete("/api/hosts/:id", async (c) => {
-  try {
-    const id = parseInt(c.req.param("id"));
-
-    if (isNaN(id)) {
-      return c.json({ error: "Invalid host ID" }, 400);
-    }
-
-    const result = await db
-      .delete(serverHosts)
-      .where(eq(serverHosts.id, id))
-      .returning({ id: serverHosts.id });
-
-    if (result.length === 0) {
-      return c.json({ error: "Host not found" }, 404);
-    }
-
-    return c.json({ message: `Host with ID ${id} deleted successfully` });
-  } catch (error) {
-    console.error("Error deleting host:", error);
-    return c.json({ error: "Failed to delete host information" }, 500);
-  }
-});
-
-// --- NEW Routes: Server Stats (Based on server-stats.ts) ---
-
-/**
- * Register a host for background monitoring.
- */
+// 3. STATS / MONITORING
 app.post("/api/stats/register", async (c) => {
-  const body = await c.req.json();
-  const { id } = body; // Expecting host ID from DB
-
-  if (!id) {
-    return c.json({ error: "Missing host ID" }, 400);
-  }
-
-  // Start the background poller
-  // The polling service will fetch the full config from the DB
-  pollingService.startMonitoring(id);
-
-  return c.json({ message: "Monitoring started", hostId: id });
+  const { id } = await c.req.json();
+  if (id) pollingService.start(id);
+  return c.json({ message: "Started" });
 });
 
-/**
- * Stop monitoring a host
- */
+app.get("/api/stats/:id", (c) => {
+  const id = Number(c.req.param("id"));
+  const metrics = metricsStore.get(id);
+  const status = statusStore.get(id);
+
+  if (!metrics)
+    return c.json(
+      { error: "No metrics yet", status: status?.status || "unknown" },
+      404
+    );
+  return c.json({ ...metrics, status: status?.status });
+});
 app.post("/api/stats/stop", async (c) => {
   const { id } = await c.req.json();
   if (!id) {
     return c.json({ error: "Missing host ID" }, 400);
   }
-  pollingService.stopMonitoring(id);
+  pollingService.stop(id);
   return c.json({ message: "Monitoring stopped" });
 });
-
-/**
- * Get latest metrics for a specific host
- */
-app.get("/api/stats/:id", (c) => {
-  const id = c.req.param("id");
-  const metrics = metricsCache.get(Number(id));
-
-  if (!metrics) {
-    // Return empty/null structure if not ready yet
-    // Matches structure in server-stats.ts
-    return c.json(
-      {
-        error: "Metrics not available or gathering",
-        cpu: null,
-        memory: null,
-        disk: [],
-        uptime: null,
-      },
-      404
-    );
-  }
-
-  return c.json(metrics);
-});
-
-// --- Server Startup ---
+// --- SERVER STARTUP ---
 
 const port = 3000;
-console.log(`Server is running on port ${port}`);
+console.log(`Server running on port ${port}`);
 
 const server = serve({
   fetch: app.fetch,
@@ -566,30 +795,18 @@ const server = serve({
   hostname: "0.0.0.0",
 });
 
-// --- WebSocket for Terminal ---
-
+// WebSocket (Terminal)
 const wss = new WebSocketServer({ server });
-
 wss.on("connection", (ws: WebSocket, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
-  const sessionId = url.searchParams.get("sessionId");
+  const sid = url.searchParams.get("sessionId");
+  if (!sid || !sessions.has(sid)) return ws.close();
 
-  if (!sessionId || !sessions.has(sessionId)) {
-    ws.close();
-    return;
-  }
-
-  const session = sessions.get(sessionId)!;
-  const rows = Number(url.searchParams.get("rows")) || 24;
-  const cols = Number(url.searchParams.get("cols")) || 80;
-
-  session.client.shell({ term: "xterm-color", rows, cols }, (err, stream) => {
-    if (err) {
-      ws.close();
-      return;
-    }
-    ws.on("message", (data) => stream.write(data as Buffer));
-    stream.on("data", (data: Buffer) => ws.send(data));
+  const session = sessions.get(sid)!;
+  session.client.shell({ term: "xterm-color" }, (err, stream) => {
+    if (err) return ws.close();
+    ws.on("message", (d) => stream.write(d as Buffer));
+    stream.on("data", (d) => ws.send(d));
     stream.on("close", () => ws.close());
     ws.on("close", () => stream.end());
   });

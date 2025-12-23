@@ -31,6 +31,18 @@ export const useHostStore = defineStore("hosts", () => {
     }
   }
 
+  async function fetchOnlineStatus(id: number | string) {
+    error.value = null;
+    try {
+      const response = await axios.get(`${API_URL}/check-online/${id}`);
+      // hosts.value = response.data;
+    } catch (e: any) {
+      error.value = e.response?.data?.error || e.message;
+      console.error("Error fetching status:", e);
+    } finally {
+    }
+  }
+
   async function addHost(hostData: Host) {
     isLoading.value = true;
     error.value = null;
@@ -89,5 +101,6 @@ export const useHostStore = defineStore("hosts", () => {
     addHost,
     updateHost,
     deleteHost,
+    fetchOnlineStatus,
   };
 });
