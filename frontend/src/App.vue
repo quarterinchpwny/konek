@@ -4,13 +4,13 @@
       <nav
         class="bg-gray-900 py-5 px-4 rounded-xl mx-auto flex justify-between items-center"
       >
-        <h1 class="text-xl">File Browser</h1>
+        <h1 class="text-xl">Konek</h1>
         <div>
           <!-- Navigation could go here if more views are added -->
         </div>
       </nav>
     </header>
-    <main class="container mx-auto p-4" v-if="false">
+    <main class="container mx-auto p-4">
       <!-- Host Manager Section -->
       <section class="mb-8">
         <HostManager @select-host="handleHostSelection" />
