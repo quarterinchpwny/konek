@@ -44,11 +44,11 @@ export class AuthFailureTracker {
     const f = this.failures.get(hostId);
     if (!f) return false;
 
-    if (f.count >= 3 && Date.now() - f.lastFail < 5 * 60_000) {
+    if (f.count >= 3 && Date.now() - f.lastFail < 5 * 60000) {
       return true;
     }
 
-    if (Date.now() - f.lastFail > 5 * 60_000) {
+    if (Date.now() - f.lastFail > 5 * 60000) {
       this.failures.delete(hostId);
     }
 

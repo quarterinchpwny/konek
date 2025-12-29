@@ -10,7 +10,7 @@ export class SSHConnectionPool {
   private connections = new Map<number, PooledConnection[]>();
 
   constructor() {
-    setInterval(() => this.cleanup(), 5 * 60_000);
+    setInterval(() => this.cleanup(), 5 * 60000);
   }
 
   async getConnection(
@@ -72,7 +72,7 @@ export class SSHConnectionPool {
     for (const [id, pool] of this.connections) {
       this.connections.set(
         id,
-        pool.filter((c) => c.inUse || now - c.lastUsed < 10 * 60_000)
+        pool.filter((c) => c.inUse || now - c.lastUsed < 10 * 60000)
       );
     }
   }

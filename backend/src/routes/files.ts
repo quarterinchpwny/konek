@@ -88,7 +88,7 @@ filesRoute.get("/read", async (c) => {
       const stream = sftp.createReadStream(filePath);
       const chunks: Buffer[] = [];
 
-      stream.on("data", (chunk) => chunks.push(chunk));
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
 
       stream.on("end", () => {
         resolve(
@@ -98,7 +98,7 @@ filesRoute.get("/read", async (c) => {
         );
       });
 
-      stream.on("error", (e) => {
+      stream.on("error", (e: Error) => {
         resolve(c.json({ error: e.message }, 500));
       });
     });
