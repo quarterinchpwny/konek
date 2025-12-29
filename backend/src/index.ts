@@ -61,6 +61,7 @@ interface ServerMetrics {
     uptime: string;
   };
   timestamp: number;
+  docker: Record<string,any> | null,
 }
 
 interface HostStatus {
