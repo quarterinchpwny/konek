@@ -1,0 +1,178 @@
+import { Client as SSHClient } from "ssh2";
+import { exec } from "../lib/ssh-utils";
+import { ServerMetrics } from "../types";
+
+export async function collectExtendedMetrics(
+  client: SSHClient
+): Promise<ServerMetrics> {
+  // ---------- BASE METRICS (always available) ----------
+  const [cpuInfo, memRaw, diskRaw, netRaw, procRaw, osRaw, uptimeRaw] =
+    await Promise.all([
+      exec(
+        client,
+        "cat /proc/loadavg && grep -c processor /proc/cpuinfo && cat /proc/stat | grep 'cpu '"
+      ),
+      exec(client, "free -b"),
+      exec(
+        client,
+        "df -h --output=source,size,used,avail,pcent,target | grep '^/'"
+      ),
+      exec(client, "cat /proc/net/dev"),
+      exec(
+        client,
+        "ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | head -n 6 && ps -e | wc -l"
+      ),
+      exec(
+        client,
+        "hostname && uname -r && cat /etc/os-release | grep PRETTY_NAME"
+      ),
+      exec(client, "uptime -p"),
+    ]);
+
+  // ---------- CPU ----------
+  const cpuLines = cpuInfo.split("\n");
+  const load = cpuLines[0].split(" ").slice(0, 3).map(Number) as [
+    number,
+    number,
+    number
+  ];
+  const cores = parseInt(cpuLines[1]) || 1;
+  const cpuPercent = Math.min(100, (load[0] / cores) * 100);
+
+  // ---------- MEMORY ----------
+  const memLine = memRaw.split("\n").find((l) => l.startsWith("Mem:")) || "";
+  const memData = memLine.split(/\s+/);
+  const totalMem = parseInt(memData[1] || "0");
+  const usedMem = parseInt(memData[2] || "0");
+  const freeMem = parseInt(memData[3] || "0");
+
+  // ---------- DISK ----------
+  const disks = diskRaw
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const p = line.split(/\s+/);
+      return { mount: p[5], used: p[2], available: p[3], percent: p[4] };
+    });
+
+  // ---------- NETWORK ----------
+  const network = netRaw
+    .split("\n")
+    .slice(2)
+    .map((line) => {
+      const p = line.trim().split(/\s+/);
+      return {
+        name: p[0].replace(":", ""),
+        rx: Number(p[1]),
+        tx: Number(p[9]),
+      };
+    });
+
+  // ---------- PROCESSES ----------
+  const procLines = procRaw.split("\n");
+  const totalProcs = parseInt(procLines[procLines.length - 1]) || 0;
+  const topProcs = procLines.slice(1, 6).map((line) => {
+    const p = line.trim().split(/\s+/);
+    return {
+      pid: p[0],
+      user: p[1],
+      cpu: Number(p[2]),
+      mem: Number(p[3]),
+      command: p[4],
+    };
+  });
+
+  // ---------- SYSTEM ----------
+  const osLines = osRaw.split("\n");
+  const hostname = osLines[0];
+  const osName =
+    osLines
+      .find((l) => l.startsWith("PRETTY_NAME"))
+      ?.split("=")[1]
+      ?.replace(/"/g, "") || "Linux";
+
+  // ---------- DOCKER (OPTIONAL) ----------
+  let docker: ServerMetrics["docker"] | null = null;
+
+  try {
+    // Check docker exists
+    await exec(client, "command -v docker");
+
+    // Check daemon access
+    await exec(client, "docker ps --no-trunc >/dev/null");
+
+    const [psRaw, statsRaw] = await Promise.all([
+      exec(client, "docker ps --format '{{json .}}'"),
+      exec(client, "docker stats --no-stream --format '{{json .}}'"),
+    ]);
+
+    const containers = psRaw
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+
+    const parseBytes = (s: string) => {
+      const m = s.match(/([\d.]+)\s*(KiB|MiB|GiB)/);
+      if (!m) return 0;
+      const v = parseFloat(m[1]);
+      return m[2] === "KiB"
+        ? v * 1024
+        : m[2] === "MiB"
+        ? v * 1024 ** 2
+        : v * 1024 ** 3;
+    };
+
+    const statsMap = Object.fromEntries(
+      statsRaw
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => {
+          const s = JSON.parse(l);
+          const [used, limit] = s.MemUsage.split(" / ");
+          return [
+            s.Name,
+            {
+              cpu: parseFloat(s.CPUPerc.replace("%", "")) || 0,
+              memUsed: parseBytes(used),
+              memLimit: parseBytes(limit),
+              memPercent: parseFloat(s.MemPerc.replace("%", "")) || 0,
+            },
+          ];
+        })
+    );
+
+    docker = {
+      containers: containers.map((c) => ({
+        name: c.Names,
+        image: c.Image,
+        status: c.Status,
+        stats: statsMap[c.Names] || null,
+      })),
+    };
+  } catch {
+    // Docker not installed or not accessible → ignore silently
+  }
+
+  // ---------- FINAL RESULT ----------
+  return {
+    cpu: { percent: Number(cpuPercent.toFixed(1)), cores, load },
+    memory: {
+      percent: totalMem ? (usedMem / totalMem) * 100 : 0,
+      total: totalMem,
+      used: usedMem,
+      free: freeMem,
+    },
+    disk: disks,
+    network,
+    processes: { total: totalProcs, running: 0, top: topProcs },
+    system: {
+      hostname,
+      os: osName,
+      uptime: uptimeRaw.replace("up ", ""),
+    },
+    docker,
+    timestamp: Date.now(),
+  };
+}
