@@ -1,9 +1,13 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { serverHosts } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { tcpPing } from "../lib/network";
-import { statusStore, pollingService } from "../services/monitor";
+import {
+  statusStore,
+  pollingService,
+  metricsStore,
+} from "../services/monitor";
 
 const hostsRoute = new Hono();
 /**
@@ -70,6 +74,36 @@ hostsRoute.post("/", async (c) => {
   }
 });
 /**
+ * DELETE /api/hosts
+ */
+hostsRoute.delete("/:id", async (c) => {
+  try {
+    // 2. CHANGE THIS: Get ID from the URL params, NOT c.req.json()
+    const id = c.req.param("id"); 
+
+    if (!id) {
+      return c.json({ error: "Missing ID in URL" }, 400);
+    }
+
+    const hostId = Number(id);
+
+    // 3. Delete from DB
+    const deletedHost = await db
+      .delete(serverHosts)
+      .where(eq(serverHosts.id, hostId))
+      .returning();
+
+    if (deletedHost.length === 0) {
+      return c.json({ error: "Host not found" }, 404);
+    }
+
+    return c.json({ message: "Deleted", host: deletedHost[0] }, 200);
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    return c.json({ error: "Server error" }, 500);
+  }
+});
+/**
  * GET /api/check-online/:id
  */
 hostsRoute.get("/check-online/:id", async (c) => {
@@ -92,6 +126,65 @@ hostsRoute.get("/check-online/:id", async (c) => {
     online: isOnline,
     lastChecked: new Date().toISOString(),
   });
+});
+
+/**
+ * POST /api/hosts/check-online/bulk
+ */
+hostsRoute.post("/check-online/bulk", async (c) => {
+  const { ids } = await c.req.json<{ ids: number[] }>();
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return c.json({ error: "Missing or invalid 'ids' in request body" }, 400);
+  }
+
+  const hosts = await db
+    .select()
+    .from(serverHosts)
+    .where(inArray(serverHosts.id, ids));
+
+  const results = await Promise.all(
+    hosts.map(async (host) => {
+      const isOnline = await tcpPing(host.hostname, host.port || 22);
+      const status = statusStore.get(host.id);
+
+      let stats = {};
+      if (isOnline) {
+        stats = metricsStore.get(host.id) || {};
+      }
+
+      if (!status) {
+        pollingService.start(host.id);
+      }
+
+      return {
+        id: host.id,
+        alias: host.alias,
+        hostname: host.hostname,
+        port: host.port,
+        username: host.username,
+        online: isOnline,
+        lastChecked: new Date().toISOString(),
+        status: status?.status || "checking...",
+        stats,
+      };
+    })
+  );
+
+  const resultsMap = new Map(results.map((r) => [r.id, r]));
+
+  const finalResults = ids.map((id) => {
+    if (resultsMap.has(id)) {
+      return resultsMap.get(id);
+    }
+    return {
+      id,
+      error: "Host not found",
+      status: "error",
+    };
+  });
+
+  return c.json(finalResults);
 });
 
 export default hostsRoute;

@@ -10,15 +10,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css"; // Import Xterm CSS
 
-const props = defineProps<{
-  sessionId: string;
-}>();
-
+const props = defineProps({
+  sessionId: String,
+});
+const wsUrl = computed(() => {
+  const host = window.location.hostname;
+  return `ws://${host}:3000?sessionId=${props.sessionId}`;
+});
 const terminalContainer = ref<HTMLElement | null>(null);
 const isConnected = ref(false);
 const statusMessage = ref("Initializing...");
@@ -68,23 +71,22 @@ const connectWebSocket = () => {
   const rows = dims ? dims.rows : 24;
 
   // Connection URL with dimensions
-  const wsUrl = `ws://localhost:3000?sessionId=${props.sessionId}&cols=${cols}&rows=${rows}`;
+  const _wsUrl = `${wsUrl.value}&cols=${cols}&rows=${rows}`;
 
-  socket = new WebSocket(wsUrl);
-
+  socket = new WebSocket(_wsUrl);
+  console.log(socket);
   socket.onopen = () => {
     isConnected.value = true;
     statusMessage.value = "Connected";
     term?.focus();
+
+    socket?.send("neofetch\n");
   };
 
   socket.onmessage = (event) => {
-    // Write backend data to terminal
-    // We treat the data as string (if backend sends buffers, ensure they are converted)
     if (typeof event.data === "string") {
       term?.write(event.data);
     } else {
-      // If blob/buffer, read as text
       const reader = new FileReader();
       reader.onload = () => {
         term?.write(reader.result as string);
@@ -140,9 +142,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .terminal-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  height: 100vh;
   width: 100%;
   background-color: #1e1e1e;
   border-radius: 8px;

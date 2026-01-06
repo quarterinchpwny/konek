@@ -10,8 +10,7 @@ async function main() {
     console.error('Migration failed:', error);
     process.exit(1);
   } finally {
-    // In a real application, you might want to close the database connection
-    // For better-sqlite3, this is usually handled implicitly or by the main app.
+
   }
 }
 

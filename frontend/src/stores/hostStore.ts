@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
@@ -11,96 +10,163 @@ export interface Host {
   port?: number;
   username: string;
   password?: string;
+  status?: "online" | "offline" | "checking..." | "error" | "unknown";
+  lastChecked?: string | null;
+  online?: boolean;
+  stats?: {
+    cpu: {
+      percent: number;
+    };
+    memory: {
+      used: number;
+      total: number;
+      percent: number;
+    };
+    disk: {
+      mount: string;
+      percent: string;
+      used: string;
+      total: string;
+    }[];
+  };
+  error?: string;
+}
+interface HostState {
+  hosts: Host[];
+  isLoading: Boolean;
+  error: string | null;
+  selectedHost: Host | null
 }
 
-export const useHostStore = defineStore("hosts", () => {
-  const hosts = ref<Host[]>([]);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
-  async function fetchHosts() {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      const response = await axios.get(`${API_URL}/hosts`);
-      hosts.value = response.data;
-    } catch (e: any) {
-      error.value = e.response?.data?.error || e.message;
-      console.error("Error fetching hosts:", e);
-    } finally {
-      isLoading.value = false;
-    }
-  }
+export const useHostStore = defineStore("hosts", {
+  state: ():HostState => ({
+    hosts: [] as Host[],
+    isLoading: false,
+    error: null as string | null,
+    selectedHost: null,
+  }),
 
-  async function fetchOnlineStatus(id: number | string) {
-    error.value = null;
-    try {
-      const response = await axios.get(`${API_URL}/check-online/${id}`);
-      // hosts.value = response.data;
-    } catch (e: any) {
-      error.value = e.response?.data?.error || e.message;
-      console.error("Error fetching status:", e);
-    } finally {
-    }
-  }
+  getters: {
+    hostById: (state) => {
+      return (id: number) => state.hosts.find((h) => h.id === id);
+    },
+    hostCount: (state) => state.hosts.length,
+    hasError: (state) => !!state.error,
+  },
 
-  async function addHost(hostData: Host) {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      const response = await axios.post(`${API_URL}/hosts`, hostData);
-      hosts.value.push(response.data);
-      return response.data;
-    } catch (e: any) {
-      error.value = e.response?.data?.error || e.message;
-      console.error("Error adding host:", e);
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
+  actions: {
+    async setSelectedHost(host: Host){
+      this.selectedHost = host;
+    },
+    async fetchHosts() {
+      this.isLoading = true;
+      this.error = null;
 
-  async function updateHost(id: number, hostData: Partial<Host>) {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      const response = await axios.put(`${API_URL}/hosts/${id}`, hostData);
-      const index = hosts.value.findIndex((host) => host.id === id);
-      if (index !== -1) {
-        hosts.value[index] = { ...hosts.value[index], ...response.data };
+      try {
+        const { data } = await axios.get(`${API_URL}/hosts`);
+        this.hosts = data;
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error fetching hosts:", e);
+      } finally {
+        this.isLoading = false;
       }
-      return response.data;
-    } catch (e: any) {
-      error.value = e.response?.data?.error || e.message;
-      console.error("Error updating host:", e);
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
+    },
 
-  async function deleteHost(id: number) {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      await axios.delete(`${API_URL}/hosts/${id}`);
-      hosts.value = hosts.value.filter((host) => host.id !== id);
-    } catch (e: any) {
-      error.value = e.response?.data?.error || e.message;
-      console.error("Error deleting host:", e);
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
+    async fetchOnlineStatus(id: number | string) {
+      this.error = null;
 
-  return {
-    hosts,
-    isLoading,
-    error,
-    fetchHosts,
-    addHost,
-    updateHost,
-    deleteHost,
-    fetchOnlineStatus,
-  };
+      try {
+        const { data } = await axios.get(`${API_URL}/check-online/${id}`);
+        return data;
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error fetching status:", e);
+        throw e;
+      }
+    },
+
+    async addHost(hostData: Host) {
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        const { data } = await axios.post(`${API_URL}/hosts`, hostData);
+        this.hosts.push(data);
+        return data;
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error adding host:", e);
+        throw e;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async updateHost(id: number, hostData: Partial<Host>) {
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        const { data } = await axios.put(`${API_URL}/hosts/${id}`, hostData);
+
+        const index = this.hosts.findIndex((h) => h.id === id);
+        if (index !== -1) {
+          this.hosts[index] = {
+            ...this.hosts[index],
+            ...data,
+          };
+        }
+
+        return data;
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error updating host:", e);
+        throw e;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async deleteHost(id: number) {
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        await axios.delete(`${API_URL}/hosts/${id}`);
+        this.hosts = this.hosts.filter((h) => h.id !== id);
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error deleting host:", e);
+        throw e;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async fetchBulkHostStatus() {
+      const ids = this.hosts.map((h) => h.id).filter((id) => id) as number[];
+      if (ids.length === 0) {
+        return;
+      }
+
+      try {
+        const { data: updatedHosts } = await axios.post(
+          `${API_URL}/hosts/check-online/bulk`,
+          { ids }
+        );
+
+        const updatedHostsMap = new Map(
+          updatedHosts.map((h: Host) => [h.id, h])
+        );
+
+        this.hosts = this.hosts.map((host) => {
+          const updatedHost = updatedHostsMap.get(host.id);
+          return updatedHost ? { ...host, ...updatedHost } : host;
+        });
+      } catch (e: any) {
+        console.error("Error fetching bulk host status:", e);
+      }
+    },
+  },
 });

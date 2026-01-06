@@ -2,6 +2,9 @@ import { Client as SSHClient } from "ssh2";
 import { exec } from "../lib/ssh-utils";
 import { ServerMetrics } from "../types";
 
+// ---------- MODULE-LEVEL (required for top/htop semantics) ----------
+let prevCpuStat: { idle: number; total: number } | null = null;
+
 export async function collectExtendedMetrics(
   client: SSHClient
 ): Promise<ServerMetrics> {
@@ -10,7 +13,7 @@ export async function collectExtendedMetrics(
     await Promise.all([
       exec(
         client,
-        "cat /proc/loadavg && grep -c processor /proc/cpuinfo && cat /proc/stat | grep 'cpu '"
+        "cat /proc/loadavg && grep -c processor /proc/cpuinfo && cat /proc/stat | grep '^cpu '"
       ),
       exec(client, "free -b"),
       exec(
@@ -30,14 +33,52 @@ export async function collectExtendedMetrics(
     ]);
 
   // ---------- CPU ----------
-  const cpuLines = cpuInfo.split("\n");
-  const load = cpuLines[0].split(" ").slice(0, 3).map(Number) as [
-    number,
-    number,
-    number
-  ];
-  const cores = parseInt(cpuLines[1]) || 1;
-  const cpuPercent = Math.min(100, (load[0] / cores) * 100);
+  const cpuLines = cpuInfo.trim().split("\n");
+
+  // load averages (uptime semantics)
+  const load = cpuLines[0]
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .map(Number) as [number, number, number];
+
+  const cores = Math.max(1, parseInt(cpuLines[1], 10));
+
+  // ---- REAL CPU USAGE (top / htop semantics) ----
+  const stat = cpuLines[2].trim().split(/\s+/).map(Number);
+
+  const user = stat[1];
+  const nice = stat[2];
+  const system = stat[3];
+  const idle = stat[4];
+  const iowait = stat[5];
+  const irq = stat[6];
+  const softirq = stat[7];
+  const steal = stat[8];
+
+  const idleTime = idle + iowait;
+  const totalTime =
+    user + nice + system + idle + iowait + irq + softirq + steal;
+
+  let cpuUsagePercent = 0;
+
+  if (prevCpuStat) {
+    const idleDelta = idleTime - prevCpuStat.idle;
+    const totalDelta = totalTime - prevCpuStat.total;
+
+    if (totalDelta > 0) {
+      cpuUsagePercent = Number(
+        ((1 - idleDelta / totalDelta) * 100).toFixed(1)
+      );
+    }
+  }
+
+  prevCpuStat = { idle: idleTime, total: totalTime };
+
+  // ---- LOAD PRESSURE (not CPU usage) ----
+  const normalizedLoadPercent = Number(
+    ((load[0] / cores) * 100).toFixed(1)
+  );
 
   // ---------- MEMORY ----------
   const memLine = memRaw.split("\n").find((l) => l.startsWith("Mem:")) || "";
@@ -52,7 +93,13 @@ export async function collectExtendedMetrics(
     .filter(Boolean)
     .map((line) => {
       const p = line.split(/\s+/);
-      return { mount: p[5], used: p[2], available: p[3], percent: p[4] };
+      return {
+        mount: p[5],
+        used: p[2],
+        available: p[3],
+        percent: p[4],
+        total: p[1],
+      };
     });
 
   // ---------- NETWORK ----------
@@ -91,7 +138,9 @@ export async function collectExtendedMetrics(
       ?.split("=")[1]
       ?.replace(/"/g, "") || "Linux";
 
-  // ---------- DOCKER (OPTIONAL) ----------
+
+
+   // ---------- DOCKER (OPTIONAL) ----------
   let docker: ServerMetrics["docker"] | null = null;
 
   try {
@@ -154,10 +203,14 @@ export async function collectExtendedMetrics(
   } catch {
     // Docker not installed or not accessible → ignore silently
   }
-
   // ---------- FINAL RESULT ----------
   return {
-    cpu: { percent: Number(cpuPercent.toFixed(1)), cores, load },
+    cpu: {
+      usagePercent: cpuUsagePercent,        // EXACT match to top/htop
+      normalizedLoadPercent,                // scheduler pressure
+      load,
+      cores,
+    },
     memory: {
       percent: totalMem ? (usedMem / totalMem) * 100 : 0,
       total: totalMem,
@@ -172,7 +225,7 @@ export async function collectExtendedMetrics(
       os: osName,
       uptime: uptimeRaw.replace("up ", ""),
     },
-    docker,
+    docker: docker,
     timestamp: Date.now(),
   };
 }
