@@ -10,6 +10,7 @@ export interface Host {
   port?: number;
   username: string;
   password?: string;
+  macAddress?: string; // Add macAddress field
   status?: "online" | "offline" | "checking..." | "error" | "unknown";
   lastChecked?: string | null;
   online?: boolean;
@@ -64,7 +65,16 @@ export const useHostStore = defineStore("hosts", {
 
       try {
         const { data } = await axios.get(`${API_URL}/hosts`);
-        this.hosts = data;
+        this.hosts = data.map((h: any) => ({
+          id: h.id,
+          alias: h.alias,
+          hostname: h.hostname,
+          port: h.port,
+          username: h.username,
+          macAddress: h.macAddress, // Include macAddress
+          status: h.status,
+          lastChecked: h.lastChecked,
+        }));
       } catch (e: any) {
         this.error = e.response?.data?.error || e.message;
         console.error("Error fetching hosts:", e);
@@ -141,6 +151,19 @@ export const useHostStore = defineStore("hosts", {
         throw e;
       } finally {
         this.isLoading = false;
+      }
+    },
+
+    async sendWol(id: number) {
+      this.error = null;
+      try {
+        const { data } = await axios.post(`${API_URL}/hosts/${id}/wol`);
+        console.log("WOL response:", data);
+        return data;
+      } catch (e: any) {
+        this.error = e.response?.data?.error || e.message;
+        console.error("Error sending WOL packet:", e);
+        throw e;
       }
     },
 

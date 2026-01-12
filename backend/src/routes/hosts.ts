@@ -8,6 +8,7 @@ import {
   pollingService,
   metricsStore,
 } from "../services/monitor";
+import { wake } from "wake_on_lan";
 
 const hostsRoute = new Hono();
 /**
@@ -29,6 +30,7 @@ hostsRoute.get("/", async (c) => {
       port: h.port,
       id: h.id,
       username: h.username,
+      macAddress: h.macAddress,
       status: liveStatus?.status || "checking...",
       lastChecked: liveStatus?.lastChecked
         ? new Date(liveStatus.lastChecked).toISOString()
@@ -43,7 +45,7 @@ hostsRoute.get("/", async (c) => {
  */
 hostsRoute.post("/", async (c) => {
   try {
-    const { alias, hostname, port, username, password } = await c.req.json();
+    const { alias, hostname, port, username, password, macAddress } = await c.req.json();
 
     if (!alias || !hostname || !username) {
       return c.json(
@@ -60,6 +62,7 @@ hostsRoute.post("/", async (c) => {
         port: port || 22,
         username,
         password,
+        macAddress,
       })
       .returning();
 
@@ -73,6 +76,58 @@ hostsRoute.post("/", async (c) => {
     return c.json({ error: "Failed to save host information" }, 500);
   }
 });
+
+/**
+ * POST /api/hosts/:id/wol
+ */
+hostsRoute.post("/:id/wol", async (c) => {
+  try {
+    const id = Number(c.req.param("id"));
+
+    const hostData = await db
+      .select()
+      .from(serverHosts)
+      .where(eq(serverHosts.id, id))
+      .get();
+
+    if (!hostData) {
+      return c.json({ error: "Host not found" }, 404);
+    }
+
+    if (!hostData.macAddress) {
+      return c.json({ error: "MAC address not configured for this host" }, 400);
+    }
+
+    wake(hostData.macAddress, (error) => {
+      if (error) {
+        console.error(`Error sending WOL packet to ${hostData.macAddress}:`, error);
+        return c.json({ error: "Failed to send WOL packet" }, 500);
+      } else {
+        console.log(`WOL packet sent to ${hostData.macAddress}`);
+        return c.json({ message: "WOL packet sent successfully" });
+      }
+    });
+
+    // Hono expects a promise or direct response. The wake callback is async.
+    // Wrap it in a Promise to handle the async nature correctly.
+    return new Promise((resolve) => {
+      wake(hostData.macAddress, (error) => {
+        if (error) {
+          console.error(`Error sending WOL packet to ${hostData.macAddress}:`, error);
+          resolve(c.json({ error: "Failed to send WOL packet" }, 500));
+        } else {
+          console.log(`WOL packet sent to ${hostData.macAddress}`);
+          resolve(c.json({ message: "WOL packet sent successfully" }));
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error("Error in WOL request:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
 /**
  * DELETE /api/hosts
  */
@@ -163,6 +218,7 @@ hostsRoute.post("/check-online/bulk", async (c) => {
         hostname: host.hostname,
         port: host.port,
         username: host.username,
+        macAddress: host.macAddress,
         online: isOnline,
         lastChecked: new Date().toISOString(),
         status: status?.status || "checking...",
@@ -188,3 +244,4 @@ hostsRoute.post("/check-online/bulk", async (c) => {
 });
 
 export default hostsRoute;
+

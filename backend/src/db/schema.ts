@@ -8,4 +8,5 @@ export const serverHosts = sqliteTable('server_hosts', {
   port: integer('port').default(22),
   username: text('username').notNull(),
   password: text('password'), // Made optional
+  macAddress: text('mac_address'),
 });

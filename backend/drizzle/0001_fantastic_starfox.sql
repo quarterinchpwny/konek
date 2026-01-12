@@ -1,0 +1,1 @@
+ALTER TABLE `server_hosts` ADD `mac_address` text;

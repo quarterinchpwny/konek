@@ -56,15 +56,28 @@
                     class="text-[10px] font-mono font-bold text-white uppercase tracking-tighter"
                   >
                     {{ host.hostname }}
+                    <span v-if="host.macAddress" class="ml-2 text-gray-400"
+                      >(MAC: {{ host.macAddress }})</span
+                    >
                   </p>
                 </div>
               </div>
-              <button
-                @click.stop="deleteHost(host.id)"
-                class="opacity-0 group-hover:opacity-100 p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-600 rounded-xl transition-all"
-              >
-                <Trash2 :size="16" />
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="host.macAddress"
+                  @click.stop="wakeHost(host.id!)"
+                  class="opacity-0 group-hover:opacity-100 p-2 hover:bg-purple-50 text-slate-300 hover:text-purple-600 rounded-xl transition-all"
+                  title="Wake On LAN"
+                >
+                  <Zap :size="16" />
+                </button>
+                <button
+                  @click.stop="deleteHost(host.id)"
+                  class="opacity-0 group-hover:opacity-100 p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-600 rounded-xl transition-all"
+                >
+                  <Trash2 :size="16" />
+                </button>
+              </div>
             </div>
 
             <!-- Stats Mini-Grid for each Host -->
@@ -282,6 +295,18 @@
                     class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
                   />
                 </div>
+                <div class="col-span-3">
+                  <label
+                    class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
+                    >MAC Address (optional)</label
+                  >
+                  <input
+                    v-model="form.macAddress"
+                    type="text"
+                    placeholder="XX:XX:XX:XX:XX:XX"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
@@ -313,6 +338,7 @@ const defaultForm: Host = {
   port: 22,
   username: "",
   password: "",
+  macAddress: "", // Initialize macAddress
 };
 
 const form = reactive<Host>({ ...defaultForm });
@@ -388,6 +414,17 @@ function setActiveHost(host: Host) {
   router.push({
     name: "dashboard",
   });
+}
+
+async function wakeHost(id: number) {
+  try {
+    await hostStore.sendWol(id);
+    alert("WOL packet sent!");
+    // Optionally refetch hosts or update status after WOL
+    // hostStore.fetchHosts();
+  } catch (e) {
+    alert(`Failed to send WOL packet: ${hostStore.error}`);
+  }
 }
 
 async function deleteHost(id: number) {

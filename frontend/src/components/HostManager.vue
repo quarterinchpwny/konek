@@ -60,6 +60,18 @@
           />
         </div>
         <div class="md:col-span-2">
+          <label for="macAddress" class="block text-sm font-medium text-gray-300"
+            >MAC Address (optional, for WOL):</label
+          >
+          <input
+            type="text"
+            id="macAddress"
+            v-model="form.macAddress"
+            placeholder="XX:XX:XX:XX:XX:XX"
+            class="mt-1 block w-full rounded-md bg-gray-600 border-gray-500 text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+        <div class="md:col-span-2">
           <label for="password" class="block text-sm font-medium text-gray-300"
             >Password (optional):</label
           >
@@ -114,9 +126,19 @@
             <div class="font-bold text-lg">{{ host.alias }}</div>
             <div class="text-sm text-gray-300">
               {{ host.username }}@{{ host.hostname }}:{{ host.port }}
+              <span v-if="host.macAddress" class="ml-2 text-gray-400"
+                >(MAC: {{ host.macAddress }})</span
+              >
             </div>
           </div>
           <div class="space-x-2">
+            <button
+              v-if="host.macAddress"
+              @click="wakeHost(host.id!)"
+              class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+            >
+              Wake
+            </button>
             <button
               @click="selectHost(host)"
               class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800"
@@ -160,6 +182,7 @@ const defaultForm: Host = {
   port: 22,
   username: "",
   password: "",
+  macAddress: "", // Initialize macAddress
 };
 
 const form = reactive<Host>({ ...defaultForm });
@@ -200,6 +223,17 @@ function cancelEdit() {
 
 function selectHost(host: Host) {
   emits("select-host", host);
+}
+
+async function wakeHost(id: number) {
+  try {
+    await hostStore.sendWol(id);
+    alert("WOL packet sent!");
+    // Optionally refetch hosts or update status after WOL
+    // hostStore.fetchHosts(); 
+  } catch (e) {
+    alert(`Failed to send WOL packet: ${hostStore.error}`);
+  }
 }
 
 async function deleteHost(id: number) {
