@@ -1,5 +1,23 @@
 import { Hono } from "hono";
 import { sessions } from "../services/session";
+import path from "path";
+
+const getMimeType = (filePath: string): string => {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg",
+    ".bmp": "image/bmp",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".ogg": "video/ogg",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+};
 
 const filesRoute = new Hono();
 
@@ -100,6 +118,183 @@ filesRoute.get("/read", async (c) => {
 
       stream.on("error", (e: Error) => {
         resolve(c.json({ error: e.message }, 500));
+      });
+    });
+  });
+});
+
+/**
+ * POST /api/files/upload
+ */
+filesRoute.post("/upload", async (c) => {
+  const formData = await c.req.formData();
+  const sessionId = formData.get("sessionId") as string;
+  const destinationPath = (formData.get("path") as string) || "/";
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "Session not found or disconnected" }, 401);
+  }
+
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+
+  const files = formData.getAll("files") as unknown as File[];
+  if (!files || files.length === 0) {
+    return c.json({ error: "No files to upload" }, 400);
+  }
+
+  return new Promise((resolve) => {
+    session.client.sftp(async (err, sftp) => {
+      if (err || !sftp) {
+        return resolve(c.json({ error: "SFTP not available" }, 500));
+      }
+
+      const uploadPromises = files.map((file) => {
+        return new Promise(async (resolveFile, rejectFile) => {
+          const remotePath = path.posix.join(destinationPath, file.name);
+          const writeStream = sftp.createWriteStream(remotePath);
+          const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+          writeStream.on("close", () => {
+            resolveFile({ name: file.name, status: "uploaded" });
+          });
+
+          writeStream.on("error", (uploadErr) => {
+            rejectFile({
+              name: file.name,
+              status: "error",
+              error: uploadErr.message,
+            });
+          });
+
+          writeStream.end(fileBuffer);
+        });
+      });
+
+      const results = await Promise.allSettled(uploadPromises);
+      sftp.end();
+
+      resolve(c.json({ message: "Upload process finished.", results }));
+    });
+  });
+});
+
+/**
+ * POST /api/files/delete
+ */
+filesRoute.post("/delete", async (c) => {
+  const { sessionId, items } = await c.req.json<{
+    sessionId: string;
+    items: { path: string; type: "file" | "directory" }[];
+  }>();
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "Session not found or disconnected" }, 401);
+  }
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return c.json({ error: "No items to delete provided" }, 400);
+  }
+
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+
+  return new Promise((resolve) => {
+    session.client.sftp(async (err, sftp) => {
+      if (err || !sftp) {
+        return resolve(c.json({ error: "SFTP not available" }, 500));
+      }
+
+      const deletePromises = items.map((item) => {
+        return new Promise((resolveFile, rejectFile) => {
+          if (item.type === "file") {
+            sftp.unlink(item.path, (unlinkErr) => {
+              if (unlinkErr) {
+                rejectFile({
+                  path: item.path,
+                  status: "error",
+                  error: unlinkErr.message,
+                });
+              } else {
+                resolveFile({ path: item.path, status: "deleted" });
+              }
+            });
+          } else if (item.type === "directory") {
+            sftp.rmdir(item.path, (rmdirErr) => {
+              if (rmdirErr) {
+                rejectFile({
+                  path: item.path,
+                  status: "error",
+                  error: rmdirErr.message,
+                });
+              } else {
+                resolveFile({ path: item.path, status: "deleted" });
+              }
+            });
+          } else {
+            rejectFile({
+              path: item.path,
+              status: "error",
+              error: `Unknown type for deletion: ${item.type}`,
+            });
+          }
+        });
+      });
+
+      const results = await Promise.allSettled(deletePromises);
+      sftp.end();
+      resolve(c.json({ message: "Delete process finished.", results }));
+    });
+  });
+});
+
+/**
+ * GET /api/files/view
+ */
+filesRoute.get("/view", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const filePath = c.req.query("path");
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "Session not found or disconnected" }, 401);
+  }
+
+  if (!filePath) {
+    return c.json({ error: "Path is required" }, 400);
+  }
+
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+
+  return new Promise((resolve) => {
+    session.client.sftp((err, sftp) => {
+      if (err || !sftp) {
+        return resolve(c.json({ error: "SFTP not available" }, 500));
+      }
+
+      sftp.stat(filePath, (statErr, stats) => {
+        if (statErr) {
+          sftp.end();
+          return resolve(
+            c.json({ error: "File not found", details: statErr.message }, 404)
+          );
+        }
+
+        const contentType = getMimeType(filePath);
+        c.header("Content-Type", contentType);
+        c.header("Content-Length", stats.size.toString());
+        c.header("Accept-Ranges", "bytes");
+
+        const stream = sftp.createReadStream(filePath);
+        stream.on("close", () => {
+          sftp.end();
+        });
+        stream.on("error", (streamErr) => {
+          console.error("stream error", streamErr);
+          sftp.end();
+        });
+
+        return resolve(c.body(stream as any));
       });
     });
   });

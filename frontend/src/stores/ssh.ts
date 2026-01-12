@@ -41,7 +41,8 @@ export const useSshStore = defineStore('ssh', () => {
       currentPath.value = res.data.path;
     } catch (e) {
       console.error('List files error', e);
-    } finally {
+    }
+    finally {
       isLoading.value = false;
     }
   }
@@ -53,6 +54,51 @@ export const useSshStore = defineStore('ssh', () => {
     return res.data.content;
   }
 
+  async function uploadFiles(path: string, filesToUpload: File[]) {
+    if (!sessionId.value) return;
+    isLoading.value = true;
+    try {
+        const formData = new FormData();
+        formData.append('sessionId', sessionId.value);
+        formData.append('path', path);
+        filesToUpload.forEach(file => {
+            formData.append('files', file);
+        });
+
+        await axios.post(`${API_URL}/files/upload`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    } catch (e) {
+        console.error('Upload files error', e);
+        throw e;
+    } finally {
+        isLoading.value = false;
+    }
+  }
+
+  async function deleteFiles(items: { path: string; type: 'file' | 'directory' }[]) {
+    if (!sessionId.value) return;
+    isLoading.value = true;
+    try {
+        await axios.post(`${API_URL}/files/delete`, {
+            sessionId: sessionId.value,
+            items,
+        });
+    } catch (e) {
+        console.error('Delete files error', e);
+        throw e;
+    } finally {
+        isLoading.value = false;
+    }
+  }
+
+  function getFileURL(path: string): string {
+    if (!sessionId.value) return '';
+    return `${API_URL}/files/view?sessionId=${sessionId.value}&path=${encodeURIComponent(path)}`;
+  }
+
   return { 
     sessionId, 
     currentPath, 
@@ -61,6 +107,9 @@ export const useSshStore = defineStore('ssh', () => {
     isLoading, 
     connect, 
     listFiles,
-    readFile 
+    readFile,
+    uploadFiles,
+    deleteFiles,
+    getFileURL,
   };
 });
