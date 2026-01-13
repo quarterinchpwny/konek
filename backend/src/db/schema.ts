@@ -9,4 +9,5 @@ export const serverHosts = sqliteTable('server_hosts', {
   username: text('username').notNull(),
   password: text('password'), // Made optional
   macAddress: text('mac_address'),
+  sshEnabled: integer('ssh_enabled').notNull().default(1),
 });

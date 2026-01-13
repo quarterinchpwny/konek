@@ -62,7 +62,8 @@
                 {{ host.alias }}
               </p>
               <p class="text-[10px] opacity-60 font-mono">
-                {{ host.username }}@{{ host.hostname }}:{{ host.port }}
+                <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
+                <span v-else>{{ host.hostname }}</span>
               </p>
               <p class="text-[10px] text-slate-500 font-mono mt-1">
                 CPU:
@@ -80,8 +81,16 @@
                 <Zap :size="14" />
               </button>
               <button
-                @click.stop="deleteHost(host.id)"
+                @click.stop="editHost(host)"
+                class="opacity-0 group-hover:opacity-100 p-1 hover:text-yellow-400 transition-opacity"
+                title="Edit Host"
+              >
+                <Pencil :size="14" />
+              </button>
+              <button
+                @click.stop="deleteHost(host.id!)"
                 class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
+                title="Delete Host"
               >
                 <Trash2 :size="14" />
               </button>
@@ -113,7 +122,7 @@
   >
     <div
       class="absolute inset-0 bg-black/80 backdrop-blur-sm"
-      @click="isModalOpen = false"
+      @click="cancelEdit"
     ></div>
     <div
       class="relative w-full max-w-md bg-[#16161a] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden"
@@ -121,13 +130,13 @@
       <div class="p-8">
         <div class="flex items-center justify-between mb-8">
           <div>
-            <h2 class="text-xl font-bold text-white">Add New Host</h2>
+            <h2 class="text-xl font-bold text-white">{{ editingHost ? 'Edit Host' : 'Add New Host' }}</h2>
             <p class="text-slate-500 text-sm mt-1">
-              Configure a new remote endpoint.
+              {{ editingHost ? 'Update the host details.' : 'Configure a new remote endpoint.' }}
             </p>
           </div>
           <button
-            @click="isModalOpen = false"
+            @click="cancelEdit"
             class="text-slate-500 hover:text-white transition-colors"
           >
             <X :size="24" />
@@ -135,6 +144,15 @@
         </div>
 
         <form @submit.prevent="saveHost" class="space-y-5">
+          <div class="flex items-center justify-between">
+            <label for="ssh-toggle" class="block text-xs font-bold text-slate-400 uppercase tracking-widest"
+              >Enable SSH</label
+            >
+            <label class="toggle-switch">
+              <input type="checkbox" id="ssh-toggle" v-model="form.sshEnabled">
+              <span class="slider round"></span>
+            </label>
+          </div>
           <div>
             <label
               class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
@@ -149,7 +167,7 @@
             />
           </div>
           <div class="grid grid-cols-3 gap-4">
-            <div class="col-span-2">
+            <div :class="{'col-span-3': !form.sshEnabled, 'col-span-2': form.sshEnabled}">
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
                 >IP / Host</label
@@ -163,7 +181,7 @@
               />
             </div>
 
-            <div>
+            <div v-if="form.sshEnabled">
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
                 >Port</label
@@ -171,12 +189,12 @@
               <input
                 v-model="form.port"
                 type="text"
-                required
-                placeholder="3000"
+                :required="form.sshEnabled"
+                placeholder="22"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
               />
             </div>
-            <div class="col-span-3">
+            <div class="col-span-3" v-if="form.sshEnabled">
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
                 >Username</label
@@ -184,12 +202,12 @@
               <input
                 v-model="form.username"
                 type="text"
-                required
+                :required="form.sshEnabled"
                 placeholder="root"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
               />
             </div>
-            <div class="col-span-3">
+            <div class="col-span-3" v-if="form.sshEnabled">
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
                 >Password</label
@@ -197,7 +215,7 @@
               <input
                 v-model="form.password"
                 type="password"
-                required
+                :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
               />
             </div>
@@ -214,13 +232,23 @@
               />
             </div>
           </div>
-          <button
-            type="submit"
-            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 mt-4"
-          >
-            <Plus :size="18" />
-            Save Connection
-          </button>
+          <div class="flex items-center gap-4 mt-4">
+            <button
+              v-if="editingHost"
+              type="button"
+              @click="cancelEdit"
+              class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-4 rounded-2xl transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+            >
+              <Plus v-if="!editingHost" :size="18" />
+              {{ editingHost ? 'Update Connection' : 'Save Connection' }}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -229,7 +257,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Terminal, Settings, Trash2, X, Zap } from "lucide-vue-next";
+import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil } from "lucide-vue-next";
 const hostStore = useHostStore();
 
 const defaultForm: Host = {
@@ -239,6 +267,7 @@ const defaultForm: Host = {
   username: "",
   password: "",
   macAddress: "", // Initialize macAddress
+  sshEnabled: true,
 };
 
 const form = reactive<Host>({ ...defaultForm });
@@ -276,7 +305,7 @@ async function saveHost() {
     }
     resetForm();
     isModalOpen.value = false;
-    hostStore.fetchHosts();
+    await hostStore.fetchHosts();
   } catch (e) {
     // Error handled by store, displayed by template
   }
@@ -284,14 +313,24 @@ async function saveHost() {
 
 function editHost(host: Host) {
   editingHost.value = host;
-  Object.assign(form, host);
+  // Make a copy to avoid reactive changes on the original object
+  form.alias = host.alias;
+  form.hostname = host.hostname;
+  form.port = host.port;
+  form.username = host.username;
+  form.macAddress = host.macAddress;
+  form.sshEnabled = host.sshEnabled;
+  form.password = ''; // Clear password for security
+  isModalOpen.value = true;
 }
 
 function cancelEdit() {
   resetForm();
+  isModalOpen.value = false;
 }
 
 function setActiveHost(host: Host) {
+  if (!host.sshEnabled) return;
   activeHostId.value = host?.id;
   hostStore.setSelectedHost(host);
 }
@@ -318,3 +357,57 @@ async function deleteHost(id: number) {
   }
 }
 </script>
+<style>
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(16px);
+  -ms-transform: translateX(16px);
+  transform: translateX(16px);
+}
+</style>

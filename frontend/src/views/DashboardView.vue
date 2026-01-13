@@ -53,7 +53,6 @@
       <div class="col-span-4" v-show="activeTab === 'terminal'">
         <template v-if="sessionId">
           <SshTerminal :session-id="sessionId" />
-          <FileManager />
         </template>
       </div>
       <div class="col-span-4" v-show="activeTab === 'files'">
@@ -112,7 +111,7 @@ const handleConnect = async () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hostId: id }),
-      }
+      },
     );
     const connectData = await connectResponse.json();
 
@@ -159,7 +158,7 @@ watch(
       await handleConnect();
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 onUnmounted(() => {

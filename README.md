@@ -9,6 +9,7 @@ Konek is a web-based remote server management tool. It provides a simple and int
 *   **Host Management:**
     *   Add, and list remote hosts.
     *   Check the online status of hosts.
+    *   **Wake-on-LAN (WOL):** Send magic packets to wake up offline machines.
 *   **SSH Terminal:**
     *   Real-time interactive SSH terminal in the browser.
     *   Securely connects to remote hosts using SSH.
@@ -22,14 +23,31 @@ Konek is a web-based remote server management tool. It provides a simple and int
 ### Frontend
 
 *   **Host Manager:**
-    *   Add and manage a list of remote hosts.
+    *   Add and manage a list of remote hosts, including configuring MAC addresses for Wake-on-LAN.
     *   Select a host to connect to.
+*   **Wake-on-LAN (WOL):** Initiate Wake-on-LAN directly from the host list in the Dashboard Sidebar and Home View.
 *   **SSH Terminal:**
     *   An interactive terminal to execute commands on the remote host.
 *   **File Manager:**
     *   A simple file browser to navigate the remote host's file system.
 *   **Dashboard:**
     *   Displays real-time system metrics of the connected host.
+
+## API Endpoints
+
+### Wake-on-LAN (WOL)
+
+*   **Endpoint:** `POST /api/hosts/:id/wol`
+*   **Description:** Sends a Wake-on-LAN magic packet to the specified host.
+*   **Method:** `POST`
+*   **URL Parameters:**
+    *   `:id` (number): The ID of the host to wake up.
+*   **Request Body:** None
+*   **Responses:**
+    *   `200 OK`: `{"message": "WOL packet sent successfully"}`
+    *   `400 Bad Request`: `{"error": "MAC address not configured for this host"}`
+    *   `404 Not Found`: `{"error": "Host not found"}`
+    *   `500 Internal Server Error`: `{"error": "Failed to send WOL packet"}` or `{"error": "Internal server error"}`
 
 ## Getting Started
 

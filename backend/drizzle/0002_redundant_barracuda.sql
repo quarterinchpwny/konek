@@ -1,0 +1,1 @@
+ALTER TABLE `server_hosts` ADD `ssh_enabled` integer DEFAULT 1 NOT NULL;

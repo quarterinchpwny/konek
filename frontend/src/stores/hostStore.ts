@@ -11,6 +11,7 @@ export interface Host {
   username: string;
   password?: string;
   macAddress?: string; // Add macAddress field
+  sshEnabled?: boolean;
   status?: "online" | "offline" | "checking..." | "error" | "unknown";
   lastChecked?: string | null;
   online?: boolean;
@@ -71,7 +72,8 @@ export const useHostStore = defineStore("hosts", {
           hostname: h.hostname,
           port: h.port,
           username: h.username,
-          macAddress: h.macAddress, // Include macAddress
+          macAddress: h.macAddress,
+          sshEnabled: h.sshEnabled === 1,
           status: h.status,
           lastChecked: h.lastChecked,
         }));

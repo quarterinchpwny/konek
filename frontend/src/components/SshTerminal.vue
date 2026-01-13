@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .terminal-wrapper {
-  height: 100vh;
+  height: 93vh;
   width: 100%;
   background-color: #1e1e1e;
   border-radius: 8px;

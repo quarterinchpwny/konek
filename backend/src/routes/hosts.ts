@@ -31,6 +31,7 @@ hostsRoute.get("/", async (c) => {
       id: h.id,
       username: h.username,
       macAddress: h.macAddress,
+      sshEnabled: h.sshEnabled,
       status: liveStatus?.status || "checking...",
       lastChecked: liveStatus?.lastChecked
         ? new Date(liveStatus.lastChecked).toISOString()
@@ -45,11 +46,11 @@ hostsRoute.get("/", async (c) => {
  */
 hostsRoute.post("/", async (c) => {
   try {
-    const { alias, hostname, port, username, password, macAddress } = await c.req.json();
+    const { alias, hostname, port, username, password, macAddress, sshEnabled } = await c.req.json();
 
-    if (!alias || !hostname || !username) {
+    if (!alias || !hostname || (sshEnabled && !username)) {
       return c.json(
-        { error: "Missing required fields: alias, hostname, username" },
+        { error: "Missing required fields: alias, hostname, and username (if SSH is enabled)" },
         400
       );
     }
@@ -60,9 +61,10 @@ hostsRoute.post("/", async (c) => {
         alias,
         hostname,
         port: port || 22,
-        username,
+        username: sshEnabled ? username : 'none',
         password,
         macAddress,
+        sshEnabled: sshEnabled ? 1 : 0,
       })
       .returning();
 
@@ -74,6 +76,53 @@ hostsRoute.post("/", async (c) => {
 
     console.error("Error saving host:", error);
     return c.json({ error: "Failed to save host information" }, 500);
+  }
+});
+
+hostsRoute.put("/:id", async (c) => {
+  try {
+    const id = Number(c.req.param("id"));
+    const { alias, hostname, port, username, password, macAddress, sshEnabled } = await c.req.json();
+
+    if (!alias || !hostname || (sshEnabled && !username)) {
+      return c.json(
+        { error: "Missing required fields: alias, hostname, and username (if SSH is enabled)" },
+        400
+      );
+    }
+
+    const updatedData: any = {
+      alias,
+      hostname,
+      port: port || 22,
+      username: sshEnabled ? username : 'none',
+      macAddress,
+      sshEnabled: sshEnabled ? 1 : 0,
+    };
+
+    // Only update password if it's not an empty string
+    if (password) {
+      updatedData.password = password;
+    }
+
+    const updatedHost = await db
+      .update(serverHosts)
+      .set(updatedData)
+      .where(eq(serverHosts.id, id))
+      .returning();
+
+    if (updatedHost.length === 0) {
+      return c.json({ error: "Host not found" }, 404);
+    }
+
+    return c.json(updatedHost[0]);
+  } catch (error: any) {
+    if (error.message?.includes("UNIQUE")) {
+      return c.json({ error: "Host with this hostname already exists." }, 409);
+    }
+
+    console.error("Error updating host:", error);
+    return c.json({ error: "Failed to update host information" }, 500);
   }
 });
 
