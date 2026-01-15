@@ -206,8 +206,8 @@ export async function collectExtendedMetrics(
   // ---------- FINAL RESULT ----------
   return {
     cpu: {
-      usagePercent: cpuUsagePercent,        // EXACT match to top/htop
-      normalizedLoadPercent,                // scheduler pressure
+      usagePercent: cpuUsagePercent,       
+      normalizedLoadPercent,               
       load,
       cores,
     },

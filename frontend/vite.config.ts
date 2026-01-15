@@ -22,6 +22,15 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "src"),
       },
     },
+    server: {
+      // This is required for the vite dev server to proxy api requests to the backend
+      proxy: {
+        '/api': {
+          target: 'http://konek-backend:3000',
+          changeOrigin: true,
+        }
+      }
+    }
   };
   
 });

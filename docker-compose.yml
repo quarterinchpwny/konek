@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  konek-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3000:3000"
+    volumes:
+      # This volume persists the SQLite database.
+      # It mounts the entire /app/backend directory.
+      # If you rebuild the backend image with code changes,
+      # you may need to remove this volume to see the changes:
+      # docker-compose down -v
+      - backend_data:/app/backend
+
+  konek-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - konek-backend
+
+volumes:
+  backend_data:
