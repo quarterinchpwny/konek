@@ -59,7 +59,7 @@
         <FileManager />
       </div>
       <ServerStats
-        v-if="hostStore.selectedHost && sessionId"
+        v-if="hostStore.selectedHost?.id != null && sessionId"
         :host-id="hostStore.selectedHost.id"
       />
     </div>
@@ -72,15 +72,8 @@ import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";
 
-import {
-  Terminal,
-  ChevronRight,
-  Folder,
-  Cpu,
-  Activity,
-  HardDrive,
-} from "lucide-vue-next";
-import { useSshStore } from "../stores/ssh";
+import { Terminal, ChevronRight, Folder } from "lucide-vue-next";
+import { useSshStore } from "../stores/SSHStore";
 import { type Host, useHostStore } from "../stores/hostStore";
 import ServerStatusBadge from "../components/ServerStatusBadge.vue";
 const props = defineProps<{
@@ -100,7 +93,7 @@ const handleConnect = async () => {
   }
 
   const { id } = hostStore.selectedHost;
-  if (id === null) return;
+  if (id == null) return;
 
   try {
     await sshStore.connect(id);

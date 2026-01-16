@@ -1,7 +1,10 @@
-FROM node:20-alpine
+FROM node:24.5-bullseye
+
 WORKDIR /app
+
 COPY backend/package.json backend/package-lock.json ./
 RUN npm install
+
 COPY backend/ ./
 
 EXPOSE 3000

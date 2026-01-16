@@ -18,6 +18,7 @@ export interface Host {
   stats?: {
     cpu: {
       percent: number;
+      usagePercent:number;
     };
     memory: {
       used: number;

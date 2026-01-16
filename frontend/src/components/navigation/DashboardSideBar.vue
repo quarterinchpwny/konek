@@ -62,7 +62,9 @@
                 {{ host.alias }}
               </p>
               <p class="text-[10px] opacity-60 font-mono">
-                <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
+                <span v-if="host.sshEnabled"
+                  >{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span
+                >
                 <span v-else>{{ host.hostname }}</span>
               </p>
               <p class="text-[10px] text-slate-500 font-mono mt-1">
@@ -130,9 +132,15 @@
       <div class="p-8">
         <div class="flex items-center justify-between mb-8">
           <div>
-            <h2 class="text-xl font-bold text-white">{{ editingHost ? 'Edit Host' : 'Add New Host' }}</h2>
+            <h2 class="text-xl font-bold text-white">
+              {{ editingHost ? "Edit Host" : "Add New Host" }}
+            </h2>
             <p class="text-slate-500 text-sm mt-1">
-              {{ editingHost ? 'Update the host details.' : 'Configure a new remote endpoint.' }}
+              {{
+                editingHost
+                  ? "Update the host details."
+                  : "Configure a new remote endpoint."
+              }}
             </p>
           </div>
           <button
@@ -145,11 +153,17 @@
 
         <form @submit.prevent="saveHost" class="space-y-5">
           <div class="flex items-center justify-between">
-            <label for="ssh-toggle" class="block text-xs font-bold text-slate-400 uppercase tracking-widest"
+            <label
+              for="ssh-toggle"
+              class="block text-xs font-bold text-slate-400 uppercase tracking-widest"
               >Enable SSH</label
             >
             <label class="toggle-switch">
-              <input type="checkbox" id="ssh-toggle" v-model="form.sshEnabled">
+              <input
+                type="checkbox"
+                id="ssh-toggle"
+                v-model="form.sshEnabled"
+              />
               <span class="slider round"></span>
             </label>
           </div>
@@ -167,7 +181,12 @@
             />
           </div>
           <div class="grid grid-cols-3 gap-4">
-            <div :class="{'col-span-3': !form.sshEnabled, 'col-span-2': form.sshEnabled}">
+            <div
+              :class="{
+                'col-span-3': !form.sshEnabled,
+                'col-span-2': form.sshEnabled,
+              }"
+            >
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
                 >IP / Host</label
@@ -215,7 +234,9 @@
               <input
                 v-model="form.password"
                 type="password"
-                :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''"
+                :placeholder="
+                  editingHost ? '(leave blank to keep unchanged)' : ''
+                "
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
               />
             </div>
@@ -246,7 +267,7 @@
               class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
             >
               <Plus v-if="!editingHost" :size="18" />
-              {{ editingHost ? 'Update Connection' : 'Save Connection' }}
+              {{ editingHost ? "Update Connection" : "Save Connection" }}
             </button>
           </div>
         </form>
@@ -257,7 +278,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil } from "lucide-vue-next";
+import {
+  Plus,
+  Server,
+  Terminal,
+  Settings,
+  Trash2,
+  X,
+  Zap,
+  Pencil,
+} from "lucide-vue-next";
 const hostStore = useHostStore();
 
 const defaultForm: Host = {
@@ -320,7 +350,7 @@ function editHost(host: Host) {
   form.username = host.username;
   form.macAddress = host.macAddress;
   form.sshEnabled = host.sshEnabled;
-  form.password = ''; // Clear password for security
+  form.password = ""; // Clear password for security
   isModalOpen.value = true;
 }
 
@@ -331,7 +361,7 @@ function cancelEdit() {
 
 function setActiveHost(host: Host) {
   if (!host.sshEnabled) return;
-  activeHostId.value = host?.id;
+  activeHostId.value = host?.id ?? null;
   hostStore.setSelectedHost(host);
 }
 
@@ -379,8 +409,8 @@ async function deleteHost(id: number) {
   right: 0;
   bottom: 0;
   background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
   border-radius: 34px;
 }
 
@@ -392,17 +422,17 @@ async function deleteHost(id: number) {
   left: 4px;
   bottom: 4px;
   background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+  background-color: #2196f3;
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+  box-shadow: 0 0 1px #2196f3;
 }
 
 input:checked + .slider:before {

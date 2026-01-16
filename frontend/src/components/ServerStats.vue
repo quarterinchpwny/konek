@@ -193,14 +193,14 @@ const status = ref("loading");
 const CPU_HISTORY_SIZE = 20;
 const cpuHistory = ref<number[]>([]);
 
-let intervalId: NodeJS.Timeout | null = null;
+let intervalId: number | null = null;
 
 const fetchStats = async () => {
   if (!props.hostId) return;
 
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`
+      `${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`,
     );
 
     if (!res.ok) {
@@ -259,7 +259,7 @@ watch(
     if (intervalId) clearInterval(intervalId);
     fetchStats();
     intervalId = setInterval(fetchStats, 5000);
-  }
+  },
 );
 </script>
 <style scoped>

@@ -139,10 +139,7 @@
         </div>
         <div
           class="p-4 flex items-center justify-center flex-1"
-          style="
-            max-height: calc(100vh - 100px);
-            max-width: calc(100vw - 80px);
-          "
+          style="max-height: calc(100vh - 100px); max-width: calc(100vw - 80px)"
         >
           <img
             v-if="mediaViewerType === 'image'"
@@ -162,7 +159,7 @@
 </template>
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useSshStore } from "../stores/ssh";
+import { useSshStore } from "../stores/SSHStore";
 import {
   FolderIcon,
   DocumentIcon,
@@ -185,7 +182,7 @@ const mediaViewerSrc = ref("");
 const mediaViewerType = ref<"image" | "video" | null>(null);
 
 const isMediaFile = (
-  filePath: string
+  filePath: string,
 ): { isMedia: boolean; mediaType: "image" | "video" | null } => {
   const imageExtensions = [
     ".png",
@@ -287,12 +284,12 @@ const deleteSelected = async () => {
   if (selectedFiles.value.length === 0) return;
   if (
     confirm(
-      `Are you sure you want to delete ${selectedFiles.value.length} item(s)?`
+      `Are you sure you want to delete ${selectedFiles.value.length} item(s)?`,
     )
   ) {
     const itemsToDelete = selectedFiles.value.map((file) => ({
-      path: file.path,
-      type: file.isDirectory ? "directory" : "file",
+      path: String(file.path),
+      type: (file.isDirectory ? "directory" : "file") as "file" | "directory",
     }));
     await sshStore.deleteFiles(itemsToDelete);
     await refreshAndClearSelection();
