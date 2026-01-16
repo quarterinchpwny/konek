@@ -2,6 +2,8 @@ version: "3.8"
 
 services:
   konek-backend:
+    image: konek/backend:latest
+    container_name: konek-backend
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -16,6 +18,8 @@ services:
       - backend_data:/app/backend
 
   konek-frontend:
+    image: konek/frontend:latest
+    container_name: konek-frontend
     build:
       context: .
       dockerfile: Dockerfile.frontend
