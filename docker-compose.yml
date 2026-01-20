@@ -7,8 +7,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    ports:
-      - "3000:3000"
+    network_mode: "host"
     volumes:
       # This volume persists the SQLite database.
       # It mounts the entire /app/backend directory.

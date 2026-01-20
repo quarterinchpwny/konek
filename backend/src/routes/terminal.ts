@@ -24,7 +24,7 @@ terminalRoute.post("/connect", async (c) => {
     return c.json({ error: "Host not found" }, 404);
   }
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     const client = new SSHClient();
     const sessionId = uuidv4();
 

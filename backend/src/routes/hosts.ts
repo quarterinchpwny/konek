@@ -157,9 +157,8 @@ hostsRoute.post("/:id/wol", async (c) => {
       }
     });
 
-    // Hono expects a promise or direct response. The wake callback is async.
-    // Wrap it in a Promise to handle the async nature correctly.
-    return new Promise((resolve) => {
+
+    return new Promise<Response>((resolve) => {
       wake(hostData.macAddress, (error) => {
         if (error) {
           console.error(`Error sending WOL packet to ${hostData.macAddress}:`, error);
@@ -182,7 +181,6 @@ hostsRoute.post("/:id/wol", async (c) => {
  */
 hostsRoute.delete("/:id", async (c) => {
   try {
-    // 2. CHANGE THIS: Get ID from the URL params, NOT c.req.json()
     const id = c.req.param("id"); 
 
     if (!id) {
@@ -191,7 +189,6 @@ hostsRoute.delete("/:id", async (c) => {
 
     const hostId = Number(id);
 
-    // 3. Delete from DB
     const deletedHost = await db
       .delete(serverHosts)
       .where(eq(serverHosts.id, hostId))
@@ -207,6 +204,7 @@ hostsRoute.delete("/:id", async (c) => {
     return c.json({ error: "Server error" }, 500);
   }
 });
+
 /**
  * GET /api/check-online/:id
  */

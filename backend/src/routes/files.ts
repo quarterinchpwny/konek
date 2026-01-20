@@ -35,7 +35,7 @@ filesRoute.get("/list", async (c) => {
   const session = sessions.get(sessionId)!;
   session.lastActive = Date.now();
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     const cmd = `ls -la --time-style=long-iso "${path}"`;
 
     session.client.exec(cmd, (err, stream) => {
@@ -97,7 +97,7 @@ filesRoute.get("/read", async (c) => {
 
   const session = sessions.get(sessionId)!;
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {
       if (err || !sftp) {
         return resolve(c.json({ error: "SFTP not available" }, 500));
@@ -143,7 +143,7 @@ filesRoute.post("/upload", async (c) => {
     return c.json({ error: "No files to upload" }, 400);
   }
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.sftp(async (err, sftp) => {
       if (err || !sftp) {
         return resolve(c.json({ error: "SFTP not available" }, 500));
@@ -199,7 +199,7 @@ filesRoute.post("/delete", async (c) => {
   const session = sessions.get(sessionId)!;
   session.lastActive = Date.now();
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.sftp(async (err, sftp) => {
       if (err || !sftp) {
         return resolve(c.json({ error: "SFTP not available" }, 500));
@@ -266,7 +266,7 @@ filesRoute.get("/view", async (c) => {
   const session = sessions.get(sessionId)!;
   session.lastActive = Date.now();
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {
       if (err || !sftp) {
         return resolve(c.json({ error: "SFTP not available" }, 500));

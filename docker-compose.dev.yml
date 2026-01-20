@@ -9,7 +9,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-      # No target needed, the default Dockerfile is for development
+    network_mode: "host"
     volumes:
       # Mount local source code. Changes on the host are reflected in the container.
       - ./backend:/app
