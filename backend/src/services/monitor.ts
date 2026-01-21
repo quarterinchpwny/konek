@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { SSHConnectionPool } from "../lib/ssh-pool";
 import { tcpPing, AuthFailureTracker } from "../lib/network";
 import { collectExtendedMetrics } from "./metrics";
-import { HostStatus, ServerMetrics } from "../types";
+import { HostStatus, ServerMetrics } from "../../types";
 
 export const metricsStore = new Map<number, ServerMetrics>();
 export const statusStore = new Map<number, HostStatus>();

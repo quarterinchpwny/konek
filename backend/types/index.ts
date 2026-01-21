@@ -9,9 +9,11 @@ export interface SSHSession {
 
 export interface ServerMetrics {
   cpu: {
-    percent: number;
-    cores: number;
-    load: [number, number, number];
+    percent?: number;
+    cores?: number;
+    load?: [number, number, number];
+    usagePercent?:number;
+    normalizedLoadPercent?:number;
   };
   memory: {
     percent: number;

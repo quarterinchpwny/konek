@@ -1,6 +1,6 @@
 import { Client as SSHClient } from "ssh2";
 import { exec } from "../lib/ssh-utils";
-import { ServerMetrics } from "../types";
+import { ServerMetrics } from "../../types";
 
 // ---------- MODULE-LEVEL (required for top/htop semantics) ----------
 let prevCpuStat: { idle: number; total: number } | null = null;
@@ -144,10 +144,7 @@ export async function collectExtendedMetrics(
   let docker: ServerMetrics["docker"] | null = null;
 
   try {
-    // Check docker exists
     await exec(client, "command -v docker");
-
-    // Check daemon access
     await exec(client, "docker ps --no-trunc >/dev/null");
 
     const [psRaw, statsRaw] = await Promise.all([
@@ -161,6 +158,7 @@ export async function collectExtendedMetrics(
       .filter(Boolean)
       .map((l) => JSON.parse(l));
 
+    // ---------- stats ----------
     const parseBytes = (s: string) => {
       const m = s.match(/([\d.]+)\s*(KiB|MiB|GiB)/);
       if (!m) return 0;
@@ -192,16 +190,60 @@ export async function collectExtendedMetrics(
         })
     );
 
+    // ---------- inspect (ONE CALL) ----------
+    const inspectRaw = await exec(
+      client,
+      `docker inspect ${containers.map((c) => c.ID).join(" ")}`
+    );
+    const inspect = JSON.parse(inspectRaw);
+
+    const inspectMap = Object.fromEntries(
+      inspect.map((i: any) => [i.Name.replace("/", ""), i])
+    );
+
+    const parsePorts = (ports: string) =>
+      ports
+        ? ports.split(",").map((p) => {
+            const m = p.trim().match(/(?:(.+?):)?(\d+)->(\d+)\/(\w+)/);
+            return m
+              ? {
+                  hostIp: m[1] || null,
+                  hostPort: Number(m[2]),
+                  containerPort: Number(m[3]),
+                  protocol: m[4],
+                }
+              : null;
+          }).filter(Boolean)
+        : [];
+
     docker = {
-      containers: containers.map((c) => ({
-        name: c.Names,
-        image: c.Image,
-        status: c.Status,
-        stats: statsMap[c.Names] || null,
-      })),
+      containers: containers.map((c) => {
+        const i = inspectMap[c.Names] || {};
+        const labels = i.Config?.Labels || {};
+
+        return {
+          id: c.ID,
+          name: c.Names,
+          image: c.Image,
+          status: c.Status,
+
+          ports: parsePorts(c.Ports),
+
+          labels,
+          group:
+            labels.group ||
+            labels["com.docker.compose.project"] ||
+            null,
+
+          health: i.State?.Health?.Status ?? "none",
+          restartPolicy: i.HostConfig?.RestartPolicy?.Name ?? "none",
+
+          stats: statsMap[c.Names] || null,
+        };
+      }),
     };
   } catch {
-    // Docker not installed or not accessible → ignore silently
+    // ignore
   }
   // ---------- FINAL RESULT ----------
   return {
