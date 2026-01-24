@@ -207,7 +207,7 @@ const isMediaFile = (
 };
 
 const openMediaViewer = (path: string, type: "image" | "video" | null) => {
-  mediaViewerSrc.value = sshStore.getFileURL(path);
+  mediaViewerSrc.value = sshStore.fileURL(path);
   mediaViewerType.value = type;
   showMediaViewer.value = true;
 };
