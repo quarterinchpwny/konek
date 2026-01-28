@@ -1,10 +1,12 @@
 <template>
   <div class="terminal-wrapper">
+    <!-- Status Bar -->
     <div class="status-bar" :class="{ connected: isConnected }">
       <span class="status-dot"></span>
       {{ statusMessage }}
     </div>
 
+    <!-- Terminal -->
     <div ref="terminalContainer" class="xterm-container"></div>
   </div>
 </template>
@@ -13,23 +15,26 @@
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css"; // Import Xterm CSS
+import "@xterm/xterm/css/xterm.css"; // xterm styles
 
 const props = defineProps({
   sessionId: String,
 });
-const wsUrl = computed(() => {
-  const host = window.location.hostname;
-  return `ws://${host}:3000?sessionId=${props.sessionId}`;
-});
+
 const terminalContainer = ref<HTMLElement | null>(null);
 const isConnected = ref(false);
 const statusMessage = ref("Initializing...");
 
 let term: Terminal | null = null;
-let socket: WebSocket | null = null;
 let fitAddon: FitAddon | null = null;
+let socket: WebSocket | null = null;
 let resizeObserver: ResizeObserver | null = null;
+
+// WebSocket URL
+const wsUrl = computed(() => {
+  const host = window.location.hostname;
+  return `ws://${host}:3000?sessionId=${props.sessionId}`;
+});
 
 // Initialize Terminal
 const initTerminal = () => {
@@ -49,37 +54,31 @@ const initTerminal = () => {
   term.loadAddon(fitAddon);
   term.open(terminalContainer.value);
 
-  // Initial fit to get dimensions
+  // Initial fit
   fitAddon.fit();
 
-  // Handle user input -> send to WebSocket
+  // Handle user input -> send to backend
   term.onData((data) => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(data);
-    }
+    if (socket?.readyState === WebSocket.OPEN) socket.send(data);
   });
 
   connectWebSocket();
 };
 
-// Connect to Backend
+// Connect WebSocket
 const connectWebSocket = () => {
   if (!term || !fitAddon) return;
 
   const dims = fitAddon.proposeDimensions();
-  const cols = dims ? dims.cols : 80;
-  const rows = dims ? dims.rows : 24;
+  const cols = dims?.cols || 80;
+  const rows = dims?.rows || 24;
 
-  // Connection URL with dimensions
-  const _wsUrl = `${wsUrl.value}&cols=${cols}&rows=${rows}`;
+  socket = new WebSocket(`${wsUrl.value}&cols=${cols}&rows=${rows}`);
 
-  socket = new WebSocket(_wsUrl);
-  console.log(socket);
   socket.onopen = () => {
     isConnected.value = true;
     statusMessage.value = "Connected";
     term?.focus();
-
     socket?.send("neofetch\n");
   };
 
@@ -88,9 +87,7 @@ const connectWebSocket = () => {
       term?.write(event.data);
     } else {
       const reader = new FileReader();
-      reader.onload = () => {
-        term?.write(reader.result as string);
-      };
+      reader.onload = () => term?.write(reader.result as string);
       reader.readAsText(event.data);
     }
   };
@@ -107,41 +104,38 @@ const connectWebSocket = () => {
   };
 };
 
-// Handle Window Resize
+// Handle resize
 const handleResize = () => {
-  if (fitAddon) {
-    fitAddon.fit();
-    // Note: If your backend supports dynamic resizing,
-    // you would send a special JSON message here with new cols/rows.
-    // The current index.ts only sets size on initial connection.
-  }
+  fitAddon?.fit();
 };
 
 onMounted(() => {
-  // Small delay to ensure DOM is rendered for accurate sizing
+  // Small delay to ensure DOM is ready
   setTimeout(() => {
     initTerminal();
 
-    // Watch for container resize
+    // Observe container resize
     if (terminalContainer.value) {
       resizeObserver = new ResizeObserver(() => handleResize());
       resizeObserver.observe(terminalContainer.value);
     }
 
     window.addEventListener("resize", handleResize);
-  }, 100);
+  }, 50);
 });
 
 onBeforeUnmount(() => {
-  if (socket) socket.close();
-  if (term) term.dispose();
-  if (resizeObserver) resizeObserver.disconnect();
+  socket?.close();
+  term?.dispose();
+  resizeObserver?.disconnect();
   window.removeEventListener("resize", handleResize);
 });
 </script>
 
 <style scoped>
 .terminal-wrapper {
+  display: flex;
+  flex-direction: column; /* stack status + terminal */
   height: 93vh;
   width: 100%;
   background-color: #1e1e1e;
@@ -163,25 +157,23 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #666; /* Disconnected color */
+  background-color: #666; /* disconnected */
   margin-right: 8px;
   transition: background-color 0.3s ease;
 }
 
 .status-bar.connected .status-dot {
-  background-color: #4caf50; /* Connected Green */
+  background-color: #4caf50; /* connected green */
 }
 
 .xterm-container {
-  flex: 1;
+  flex: 1; /* fill remaining space */
   width: 100%;
-  height: 100%;
-  /* Padding inside the terminal area */
-  padding: 10px;
+  padding: 2px; /* optional padding */
   box-sizing: border-box;
 }
 
-/* Override xterm scrollbar to look nicer */
+/* optional: nice scrollbar override for xterm */
 :deep(.xterm-viewport) {
   overflow-y: auto;
 }

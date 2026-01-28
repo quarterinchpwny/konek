@@ -140,16 +140,16 @@ export async function collectExtendedMetrics(
 
 
 
-   // ---------- DOCKER (OPTIONAL) ----------
+  // ---------- DOCKER (OPTIONAL) ----------
   let docker: ServerMetrics["docker"] | null = null;
 
   try {
     await exec(client, "command -v docker");
-    await exec(client, "docker ps --no-trunc >/dev/null");
+    await exec(client, "docker ps -a --no-trunc >/dev/null");
 
     const [psRaw, statsRaw] = await Promise.all([
-      exec(client, "docker ps --format '{{json .}}'"),
-      exec(client, "docker stats --no-stream --format '{{json .}}'"),
+      exec(client, "docker ps -a --format '{{json .}}'"),
+      exec(client, "docker stats --no-stream --format '{{json .}}'").catch(() => ""),
     ]);
 
     const containers = psRaw
@@ -166,8 +166,8 @@ export async function collectExtendedMetrics(
       return m[2] === "KiB"
         ? v * 1024
         : m[2] === "MiB"
-        ? v * 1024 ** 2
-        : v * 1024 ** 3;
+          ? v * 1024 ** 2
+          : v * 1024 ** 3;
     };
 
     const statsMap = Object.fromEntries(
@@ -204,16 +204,16 @@ export async function collectExtendedMetrics(
     const parsePorts = (ports: string) =>
       ports
         ? ports.split(",").map((p) => {
-            const m = p.trim().match(/(?:(.+?):)?(\d+)->(\d+)\/(\w+)/);
-            return m
-              ? {
-                  hostIp: m[1] || null,
-                  hostPort: Number(m[2]),
-                  containerPort: Number(m[3]),
-                  protocol: m[4],
-                }
-              : null;
-          }).filter(Boolean)
+          const m = p.trim().match(/(?:(.+?):)?(\d+)->(\d+)\/(\w+)/);
+          return m
+            ? {
+              hostIp: m[1] || null,
+              hostPort: Number(m[2]),
+              containerPort: Number(m[3]),
+              protocol: m[4],
+            }
+            : null;
+        }).filter(Boolean)
         : [];
 
     docker = {
@@ -248,8 +248,8 @@ export async function collectExtendedMetrics(
   // ---------- FINAL RESULT ----------
   return {
     cpu: {
-      usagePercent: cpuUsagePercent,       
-      normalizedLoadPercent,               
+      usagePercent: cpuUsagePercent,
+      normalizedLoadPercent,
       load,
       cores,
     },

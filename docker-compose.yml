@@ -4,6 +4,7 @@ services:
   konek-backend:
     image: konek/backend:latest
     container_name: konek-backend
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -19,6 +20,7 @@ services:
   konek-frontend:
     image: konek/frontend:latest
     container_name: konek-frontend
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.frontend

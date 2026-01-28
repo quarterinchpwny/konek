@@ -42,6 +42,18 @@
             <Folder :size="14" />
             Files
           </button>
+          <button
+            @click="activeTab = 'docker'"
+            :class="[
+              'px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all',
+              activeTab === 'docker'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'text-slate-400 hover:text-slate-200',
+            ]"
+          >
+            
+            Docker
+          </button>
         </div>
 
         <div class="h-6 w-px bg-slate-800"></div>
@@ -58,6 +70,9 @@
       <div class="col-span-4" v-show="activeTab === 'files'">
         <FileManager />
       </div>
+      <div class="col-span-4" v-show="activeTab === 'docker'">
+        <DockerManager :host-id="hostStore.selectedHost?.id" />
+      </div>
       <ServerStats
         v-if="hostStore.selectedHost?.id != null && sessionId"
         :host-id="hostStore.selectedHost.id"
@@ -67,15 +82,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from "vue";
+import { ref, watch, onUnmounted, defineComponent } from "vue";
 import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";
+import DockerManager from "../components/DockerManager.vue";
 
 import { Terminal, ChevronRight, Folder } from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
 import { type Host, useHostStore } from "../stores/hostStore";
 import ServerStatusBadge from "../components/ServerStatusBadge.vue";
+
+
+
 const props = defineProps<{
   selectedHost: Host | null;
 }>();

@@ -82,10 +82,13 @@ export const useSshStore = defineStore('ssh', {
       return res.data.content;
     },
 
-    async uploadFiles(path: string, filesToUpload: File[]) {
+    async uploadFiles(
+      path: string,
+      filesToUpload: File[],
+      onUploadProgress: (progressEvent: any) => void
+    ) {
       if (!this.sessionId) return;
 
-      this.isLoading = true;
       try {
         const formData = new FormData();
         formData.append('sessionId', this.sessionId);
@@ -95,16 +98,16 @@ export const useSshStore = defineStore('ssh', {
           formData.append('files', file);
         });
 
-        await axios.post(`${API_URL}/files/upload`, formData, {
+        const res = await axios.post(`${API_URL}/files/upload`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
+          onUploadProgress,
         });
+        return res.data;
       } catch (e) {
         console.error('Upload files error', e);
         throw e;
-      } finally {
-        this.isLoading = false;
       }
     },
 

@@ -114,7 +114,7 @@ To streamline development with live code reloading, use the `docker-compose.dev.
 1.  **Start Services in Development Mode:**
     Navigate to the root directory of the project and run:
     ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
     ```
     This command will:
     *   Build the `konek-backend` and `konek-frontend` services in development mode, specifically targeting the `develop` stage for the frontend.
@@ -127,7 +127,7 @@ To streamline development with live code reloading, use the `docker-compose.dev.
 3.  **Stopping Development Services:**
     To stop the development services, run:
     ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml down
     ```
 
 **Note:** If you switch between development and production setups, or if you encounter issues, it's often helpful to clean up Docker resources by running `docker-compose down -v` with the appropriate configuration files before restarting.

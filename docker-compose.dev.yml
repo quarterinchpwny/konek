@@ -10,6 +10,7 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     network_mode: "host"
+    restart: unless-stopped
     volumes:
       # Mount local source code. Changes on the host are reflected in the container.
       - ./backend:/app
@@ -26,6 +27,7 @@ services:
     ports:
       # Expose the Vite dev server port
       - "5173:5173"
+    restart: unless-stopped
     volumes:
       # Mount local source code
       - ./frontend:/app

@@ -127,6 +127,46 @@
       </div>
     </div>
 
+    <!-- Docker Widget -->
+    <div
+      v-if="stats && stats.docker"
+      class="bg-[#16161a] rounded-xl p-4 border border-slate-800"
+    >
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 bg-cyan-500/10 rounded-lg">
+           
+          </div>
+          <span class="text-sm font-bold uppercase tracking-wide text-slate-300"
+            >Docker Containers</span
+          >
+        </div>
+        <!-- <RouterLink
+          :to="{ name: 'docker' }"
+          class="text-xs font-bold text-cyan-400 hover:underline"
+          >View All</RouterLink
+        > -->
+      </div>
+      <div class="space-y-3">
+        <div
+          v-for="container in stats.docker.containers.slice(0, 4)"
+          :key="container.id"
+          class="flex items-center justify-between"
+        >
+          <div class="flex items-center gap-3">
+            <img :src="getIcon(container.image)" alt="service icon" class="w-6 h-6">
+            <span class="text-sm text-slate-300">{{ container.name }}</span>
+          </div>
+          <span
+            class="px-2 py-0.5 text-xs rounded-full"
+            :class="getStatusClass(container.status)"
+          >
+            {{ container.status.split(' ')[0] }}
+          </span>
+        </div>
+      </div>
+    </div>
+
     <!-- Disk Widget -->
     <div
       v-if="stats"
@@ -182,8 +222,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch, defineComponent } from "vue";
 import { Cpu, Activity, HardDrive } from "lucide-vue-next";
+
 
 const props = defineProps<{ hostId: number }>();
 
@@ -229,16 +270,25 @@ const fetchStats = async () => {
 
 const formatBytes = (bytes: number) => {
   if (!bytes || bytes === 0) return "0 B";
-
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB", "TB"];
-
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-
   const formattedValue = (bytes / Math.pow(k, i)).toFixed(2);
-
   return `${formattedValue} ${sizes[i]}`;
 };
+
+const getStatusClass = (status: string) => {
+  if (status.startsWith('Up')) return 'bg-green-500/20 text-green-400';
+  if (status.startsWith('Exited')) return 'bg-red-500/20 text-red-400';
+  return 'bg-gray-500/20 text-gray-400';
+};
+
+const getIcon = (imageName: string) => {
+  // const name = imageName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
+  // return `https://cdn.simpleicons.org/${name}/white`;
+  return ''
+};
+
 
 onMounted(() => {
   fetchStats();
@@ -270,16 +320,4 @@ watch(
   opacity: 0;
   transform: translateY(4px);
 }
-/* @keyframes shimmer {
-  0% {
-    transform: translateX(-150%) skewX(-20deg);
-  }
-  100% {
-    transform: translateX(150%) skewX(-20deg);
-  }
-}
-
-.animate-shimmer {
-  animation: shimmer 3s infinite;
-} */
 </style>
