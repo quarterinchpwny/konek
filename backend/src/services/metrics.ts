@@ -221,6 +221,12 @@ export async function collectExtendedMetrics(
         const i = inspectMap[c.Names] || {};
         const labels = i.Config?.Labels || {};
 
+        const composeProject = labels["com.docker.compose.project"] ?? null;
+        const composeService = labels["com.docker.compose.service"] ?? null;
+        const composeOneOff = labels["com.docker.compose.oneoff"] === "True";
+
+        const isCompose = Boolean(composeProject);
+
         return {
           id: c.ID,
           name: c.Names,
@@ -230,10 +236,30 @@ export async function collectExtendedMetrics(
           ports: parsePorts(c.Ports),
 
           labels,
+
+          /**
+           * Stable grouping priority:
+           * 1. Docker Compose project
+           * 2. Custom label group
+           * 3. Standalone container
+           */
           group:
+            composeProject ||
             labels.group ||
-            labels["com.docker.compose.project"] ||
-            null,
+            `standalone:${c.Names}`,
+
+          /**
+           * Explicit compose metadata (VERY useful later)
+           */
+          compose: isCompose
+            ? {
+              project: composeProject,
+              service: composeService,
+              oneOff: composeOneOff,
+            }
+            : null,
+
+          isCompose,
 
           health: i.State?.Health?.Status ?? "none",
           restartPolicy: i.HostConfig?.RestartPolicy?.Name ?? "none",
@@ -242,6 +268,7 @@ export async function collectExtendedMetrics(
         };
       }),
     };
+
   } catch {
     // ignore
   }
