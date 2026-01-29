@@ -154,7 +154,7 @@
           class="flex items-center justify-between"
         >
           <div class="flex items-center gap-3">
-            <img :src="getIcon(container.image)" alt="service icon" class="w-6 h-6">
+            <Icon :icon="getIconCached(container)" class="w-6 h-6 " />
             <span class="text-sm text-slate-300">{{ container.name }}</span>
           </div>
           <span
@@ -224,6 +224,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, defineComponent } from "vue";
 import { Cpu, Activity, HardDrive } from "lucide-vue-next";
+import { Icon } from '@iconify/vue';
 
 
 const props = defineProps<{ hostId: number }>();
@@ -235,6 +236,7 @@ const CPU_HISTORY_SIZE = 20;
 const cpuHistory = ref<number[]>([]);
 
 let intervalId: number | null = null;
+const iconCache = ref<Record<string, string>>({});
 
 const fetchStats = async () => {
   if (!props.hostId) return;
@@ -283,10 +285,37 @@ const getStatusClass = (status: string) => {
   return 'bg-gray-500/20 text-gray-400';
 };
 
-const getIcon = (imageName: string) => {
-  // const name = imageName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
-  // return `https://cdn.simpleicons.org/${name}/white`;
-  return ''
+
+const getIcon = (containerData: Record<string, any>) => {
+  if (!containerData) return 'mdi:docker';
+
+  const containerName =
+    containerData.labels?.['com.docker.compose.project'] ||
+    containerData.image ||
+    'docker';
+
+  const baseName = containerName
+    .split(':')[0]      // remove tag
+    .split('/')          // remove repo path
+    .pop()
+    ?.toLowerCase() || 'docker';
+
+  const collections = ['simple-icons', 'mdi', 'fa', 'ion', 'logos'];
+
+  for (const collection of collections) {
+    return `${collection}:${baseName}`;
+  }
+
+  return 'mdi:docker'; // fallback
+};
+
+const getIconCached = (container: Record<string, any>) => {
+  const id = container.id;
+  if (iconCache.value[id]) return iconCache.value[id];
+
+  const icon = getIcon(container);
+  iconCache.value[id] = icon;
+  return icon;
 };
 
 

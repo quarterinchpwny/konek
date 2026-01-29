@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
+    "@iconify/tools": "^5.0.2",
     "@tailwindcss/vite": "^4.1.18",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
@@ -20,6 +21,8 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@iconify/utils": "^3.1.0",
+    "@iconify/vue": "^5.0.0",
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",

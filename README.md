@@ -19,6 +19,10 @@ Konek is a web-based remote server management tool. It provides a simple and int
 *   **System Monitoring:**
     *   Polls remote hosts for system metrics (CPU, memory, disk, etc.).
     *   Provides real-time updates on system performance.
+*   **Docker Management:**
+    *   List Docker containers on the remote host.
+    *   Start, stop, and restart Docker containers.
+    *   View logs for Docker containers.
 
 ### Frontend
 
@@ -32,6 +36,9 @@ Konek is a web-based remote server management tool. It provides a simple and int
     *   A simple file browser to navigate the remote host's file system.
 *   **Dashboard:**
     *   Displays real-time system metrics of the connected host.
+*   **Docker Manager:**
+    *   List, start, stop, and restart Docker containers.
+    *   View container logs in real-time.
 
 
 ## Getting Started
@@ -74,6 +81,11 @@ Konek is a web-based remote server management tool. It provides a simple and int
     cd ../frontend
     npm run dev
     ```
+
+Alternatively, you can run both the frontend and backend development servers with a single command from the root of the project:
+```bash
+node dev.mjs
+```
 
 The application will be available at `http://localhost:5173`.
 

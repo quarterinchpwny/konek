@@ -15,7 +15,7 @@
           <div>
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-3">
-                <img :src="getIcon(container.image)" alt="service icon" class="w-8 h-8">
+                <Icon :icon="getIconCached(container)" class="w-6 h-6 " />
                 <span class="font-bold text-lg text-white">{{ container.name }}</span>
               </div>
               <span 
@@ -61,6 +61,7 @@ import { useSshStore } from '../stores/SSHStore';
 import { useDockerStore } from '../stores/dockerStore';
 import DockerLogsViewer from './DockerLogsViewer.vue';
 import { PlayIcon, StopIcon, ArrowPathIcon, CommandLineIcon } from '@heroicons/vue/24/solid';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps<{ hostId?: number }>();
 
@@ -72,6 +73,7 @@ const isLoading = ref(false);
 const showLogsModal = ref(false);
 const selectedContainerId = ref<string | null>(null);
 let intervalId: number | null = null;
+const iconCache = ref<Record<string, string>>({});
 
 const dockerInfo = computed(() => stats.value?.docker);
 
@@ -118,13 +120,39 @@ const getStatusClass = (status: string) => {
   return 'bg-gray-500/20 text-gray-400';
 };
 
-const getIcon = (imageName: string) => {
-    //TODO: DOCKER SERVICE ICON FETCHER LOGIC
-  // const name = imageName.split(':')[0].split('/_').pop()?.toLowerCase() || 'docker';
-  return ``;
- 
+const getIcon = (containerData: Record<string, any>) => {
+  if (!containerData) return 'mdi:docker';
+
+  const containerName =
+    containerData.labels?.['com.docker.compose.project'] ||
+    containerData.image ||
+    'docker';
+
+  const baseName = containerName
+    .split(':')[0]      // remove tag
+    .split('/')          // remove repo path
+    .pop()
+    ?.toLowerCase() || 'docker';
+
+  const collections = ['simple-icons', 'mdi', 'fa', 'ion', 'logos'];
+
+  for (const collection of collections) {
+    const icon = `${collection}:${baseName}`;
+      return icon;
+    
+  }
+
+  return 'mdi:docker'; // fallback
 };
 
+const getIconCached = (container: Record<string, any>) => {
+  const id = container.id;
+  if (iconCache.value[id]) return iconCache.value[id];
+
+  const icon = getIcon(container);
+  iconCache.value[id] = icon;
+  return icon;
+};
 
 onMounted(() => {
   if (props.hostId) {
