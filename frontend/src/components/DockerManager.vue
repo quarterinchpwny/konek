@@ -11,7 +11,7 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!dockerInfo || dockerInfo.containers.length === 0" class="flex items-center justify-center flex-1">
+    <div v-else-if="!dockerInfo?.containers?.length" class="flex items-center justify-center flex-1">
       <p class="text-gray-500">No Docker containers found or Docker is not running.</p>
     </div>
 
@@ -21,7 +21,6 @@
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <input v-model="search" placeholder="Search containers..."
           class="px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm w-64 focus:outline-none focus:ring focus:ring-blue-500/30" />
-
         <label class="flex items-center gap-2 text-sm text-gray-300">
           <input type="checkbox" v-model="showOnlyRunning" class="accent-green-500" />
           Running only
@@ -39,16 +38,12 @@
             <div class="flex items-center gap-4 text-xs text-gray-400" v-if="collapsed[group] && stackTotals[group]">
               <span>CPU: {{ stackTotals[group].cpu.toFixed(1) }}%</span>
               <span>
-                RAM:
-                {{ formatBytes(stackTotals[group].memUsed) }}
-                /
-                {{ formatBytes(stackTotals[group].memLimit) }}
+                RAM: {{ formatBytes(stackTotals[group].memUsed) }} / {{ formatBytes(stackTotals[group].memLimit) }}
               </span>
             </div>
             <button class="text-xs text-blue-400 hover:text-blue-300" @click="collapsed[group] = !collapsed[group]">
               {{ collapsed[group] ? 'Expand' : 'Collapse' }}
             </button>
-
           </div>
 
           <!-- Cards -->
@@ -80,30 +75,31 @@
                   <span>Restart: {{ container.restartPolicy }}</span>
                 </div>
 
-                <!-- CPU -->
+                <!-- CPU Bar Graph -->
                 <div v-if="container.stats" class="mt-3">
                   <div class="flex justify-between text-xs mb-1">
                     <span>CPU</span>
                     <span>{{ container.stats.cpu.toFixed(1) }}%</span>
                   </div>
-                  <div class="h-1.5 bg-gray-700 rounded">
-                    <div class="h-1.5 bg-blue-500 rounded transition-all"
-                      :style="{ width: container.stats.cpu + '%' }" />
+                  <div class="h-12 flex items-end gap-0.5">
+                    <div v-for="(val, idx) in getCpuHistory(container)" :key="idx"
+                      class="flex-1 bg-blue-500/80 rounded-t transition-all"
+                      :style="{ height: val + '%' }" />
                   </div>
                 </div>
 
-                <!-- Memory -->
-                <div v-if="container.stats" class="mt-2">
+                <!-- Memory Bar Graph -->
+                <div v-if="container.stats" class="mt-3">
                   <div class="flex justify-between text-xs mb-1">
                     <span>RAM</span>
                     <span>
-                      {{ formatBytes(container.stats.memUsed) }} /
-                      {{ formatBytes(container.stats.memLimit) }}
+                      {{ formatBytes(container.stats.memUsed) }} / {{ formatBytes(container.stats.memLimit) }}
                     </span>
                   </div>
-                  <div class="h-1.5 bg-gray-700 rounded">
-                    <div class="h-1.5 bg-green-500 rounded transition-all"
-                      :style="{ width: memPercent(container) + '%' }" />
+                  <div class="h-12 flex items-end gap-0.5">
+                    <div v-for="(val, idx) in getMemHistory(container)" :key="idx"
+                      class="flex-1 bg-green-500/80 rounded-t transition-all"
+                      :style="{ height: val + '%' }" />
                   </div>
                 </div>
               </div>
@@ -166,69 +162,139 @@ const collapsed = ref<Record<string, boolean>>({});
 
 let intervalId: number | null = null;
 const iconCache = ref<Record<string, string>>({});
+const historyCache = ref<Record<string, { cpu: number[], mem: number[] }>>({});
+const HISTORY_LENGTH = 20;
 
 const dockerInfo = computed(() => stats.value?.docker);
 
-const groupedContainers = computed(() => {
-  const q = search.value.toLowerCase();
-
-  const filtered = (dockerInfo.value?.containers || []).filter((c: any) => {
-    if (showOnlyRunning.value && !c.status.startsWith('Up')) return false;
-
-    if (!q) return true;
-
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.image.toLowerCase().includes(q) ||
-      c.group?.toLowerCase().includes(q) ||
-      c.compose?.project?.toLowerCase().includes(q) ||
-      c.compose?.service?.toLowerCase().includes(q)
-    );
-  });
-
-  const groups: Record<string, any[]> = {};
-
-  for (const c of filtered) {
-    const key = c.group || 'other';
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(c);
-  }
-
-  return groups;
-});
-const stackTotals = computed(() => {
-  const totals: Record<string, any> = {};
-
-  for (const c of dockerInfo.value?.containers || []) {
-    const g = c.group;
-    if (!g || !c.stats) continue;
-
-    if (!totals[g]) {
-      totals[g] = { cpu: 0, memUsed: 0, memLimit: 0 };
-    }
-
-    totals[g].cpu += c.stats.cpu;
-    totals[g].memUsed += c.stats.memUsed;
-    totals[g].memLimit += c.stats.memLimit;
-  }
-
-  return totals;
-});
-
+// ---------------- Stable update to prevent blinking ----------------
 const fetchStats = async () => {
   if (!props.hostId) return;
+  
+  // Only show loading on first fetch
+  if (!stats.value) {
+    isLoading.value = true;
+  }
 
-  isLoading.value = true;
   try {
     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`);
-    stats.value = res.ok ? await res.json() : null;
+    if (!res.ok) return;
+
+    const newStats = await res.json();
+
+    // If we have existing data, update in place to prevent flickering
+    if (stats.value?.docker?.containers) {
+      const oldMap = new Map(stats.value.docker.containers.map((c: any) => [c.id, c]));
+      const newMap = new Map(newStats.docker.containers.map((c: any) => [c.id, c]));
+      
+      // Update existing containers in place
+      oldMap.forEach((oldContainer, id) => {
+        const newContainer = newMap.get(id);
+        if (newContainer) {
+          // Deep merge to preserve reactivity
+          Object.keys(newContainer).forEach(key => {
+            oldContainer[key] = newContainer[key];
+          });
+          
+          // Track history for graphs
+          if (newContainer.stats) {
+            if (!historyCache.value[id]) {
+              historyCache.value[id] = { cpu: [], mem: [] };
+            }
+            const history = historyCache.value[id];
+            history.cpu.push(newContainer.stats.cpu);
+            history.mem.push(memPercent(newContainer));
+            
+            // Keep only last N entries
+            if (history.cpu.length > HISTORY_LENGTH) history.cpu.shift();
+            if (history.mem.length > HISTORY_LENGTH) history.mem.shift();
+          }
+        }
+      });
+      
+      // Add new containers
+      newMap.forEach((newContainer, id) => {
+        if (!oldMap.has(id)) {
+          stats.value.docker.containers.push(newContainer);
+          // Initialize history for new container
+          if (newContainer.stats) {
+            historyCache.value[id] = {
+              cpu: [newContainer.stats.cpu],
+              mem: [memPercent(newContainer)]
+            };
+          }
+        }
+      });
+      
+      // Remove containers that no longer exist
+      stats.value.docker.containers = stats.value.docker.containers.filter(
+        (c: any) => newMap.has(c.id)
+      );
+      
+      // Clean up history for removed containers
+      Object.keys(historyCache.value).forEach(id => {
+        if (!newMap.has(id)) {
+          delete historyCache.value[id];
+        }
+      });
+    } else {
+      // First load - just set the data
+      stats.value = newStats;
+      // Initialize history for all containers
+      if (newStats.docker?.containers) {
+        newStats.docker.containers.forEach((c: any) => {
+          if (c.stats) {
+            historyCache.value[c.id] = {
+              cpu: [c.stats.cpu],
+              mem: [memPercent(c)]
+            };
+          }
+        });
+      }
+    }
   } catch (e) {
-    stats.value = null;
+    console.error(e);
   } finally {
     isLoading.value = false;
   }
 };
 
+// ---------------- Computed ----------------
+const groupedContainers = computed(() => {
+  const q = search.value.toLowerCase();
+  const filtered = (dockerInfo.value?.containers || []).filter((c: any) => {
+    if (showOnlyRunning.value && !c.status.startsWith('Up')) return false;
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q) ||
+           c.image.toLowerCase().includes(q) ||
+           c.group?.toLowerCase().includes(q) ||
+           c.compose?.project?.toLowerCase().includes(q) ||
+           c.compose?.service?.toLowerCase().includes(q);
+  });
+
+  const groups: Record<string, any[]> = {};
+  filtered.forEach((c: any) => {
+    const key = c.group || 'other';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(c);
+  });
+  return groups;
+});
+
+const stackTotals = computed(() => {
+  const totals: Record<string, any> = {};
+  (dockerInfo.value?.containers || []).forEach((c: any) => {
+    const g = c.group;
+    if (!g || !c.stats) return;
+    if (!totals[g]) totals[g] = { cpu: 0, memUsed: 0, memLimit: 0 };
+    totals[g].cpu += c.stats.cpu;
+    totals[g].memUsed += c.stats.memUsed;
+    totals[g].memLimit += c.stats.memLimit;
+  });
+  return totals;
+});
+
+// ---------------- Actions ----------------
 const handleAction = async (id: string, action: 'start' | 'stop' | 'restart') => {
   await dockerStore.performAction(id, action);
   fetchStats();
@@ -247,12 +313,9 @@ const getStatusClass = (status: string) => {
 
 const formatBytes = (b: number) => {
   if (!b) return '0B';
-  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const u = ['B','KB','MB','GB','TB'];
   let i = 0;
-  while (b >= 1024 && i < u.length - 1) {
-    b /= 1024;
-    i++;
-  }
+  while (b >= 1024 && i < u.length-1) { b /= 1024; i++; }
   return `${b.toFixed(1)}${u[i]}`;
 };
 
@@ -263,37 +326,39 @@ const memPercent = (c: any) => {
 
 const getIcon = (containerData: Record<string, any>) => {
   if (!containerData) return 'mdi:docker';
-
-  const containerName =
-    containerData.labels?.['com.docker.compose.project'] ||
-    containerData.image ||
-    'docker';
-
-  const baseName =
-    containerName
-      .split(':')[0]
-      .split('/')
-      .pop()
-      ?.toLowerCase() || 'docker';
-
+  const containerName = containerData.labels?.['com.docker.compose.project'] || containerData.image || 'docker';
+  const baseName = containerName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
   return `simple-icons:${baseName}`;
 };
 
 const getIconCached = (container: Record<string, any>) => {
   const id = container.id;
   if (iconCache.value[id]) return iconCache.value[id];
-
   const icon = getIcon(container);
   iconCache.value[id] = icon;
   return icon;
 };
 
+const getCpuHistory = (container: Record<string, any>) => {
+  const history = historyCache.value[container.id]?.cpu || [];
+  // Pad with zeros if we don't have enough history yet
+  const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
+  return padded;
+};
+
+const getMemHistory = (container: Record<string, any>) => {
+  const history = historyCache.value[container.id]?.mem || [];
+  // Pad with zeros if we don't have enough history yet
+  const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
+  return padded;
+};
+
+// ---------------- Lifecycle ----------------
 onMounted(() => {
   if (!props.hostId) return;
-
   sshStore.connect(props.hostId).then(() => {
     fetchStats();
-    intervalId = setInterval(fetchStats, 5000);
+    intervalId = setInterval(fetchStats, 5000) as unknown as number;
   });
 });
 
@@ -303,12 +368,12 @@ onUnmounted(() => {
 
 watch(() => props.hostId, (newHostId) => {
   if (intervalId) clearInterval(intervalId);
-
+  stats.value = null; // Reset state on host change
+  historyCache.value = {}; // Clear history cache
   if (!newHostId) return;
-
   sshStore.connect(newHostId).then(() => {
     fetchStats();
-    intervalId = setInterval(fetchStats, 5000);
+    intervalId = setInterval(fetchStats, 5000) as unknown as number;
   });
 });
 </script>

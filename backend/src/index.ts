@@ -31,7 +31,7 @@ const port = 3000;
 const server = serve({
   fetch: app.fetch,
   port,
-  hostname:'0.0.0.0'
+  hostname: '0.0.0.0'
 }) as HttpServer;
 
 const wss = new WebSocketServer({ server });
@@ -39,22 +39,37 @@ const wss = new WebSocketServer({ server });
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
   const sid = url.searchParams.get("sessionId");
+  const dockerId = url.searchParams.get("dockerId");
 
   if (!sid || !sessions.has(sid)) return ws.close();
-
   const session = sessions.get(sid)!;
 
-  session.client.shell(
-    { term: "xterm-color" },
-    (err: Error | undefined, stream: any) => {
+  if (dockerId) {
+    // ------------------ Docker logs stream ------------------
+    session.client.exec(
+      `docker logs -f --tail 50 ${dockerId}`,
+      (err: Error | undefined, stream: any) => {
+        if (err) return ws.close();
+
+        stream.on("data", (d: Buffer) => ws.send(d.toString()));
+        stream.stderr.on("data", (d: Buffer) => ws.send(d.toString()));
+
+        ws.on("close", () => stream.end());
+      }
+    );
+  } else {
+    // ------------------ Terminal shell ------------------
+    session.client.shell({ term: "xterm-color" }, (err: Error | undefined, stream: any) => {
       if (err) return ws.close();
 
       ws.on("message", (d) => stream.write(d as Buffer));
       stream.on("data", (d: Buffer) => ws.send(d));
       stream.on("close", () => ws.close());
       ws.on("close", () => stream.end());
-    }
-  );
+    });
+  }
 });
+
+
 
 console.log(`Server running on port ${port}`);

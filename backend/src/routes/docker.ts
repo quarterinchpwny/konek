@@ -91,6 +91,71 @@ dockerRoute.get("/:containerId/logs", async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
   }
+
 });
+dockerRoute.get("/:containerId/logs/stream", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const { containerId } = c.req.param();
+
+  if (!sessionId) return c.text("sessionId is required", 400);
+  if (!sessions.has(sessionId)) return c.text("Session not found", 401);
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(containerId)) {
+    return c.text("Invalid container ID", 400);
+  }
+
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const proc = session.client.exec(
+          `docker logs -f --tail=50 ${containerId}`,
+          (err, stream) => {
+            if (err) {
+              controller.enqueue(encoder.encode(`data: ${err.message}\n\n`));
+              controller.close();
+              return;
+            }
+
+            stream.on("data", (chunk: Buffer) => {
+              controller.enqueue(
+                encoder.encode(`data: ${chunk.toString()}\n\n`)
+              );
+            });
+
+            stream.stderr.on("data", (chunk: Buffer) => {
+              controller.enqueue(
+                encoder.encode(`data: ${chunk.toString()}\n\n`)
+              );
+            });
+
+            stream.on("close", () => controller.close());
+          }
+        );
+
+        c.req.raw.signal.addEventListener("abort", () => {
+          proc?.close?.();
+          controller.close();
+        });
+      } catch (e: any) {
+        controller.enqueue(encoder.encode(`data: ${e.message}\n\n`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+});
+
 
 export default dockerRoute;

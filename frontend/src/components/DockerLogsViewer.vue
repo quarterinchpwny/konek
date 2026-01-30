@@ -1,25 +1,39 @@
 <template>
-  <div v-if="show" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="$emit('close')">
+  <div
+    v-if="show"
+    class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+    @click.self="close"
+  >
     <div class="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-full h-full max-w-4xl flex flex-col">
+      <!-- Header -->
       <div class="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-        <h3 class="text-lg font-semibold text-gray-100">Logs for {{ containerId?.substring(0, 12) }}</h3>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white">&times;</button>
+        <h3 class="text-lg font-semibold text-gray-100">
+          Live Logs — {{ containerId?.substring(0, 12) }}
+        </h3>
+        <button @click="close" class="text-gray-400 hover:text-white">&times;</button>
       </div>
-      <div class="p-4 overflow-y-auto flex-grow bg-black">
-        <pre v-if="isLoading" class="text-gray-400">Loading logs...</pre>
-        <pre v-else-if="error" class="text-red-400">Error: {{ error }}</pre>
-        <pre v-else class="text-xs text-gray-300 whitespace-pre-wrap font-mono">{{ logs }}</pre>
+
+      <!-- Logs -->
+      <div ref="logBox" class="p-4 overflow-y-auto flex-grow bg-black">
+        <pre class="text-xs text-gray-300 whitespace-pre-wrap font-mono">
+{{ logs || 'Waiting for logs...' }}
+        </pre>
       </div>
-       <div class="p-2 border-t border-gray-700 flex-shrink-0 flex items-center justify-end gap-4">
-        <label for="tail-lines" class="text-sm text-gray-400">Lines:</label>
-        <select id="tail-lines" v-model.number="tail" class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white">
-          <option>100</option>
-          <option>300</option>
-          <option>500</option>
-          <option>1000</option>
-        </select>
-        <button @click="fetchLogs" class="px-4 py-2 rounded text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-          Refresh
+
+      <!-- Footer -->
+      <div class="p-2 border-t border-gray-700 flex-shrink-0 flex items-center justify-between gap-4">
+        <div class="text-xs text-gray-400">
+          Status:
+          <span :class="connected ? 'text-green-400' : 'text-red-400'">
+            {{ connected ? 'LIVE' : 'DISCONNECTED' }}
+          </span>
+        </div>
+
+        <button
+          @click="clearLogs"
+          class="px-3 py-1 rounded text-xs font-medium text-white bg-gray-700 hover:bg-gray-600"
+        >
+          Clear
         </button>
       </div>
     </div>
@@ -27,45 +41,88 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useDockerStore } from '../stores/dockerStore';
+import { ref, watch, onBeforeUnmount, nextTick, computed } from 'vue';
+import { useSshStore } from '../stores/SSHStore';
 
 const props = defineProps({
-  show: {
-    type: Boolean,
-    required: true,
-  },
-  containerId: {
-    type: String,
-    default: null,
-  },
+  show: Boolean,
+  containerId: String,
 });
 
-defineEmits(['close']);
+const emit = defineEmits(['close']);
 
-const dockerStore = useDockerStore();
-const logs = ref("");
-const isLoading = ref(false);
-const error = ref<string | null>(null);
-const tail = ref(300);
+const sshStore = useSshStore();
 
-const fetchLogs = async () => {
-  if (!props.containerId) return;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const data = await dockerStore.getLogs(props.containerId, tail.value);
-    logs.value = data?.logs || "No logs found.";
-  } catch (e: any) {
-    error.value = e.message;
-  } finally {
-    isLoading.value = false;
+const logs = ref('');
+const connected = ref(false);
+const logBox = ref<HTMLElement | null>(null);
+
+let ws: WebSocket | null = null;
+
+/* ------------------ Core ------------------ */
+const wsUrl = computed(() => {
+  const host = window.location.hostname;
+  return  `ws://${window.location.hostname}:3000?sessionId=${sshStore.sessionId}&dockerId=${props.containerId}`;
+});
+
+const connect = () => {
+  if (!props.containerId || !sshStore.sessionId) return;
+
+  disconnect();
+
+  ws = new WebSocket(wsUrl.value);
+
+  ws.onopen = () => {
+    connected.value = true;
+  };
+
+  ws.onmessage = (e) => {
+    logs.value += e.data;
+
+    nextTick(() => {
+      if (logBox.value) {
+        logBox.value.scrollTop = logBox.value.scrollHeight;
+      }
+    });
+  };
+
+  ws.onclose = () => {
+    connected.value = false;
+  };
+
+  ws.onerror = () => {
+    connected.value = false;
+  };
+};
+
+const disconnect = () => {
+  if (ws) {
+    ws.close();
+    ws = null;
   }
 };
 
-watch(() => props.show, (newValue) => {
-  if (newValue) {
-    fetchLogs();
-  }
-});
+const clearLogs = () => {
+  logs.value = '';
+};
+
+const close = () => {
+  disconnect();
+  emit('close');
+};
+
+/* ------------------ Lifecycle ------------------ */
+watch(
+  () => [props.show, props.containerId, sshStore.sessionId],
+  ([show, id, sid]) => {
+    if (show && id && sid) {
+      connect();
+    } else {
+      disconnect();
+    }
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(disconnect);
 </script>
