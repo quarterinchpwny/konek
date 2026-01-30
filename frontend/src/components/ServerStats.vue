@@ -1,231 +1,154 @@
 <template>
-  <aside
-    class="border-l border-slate-800 bg-[#121214]/50 p-6 flex flex-col gap-6 overflow-y-auto shrink-0"
-  >
-    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-      System Status
-    </h2>
+  <aside class="server-stats">
+    <!-- Background -->
+    <div class="stats-bg"></div>
+    <div class="stats-noise"></div>
 
-    <!-- OFFLINE -->
-    <div
-      v-if="status === 'offline'"
-      class="bg-[#16161a] rounded-xl p-6 border border-slate-800 text-center text-red-500 font-bold"
-    >
-      OFFLINE
-    </div>
+    <!-- Content -->
+    <div class="stats-content">
+      <h2 class="stats-header">System Status</h2>
 
-    <!-- AUTH FAILED -->
-    <div
-      v-else-if="status === 'auth_failed'"
-      class="bg-[#16161a] rounded-xl p-6 border border-slate-800 text-center text-yellow-500 font-bold"
-    >
-      Authentication Failed
-    </div>
-
-    <!-- LOADING -->
-    <div
-      v-else-if="!stats"
-      class="bg-[#16161a] rounded-xl p-6 border border-slate-800 text-center text-slate-400"
-    >
-      Loading stats…
-    </div>
-
-    <!-- CPU Widget -->
-    <div v-else class="bg-[#16161a] rounded-xl p-4 border border-slate-800">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 bg-blue-500/10 rounded-lg">
-            <Cpu :size="16" class="text-blue-400" />
-          </div>
-          <span class="text-sm font-medium text-white">CPU Usage</span>
-        </div>
-        <span class="text-xs font-bold text-blue-400">
-          {{ stats.cpu.usagePercent.toFixed(1) }}%
-        </span>
-      </div>
-      <div class="h-24 flex items-end justify-between gap-[2px]">
-        <TransitionGroup
-          name="bar-pop"
-          tag="div"
-          class="flex items-end justify-between w-full h-full"
-        >
-          <div
-            v-for="(value, index) in cpuHistory"
-            :key="index"
-            class="relative flex-1 h-full group"
-          >
-            <div
-              class="absolute bottom-0 left-0 right-0"
-              :style="{
-                height: `${value}%`,
-                transition:
-                  index === cpuHistory.length - 1
-                    ? 'height 0.5s ease-out'
-                    : 'none',
-              }"
-              :class="
-                index === cpuHistory.length - 1
-                  ? 'bg-gradient-to-t from-blue-600/20 to-blue-400 border-t-2 border-blue-300'
-                  : 'bg-gradient-to-t from-blue-600/5 to-blue-500/40 border-t-2 border-blue-400/40'
-              "
-            />
-
-            <div
-              class="pointer-events-none absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-gray-900 text-white text-[10px] px-1.5 py-0.5 rounded shadow-xl z-50 whitespace-nowrap"
-              :style="{ bottom: `calc(${value}% + 6px)` }"
-            >
-              {{ value }}%
-            </div>
-
-            <div class="absolute inset-0 cursor-pointer" />
-          </div>
-        </TransitionGroup>
-      </div>
-    </div>
-
-    <!-- Memory Widget -->
-    <div
-      v-if="stats"
-      class="bg-[#16161a] rounded-xl p-4 border border-slate-800"
-    >
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 bg-purple-500/10 rounded-lg">
-            <Activity :size="16" class="text-purple-400" />
-          </div>
-          <span class="text-sm font-bold uppercase tracking-wide text-slate-300"
-            >Memory</span
-          >
-        </div>
-        <span class="text-sm font-mono font-bold text-purple-400">
-          {{ stats.memory.percent.toFixed(1) }}%
-        </span>
+      <!-- OFFLINE -->
+      <div v-if="status === 'offline'" class="status-card status-offline">
+        <div class="status-icon">⚠</div>
+        <p class="status-text">OFFLINE</p>
       </div>
 
-      <div
-        class="w-full bg-slate-800/50 h-2.5 rounded-full overflow-hidden relative mb-4"
-      >
-        <div
-          class="bg-gradient-to-r from-purple-600 to-purple-400 h-full rounded-full transition-all duration-700 relative shadow-[0_0_15px_rgba(168,85,247,0.4)]"
-          :style="{ width: stats.memory.percent + '%' }"
-        >
-          <div class="absolute inset-0 w-full h-full animate-shimmer">
-            <div
-              class="w-1/3 h-full bg-gradient-to-r from-transparent via-white/25 to-transparent"
-            />
-          </div>
-        </div>
+      <!-- AUTH FAILED -->
+      <div v-else-if="status === 'auth_failed'" class="status-card status-auth-failed">
+        <div class="status-icon">🔒</div>
+        <p class="status-text">Authentication Failed</p>
       </div>
 
-      <div class="flex justify-between items-center text-[11px] font-mono">
-        <span class="text-slate-500"
-          >TOTAL: {{ formatBytes(stats.memory.total) }}</span
-        >
-        <span class="text-slate-300">
-          <b class="text-white">{{ formatBytes(stats.memory.used) }}</b> used
-        </span>
+      <!-- LOADING -->
+      <div v-else-if="!stats" class="status-card status-loading">
+        <div class="loader"></div>
+        <p class="status-text">Loading stats...</p>
       </div>
-    </div>
 
-    <!-- Docker Widget -->
-    <div
-      v-if="stats && stats.docker"
-      class="bg-[#16161a] rounded-xl p-4 border border-slate-800"
-    >
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 bg-cyan-500/10 rounded-lg">
-           
-          </div>
-          <span class="text-sm font-bold uppercase tracking-wide text-slate-300"
-            >Docker Containers</span
-          >
-        </div>
-        <!-- <RouterLink
-          :to="{ name: 'docker' }"
-          class="text-xs font-bold text-cyan-400 hover:underline"
-          >View All</RouterLink
-        > -->
-      </div>
-      <div class="space-y-3">
-        <div
-          v-for="container in stats.docker.containers.slice(0, 4)"
-          :key="container.id"
-          class="flex items-center justify-between"
-        >
-          <div class="flex items-center gap-3">
-            <Icon :icon="getIconCached(container)" class="w-6 h-6 " />
-            <span class="text-sm text-slate-300">{{ container.name }}</span>
-          </div>
-          <span
-            class="px-2 py-0.5 text-xs rounded-full"
-            :class="getStatusClass(container.status)"
-          >
-            {{ container.status.split(' ')[0] }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Disk Widget -->
-    <div
-      v-if="stats"
-      class="bg-[#16161a] rounded-xl p-4 border border-slate-800"
-    >
-      <div class="space-y-6">
-        <div v-for="disk in stats.disk" :key="disk.mount">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <div class="p-1.5 bg-emerald-500/10 rounded-lg">
-                <HardDrive :size="16" class="text-emerald-400" />
+      <!-- STATS -->
+      <template v-else>
+        <!-- CPU Widget -->
+        <div class="stat-widget">
+          <div class="widget-header">
+            <div class="widget-title-group">
+              <div class="widget-icon cpu">
+                <Cpu :size="16" />
               </div>
-              <span
-                class="text-sm font-bold uppercase tracking-wide text-slate-300"
-                >Storage</span
+              <span class="widget-title">CPU Usage</span>
+            </div>
+            <span class="widget-value cpu">{{ stats.cpu.usagePercent.toFixed(1) }}%</span>
+          </div>
+          
+          <div class="chart-container">
+            <TransitionGroup name="bar-slide" tag="div" class="chart">
+              <div
+                v-for="(value, index) in cpuHistory"
+                :key="index"
+                class="chart-bar-wrapper"
               >
-              <span class="text-[10px] text-slate-500 font-mono ml-1">{{
-                disk.mount
-              }}</span>
-            </div>
-            <span class="text-sm font-mono font-bold text-emerald-400">
-              {{ disk.percent }}
-            </span>
-          </div>
-
-          <div
-            class="w-full bg-slate-800/50 h-2.5 rounded-full overflow-hidden relative mb-4"
-          >
-            <div
-              class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full transition-all duration-1000 relative shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-              :style="{ width: disk.percent }"
-            >
-              <div class="absolute inset-0 w-full h-full animate-shimmer">
                 <div
-                  class="w-1/3 h-full bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                />
+                  class="chart-bar cpu-bar"
+                  :class="{ 'chart-bar-latest': index === cpuHistory.length - 1 }"
+                  :style="{ height: `${value}%` }"
+                >
+                  <div class="bar-shimmer"></div>
+                </div>
+                <div class="bar-tooltip">{{ value.toFixed(1) }}%</div>
               </div>
+            </TransitionGroup>
+          </div>
+        </div>
+
+        <!-- Memory Widget -->
+        <div class="stat-widget">
+          <div class="widget-header">
+            <div class="widget-title-group">
+              <div class="widget-icon mem">
+                <Activity :size="16" />
+              </div>
+              <span class="widget-title">Memory</span>
+            </div>
+            <span class="widget-value mem">{{ stats.memory.percent.toFixed(1) }}%</span>
+          </div>
+
+          <div class="progress-bar-container">
+            <div class="progress-bar mem-bar" :style="{ width: stats.memory.percent + '%' }">
+              <div class="progress-shimmer"></div>
             </div>
           </div>
 
-          <div class="flex justify-between items-center text-[11px] font-mono">
-            <span class="text-slate-500 uppercase"
-              >Total: {{ disk.total }}</span
-            >
-            <span class="text-slate-300">
-              <b class="text-white">{{ disk.used }}</b> used
+          <div class="widget-details">
+            <span class="detail-label">Total: {{ formatBytes(stats.memory.total) }}</span>
+            <span class="detail-value">
+              <strong>{{ formatBytes(stats.memory.used) }}</strong> used
             </span>
           </div>
         </div>
-      </div>
+
+        <!-- Docker Widget -->
+        <div v-if="stats.docker" class="stat-widget">
+          <div class="widget-header">
+            <div class="widget-title-group">
+              <div class="widget-icon docker">
+                <Icon icon="mdi:docker" :width="16" />
+              </div>
+              <span class="widget-title">Docker Containers</span>
+            </div>
+          </div>
+
+          <div class="docker-list">
+            <div
+              v-for="container in stats.docker.containers.slice(0, 4)"
+              :key="container.id"
+              class="docker-item"
+            >
+              <Icon :icon="getIconCached(container)" class="docker-icon" />
+              <span class="docker-name">{{ container.name }}</span>
+              <span class="docker-status" :class="getStatusClass(container.status)">
+                {{ container.status.split(' ')[0] }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Disk Widget -->
+        <div class="stat-widget">
+          <div v-for="disk in stats.disk" :key="disk.mount" class="disk-section">
+            <div class="widget-header">
+              <div class="widget-title-group">
+                <div class="widget-icon disk">
+                  <HardDrive :size="16" />
+                </div>
+                <span class="widget-title">Storage</span>
+                <span class="widget-subtitle">{{ disk.mount }}</span>
+              </div>
+              <span class="widget-value disk">{{ disk.percent }}</span>
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-bar disk-bar" :style="{ width: disk.percent }">
+                <div class="progress-shimmer"></div>
+              </div>
+            </div>
+
+            <div class="widget-details">
+              <span class="detail-label">Total: {{ disk.total }}</span>
+              <span class="detail-value">
+                <strong>{{ disk.used }}</strong> used
+              </span>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, defineComponent } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import { Cpu, Activity, HardDrive } from "lucide-vue-next";
 import { Icon } from '@iconify/vue';
-
 
 const props = defineProps<{ hostId: number }>();
 
@@ -242,9 +165,7 @@ const fetchStats = async () => {
   if (!props.hostId) return;
 
   try {
-    const res = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`,
-    );
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`);
 
     if (!res.ok) {
       const errorData = await res.json();
@@ -258,7 +179,6 @@ const fetchStats = async () => {
     status.value = "online";
 
     const cpuPercent = Math.min(100, Math.max(0, data.cpu.usagePercent));
-
     cpuHistory.value.push(cpuPercent);
     if (cpuHistory.value.length > CPU_HISTORY_SIZE) {
       cpuHistory.value.shift();
@@ -280,44 +200,25 @@ const formatBytes = (bytes: number) => {
 };
 
 const getStatusClass = (status: string) => {
-  if (status.startsWith('Up')) return 'bg-green-500/20 text-green-400';
-  if (status.startsWith('Exited')) return 'bg-red-500/20 text-red-400';
-  return 'bg-gray-500/20 text-gray-400';
+  if (status.startsWith('Up')) return 'status-up';
+  if (status.startsWith('Exited')) return 'status-exited';
+  return 'status-other';
 };
-
 
 const getIcon = (containerData: Record<string, any>) => {
   if (!containerData) return 'mdi:docker';
-
-  const containerName =
-    containerData.labels?.['com.docker.compose.project'] ||
-    containerData.image ||
-    'docker';
-
-  const baseName = containerName
-    .split(':')[0]      // remove tag
-    .split('/')          // remove repo path
-    .pop()
-    ?.toLowerCase() || 'docker';
-
-  const collections = ['simple-icons', 'mdi', 'fa', 'ion', 'logos'];
-
-  for (const collection of collections) {
-    return `${collection}:${baseName}`;
-  }
-
-  return 'mdi:docker'; // fallback
+  const containerName = containerData.labels?.['com.docker.compose.project'] || containerData.image || 'docker';
+  const baseName = containerName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
+  return `simple-icons:${baseName}`;
 };
 
 const getIconCached = (container: Record<string, any>) => {
   const id = container.id;
   if (iconCache.value[id]) return iconCache.value[id];
-
   const icon = getIcon(container);
   iconCache.value[id] = icon;
   return icon;
 };
-
 
 onMounted(() => {
   fetchStats();
@@ -328,25 +229,456 @@ onUnmounted(() => {
   if (intervalId) clearInterval(intervalId);
 });
 
-watch(
-  () => props.hostId,
-  () => {
-    stats.value = null;
-    status.value = "loading";
-    cpuHistory.value = [];
-
-    if (intervalId) clearInterval(intervalId);
-    fetchStats();
-    intervalId = setInterval(fetchStats, 5000);
-  },
-);
+watch(() => props.hostId, () => {
+  stats.value = null;
+  status.value = "loading";
+  cpuHistory.value = [];
+  if (intervalId) clearInterval(intervalId);
+  fetchStats();
+  intervalId = setInterval(fetchStats, 5000);
+});
 </script>
+
 <style scoped>
-.bar-pop-enter-active {
-  transition: all 0.4s ease-out;
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+
+.server-stats {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #e8e8e8;
 }
-.bar-pop-enter-from {
+
+.server-stats::-webkit-scrollbar {
+  width: 6px;
+}
+
+.server-stats::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.server-stats::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.server-stats::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Background */
+.stats-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
+  z-index: 0;
+}
+
+.stats-noise {
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Content */
+.stats-content {
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats-header {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.5rem 0;
+}
+
+/* Status cards */
+.status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: rgba(20, 25, 32, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.status-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.status-offline .status-text {
+  color: #d68a8a;
+}
+
+.status-auth-failed .status-text {
+  color: #e8c368;
+}
+
+.status-loading .status-text {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Loader */
+.loader {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 1rem;
+  border: 3px solid rgba(127, 161, 195, 0.2);
+  border-top-color: #7fa1c3;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Stat widget */
+.stat-widget {
+  background: rgba(20, 25, 32, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 1.25rem;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.stat-widget:hover {
+  background: rgba(25, 30, 38, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.disk-section + .disk-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Widget header */
+.widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.widget-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.widget-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.widget-icon.cpu {
+  background: rgba(127, 161, 195, 0.15);
+  color: #7fa1c3;
+}
+
+.widget-icon.mem {
+  background: rgba(168, 85, 247, 0.15);
+  color: #b19dd4;
+}
+
+.widget-icon.docker {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dc4e4;
+}
+
+.widget-icon.disk {
+  background: rgba(16, 185, 129, 0.15);
+  color: #8bc4a0;
+}
+
+.widget-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: -0.01em;
+}
+
+.widget-subtitle {
+  font-size: 0.6875rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 0.25rem;
+}
+
+.widget-value {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.widget-value.cpu {
+  color: #7fa1c3;
+}
+
+.widget-value.mem {
+  color: #b19dd4;
+}
+
+.widget-value.disk {
+  color: #8bc4a0;
+}
+
+/* Chart */
+.chart-container {
+  height: 96px;
+  margin-bottom: 0.5rem;
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  gap: 2px;
+  background: rgba(30, 35, 42, 0.4);
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+.chart-bar-wrapper {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+}
+
+.chart-bar {
+  position: relative;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 2px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.cpu-bar {
+  background: linear-gradient(to top, #5f8aa6 0%, #7fa1c3 100%);
+  opacity: 0.4;
+}
+
+.chart-bar-latest {
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(127, 161, 195, 0.5);
+}
+
+.bar-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { transform: translateY(100%); }
+  50% { transform: translateY(-100%); }
+}
+
+.bar-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 6px);
+  padding: 0.25rem 0.5rem;
+  background: rgba(20, 25, 32, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  pointer-events: none;
   opacity: 0;
-  transform: translateY(4px);
+  transition: opacity 0.2s ease;
+}
+
+.chart-bar-wrapper:hover .bar-tooltip {
+  opacity: 1;
+}
+
+/* Progress bar */
+.progress-bar-container {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: rgba(30, 35, 42, 0.4);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 0.875rem;
+}
+
+.progress-bar {
+  position: relative;
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.mem-bar {
+  background: linear-gradient(to right, #9a7fca 0%, #b19dd4 100%);
+  box-shadow: 0 0 12px rgba(177, 157, 212, 0.4);
+}
+
+.disk-bar {
+  background: linear-gradient(to right, #6ba87d 0%, #8bc4a0 100%);
+  box-shadow: 0 0 12px rgba(139, 196, 160, 0.4);
+}
+
+.progress-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer-horizontal 2s ease-in-out infinite;
+}
+
+@keyframes shimmer-horizontal {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Widget details */
+.widget-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.detail-label {
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detail-value {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.detail-value strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Docker list */
+.docker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.docker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: rgba(30, 35, 42, 0.4);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.docker-item:hover {
+  background: rgba(35, 40, 48, 0.6);
+}
+
+.docker-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: #7dc4e4;
+}
+
+.docker-name {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docker-status {
+  flex-shrink: 0;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.docker-status.status-up {
+  background: rgba(107, 158, 125, 0.15);
+  color: #8bc4a0;
+  border: 1px solid rgba(107, 158, 125, 0.25);
+}
+
+.docker-status.status-exited {
+  background: rgba(214, 93, 93, 0.15);
+  color: #d68a8a;
+  border: 1px solid rgba(214, 93, 93, 0.25);
+}
+
+.docker-status.status-other {
+  background: rgba(140, 140, 150, 0.15);
+  color: #a8a8b4;
+  border: 1px solid rgba(140, 140, 150, 0.25);
+}
+
+/* Animations */
+.bar-slide-enter-active {
+  transition: all 0.5s ease-out;
+}
+
+.bar-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>

@@ -1,169 +1,166 @@
 <template>
-  <div class="h-[80vh] flex flex-col bg-gray-900 text-gray-200 font-mono">
+  <div class="file-manager">
+    <!-- Background layers -->
+    <div class="fm-bg"></div>
+    <div class="fm-noise"></div>
+
     <!-- Header Bar -->
-    <div
-      class="h-14 border-b border-gray-700 flex items-center px-4 bg-gray-800 space-x-4 flex-shrink-0"
-    >
-      <button @click="goUp" class="p-2 hover:bg-gray-700 rounded text-gray-400">
-        <ArrowUturnLeftIcon class="w-5 h-5" />
+    <div class="fm-header">
+      <button @click="goUp" class="fm-btn" title="Go up one directory">
+        <ArrowUturnLeftIcon class="w-4 h-4" />
       </button>
-      <div class="flex-1 bg-gray-900 px-3 py-1 rounded text-sm text-gray-300 truncate">
+      
+      <div class="fm-path">
         {{ sshStore.currentPath }}
       </div>
 
       <!-- Upload Button -->
       <button
         @click="openUploadModal"
-        class="p-2 hover:bg-gray-700 rounded"
+        class="fm-btn"
         title="Upload files"
       >
-        <ArrowUpTrayIcon class="w-5 h-5" />
+        <ArrowUpTrayIcon class="w-4 h-4" />
       </button>
 
       <!-- Delete Button -->
       <button
         v-if="selectedFiles.length > 0"
         @click="promptDelete"
-        class="p-2 bg-red-500 hover:bg-red-600 rounded"
+        class="fm-btn fm-btn-danger"
         title="Delete selected"
       >
-        <TrashIcon class="w-5 h-5" />
+        <TrashIcon class="w-4 h-4" />
       </button>
 
       <!-- Refresh Button -->
       <button
         @click="refreshAndClearSelection"
-        class="p-2 hover:bg-gray-700 rounded"
+        class="fm-btn"
+        title="Refresh"
       >
         <ArrowPathIcon
-          class="w-5 h-5"
+          class="w-4 h-4"
           :class="{ 'animate-spin': sshStore.isLoading }"
         />
       </button>
     </div>
 
-    <!-- File List -->
-    <div class="flex-1 flex flex-col overflow-hidden p-4">
+    <!-- File List Container -->
+    <div class="fm-content">
       <!-- Header Row -->
-      <div
-        class="grid grid-cols-12 text-sm font-bold text-gray-500 border-b border-gray-700 pb-2 mb-2 items-center flex-shrink-0"
-      >
-        <div class="col-span-1">
+      <div class="fm-list-header">
+        <div class="fm-col-checkbox">
           <input
             type="checkbox"
             v-model="allSelected"
-            class="rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500"
+            class="fm-checkbox"
           />
         </div>
-        <div class="col-span-5">Name</div>
-        <div class="col-span-2">Size</div>
-        <div class="col-span-4">Permissions</div>
+        <div class="fm-col-name">Name</div>
+        <div class="fm-col-size">Size</div>
+        <div class="fm-col-permissions">Permissions</div>
       </div>
 
       <!-- File Rows -->
-      <div class="flex-1 overflow-auto">
+      <div class="fm-list">
         <div
           v-for="file in sshStore.files"
           :key="file.path"
           @click="handleNavigate(file)"
-          class="grid grid-cols-12 py-2 px-1 hover:bg-gray-800 cursor-pointer rounded select-none items-center"
-          :class="{ 'bg-blue-900/20': isSelected(file) }"
+          :class="['fm-row', { 'fm-row-selected': isSelected(file) }]"
         >
-          <div class="col-span-1">
+          <div class="fm-col-checkbox">
             <input
               type="checkbox"
               v-model="selectedFiles"
               :value="file"
               @click.stop
-              class="rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500"
+              class="fm-checkbox"
             />
           </div>
-          <div class="col-span-5 flex items-center space-x-2 truncate">
+          
+          <div class="fm-col-name">
             <FolderIcon
               v-if="file.isDirectory"
-              class="w-5 h-5 text-yellow-500 flex-shrink-0"
+              class="fm-icon fm-icon-folder"
             />
             <DocumentIcon
               v-else
-              class="w-5 h-5 text-blue-400 flex-shrink-0"
+              class="fm-icon fm-icon-file"
             />
-            <span
-              :class="[file.isDirectory ? 'text-white' : 'text-gray-300', 'truncate']"
-            >
+            <span :class="[file.isDirectory ? 'fm-name-dir' : 'fm-name-file']">
               {{ file.name }}
             </span>
           </div>
-          <div class="col-span-2 text-gray-500 truncate">{{ file.size }}</div>
-          <div class="col-span-4 text-gray-500 font-mono text-xs truncate">
-            {{ file.permissions }}
-          </div>
+          
+          <div class="fm-col-size">{{ file.size }}</div>
+          
+          <div class="fm-col-permissions">{{ file.permissions }}</div>
         </div>
       </div>
     </div>
 
     <!-- Editor Modal -->
-    <div
-      v-if="showEditor"
-      class="fixed inset-0 bg-black/90 flex items-center justify-center z-40 p-4 md:p-10"
-    >
+    <Transition name="modal-fade">
       <div
-        class="bg-gray-800 w-full h-full md:w-3/4 md:h-3/4 flex flex-col rounded border border-gray-700 shadow-2xl"
+        v-if="showEditor"
+        class="fm-modal-overlay"
+        @click="showEditor = false"
       >
-        <div class="h-10 bg-gray-700 flex items-center justify-between px-4 flex-shrink-0">
-          <span>Editor</span>
-          <button
-            @click="showEditor = false"
-            class="text-red-400 hover:text-red-300"
-          >
-            Close
-          </button>
+        <div class="fm-modal" @click.stop>
+          <div class="fm-modal-header">
+            <span class="fm-modal-title">Editor</span>
+            <button
+              @click="showEditor = false"
+              class="fm-modal-close"
+            >
+              <X :size="20" />
+            </button>
+          </div>
+          <textarea
+            v-model="editorContent"
+            class="fm-editor"
+            placeholder="File content..."
+          ></textarea>
         </div>
-        <textarea
-          v-model="editorContent"
-          class="flex-1 bg-gray-900 text-gray-300 p-4 font-mono text-sm resize-none focus:outline-none w-full"
-        ></textarea>
       </div>
-    </div>
+    </Transition>
 
     <!-- Media Viewer Modal -->
-    <div
-      v-if="showMediaViewer"
-      class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 md:p-10"
-      @click="showMediaViewer = false"
-    >
+    <Transition name="modal-fade">
       <div
-        class="bg-gray-800 max-w-full max-h-full w-auto h-auto flex flex-col rounded border border-gray-700 shadow-2xl"
-        @click.stop
+        v-if="showMediaViewer"
+        class="fm-modal-overlay"
+        @click="showMediaViewer = false"
       >
-        <div
-          class="h-10 bg-gray-700 flex items-center justify-between px-4 text-white flex-shrink-0"
-        >
-          <span>Media Viewer</span>
-          <button
-            @click="showMediaViewer = false"
-            class="text-red-400 hover:text-red-300"
-          >
-            Close
-          </button>
-        </div>
-        <div
-          class="p-4 flex items-center justify-center flex-1"
-          style="max-height: calc(100vh - 100px); max-width: calc(100vw - 80px)"
-        >
-          <img
-            v-if="mediaViewerType === 'image'"
-            :src="mediaViewerSrc"
-            class="max-w-full max-h-full object-contain"
-          />
-          <video
-            v-if="mediaViewerType === 'video'"
-            :src="mediaViewerSrc"
-            controls
-            class="max-w-full max-h-full"
-          ></video>
+        <div class="fm-modal fm-modal-media" @click.stop>
+          <div class="fm-modal-header">
+            <span class="fm-modal-title">Media Viewer</span>
+            <button
+              @click="showMediaViewer = false"
+              class="fm-modal-close"
+            >
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="fm-media-container">
+            <img
+              v-if="mediaViewerType === 'image'"
+              :src="mediaViewerSrc"
+              class="fm-media"
+              alt="Media preview"
+            />
+            <video
+              v-if="mediaViewerType === 'video'"
+              :src="mediaViewerSrc"
+              controls
+              class="fm-media"
+            ></video>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- Delete Confirmation -->
     <ConfirmationDialog
@@ -206,6 +203,7 @@ import {
   ArrowUpTrayIcon,
   TrashIcon,
 } from "@heroicons/vue/24/outline";
+import { X } from "lucide-vue-next";
 
 const sshStore = useSshStore();
 
@@ -356,5 +354,390 @@ const closeProgressDialog = () => {
   showProgressDialog.value = false;
   refreshAndClearSelection();
 };
-
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+
+.file-manager {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Background layers */
+.fm-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
+  z-index: 0;
+}
+
+.fm-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Header */
+.fm-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: rgba(20, 25, 32, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.fm-path {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  background: rgba(10, 14, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8125rem;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(30, 35, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.fm-btn:hover {
+  background: rgba(40, 45, 52, 0.8);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.fm-btn-danger {
+  background: rgba(214, 93, 93, 0.15);
+  border-color: rgba(214, 93, 93, 0.3);
+  color: #d68a8a;
+}
+
+.fm-btn-danger:hover {
+  background: rgba(214, 93, 93, 0.25);
+  border-color: rgba(214, 93, 93, 0.5);
+  color: #e39999;
+}
+
+/* Content area */
+.fm-content {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1rem 1.5rem;
+}
+
+/* List header */
+.fm-list-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 120px 140px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(20, 25, 32, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px 8px 0 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+/* File list */
+.fm-list {
+  flex: 1;
+  overflow-y: auto;
+  background: rgba(20, 25, 32, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.fm-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fm-list::-webkit-scrollbar-track {
+  background: rgba(10, 14, 18, 0.4);
+}
+
+.fm-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.fm-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* File row */
+.fm-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 120px 140px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fm-row:hover {
+  background: rgba(30, 35, 42, 0.5);
+}
+
+.fm-row:last-child {
+  border-bottom: none;
+}
+
+.fm-row-selected {
+  background: rgba(107, 140, 174, 0.12);
+  border-color: rgba(107, 140, 174, 0.2);
+}
+
+.fm-row-selected:hover {
+  background: rgba(107, 140, 174, 0.18);
+}
+
+/* Columns */
+.fm-col-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fm-checkbox {
+  width: 16px;
+  height: 16px;
+  background: rgba(30, 35, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fm-checkbox:checked {
+  background: #7fa1c3;
+  border-color: #7fa1c3;
+}
+
+.fm-checkbox:checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.fm-col-name {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.fm-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.fm-icon-folder {
+  color: #e8c368;
+}
+
+.fm-icon-file {
+  color: #7fa1c3;
+}
+
+.fm-name-dir {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fm-name-file {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fm-col-size {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8125rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.fm-col-permissions {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Modal overlay */
+.fm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+/* Modal */
+.fm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  max-height: 80vh;
+  background: #16161a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fm-modal-media {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.fm-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: rgba(20, 25, 32, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.fm-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.fm-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fm-modal-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* Editor */
+.fm-editor {
+  flex: 1;
+  padding: 1.5rem;
+  background: #0a0e12;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.fm-editor::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Media container */
+.fm-media-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: #0a0e12;
+  overflow: hidden;
+}
+
+.fm-media {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+/* Modal animations */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-active .fm-modal,
+.modal-fade-leave-active .fm-modal {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-from .fm-modal,
+.modal-fade-leave-to .fm-modal {
+  transform: scale(0.95);
+  opacity: 0;
+}
+</style>

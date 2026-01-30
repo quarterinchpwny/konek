@@ -1,82 +1,80 @@
 <template>
-  <main class="flex-1 flex flex-col relative min-w-0 bg-[#0a0a0c]">
+  <main class="flex-1 flex flex-col relative min-w-0 overflow-hidden main-page">
+    <!-- Background -->
+    <div class="main-bg"></div>
+    <div class="main-noise"></div>
+
     <!-- Top Header -->
-    <header
-      class="h-16 border-b border-slate-800 bg-[#0c0c0e]/80 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-10"
-    >
-      <div class="flex items-center gap-4 text-sm">
-        <span class="text-slate-500">Connections</span>
-        <ChevronRight :size="14" class="text-slate-700" />
-        <span class="text-white font-medium">{{
-          hostStore.selectedHost?.alias || "No connection selected"
-        }}</span>
+    <header class="main-header">
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <span class="breadcrumb-item">Connections</span>
+        <ChevronRight :size="12" class="breadcrumb-separator" />
+        <span class="breadcrumb-current">
+          {{ hostStore.selectedHost?.alias || "No connection selected" }}
+        </span>
       </div>
 
-      <div class="flex items-center gap-4">
-        <!-- View Switcher -->
-        <div
-          class="flex bg-slate-900/80 p-1 rounded-lg border border-slate-800/50"
-          v-if="serverStatus !== 'offline'"
-        >
+      <!-- Right side with tabs and status -->
+      <div class="header-right">
+        <!-- Tab Switcher -->
+        <div class="tabs-container" v-if="serverStatus !== 'offline'">
           <button
             @click="activeTab = 'terminal'"
-            :class="[
-              'px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all',
-              activeTab === 'terminal'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200',
-            ]"
+            :class="['tab', { 'tab-active': activeTab === 'terminal' }]"
           >
             <Terminal :size="14" />
-            Terminal
+            <span>Terminal</span>
+            <div v-if="activeTab === 'terminal'" class="tab-indicator"></div>
           </button>
           <button
             @click="activeTab = 'files'"
-            :class="[
-              'px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all',
-              activeTab === 'files'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200',
-            ]"
+            :class="['tab', { 'tab-active': activeTab === 'files' }]"
           >
             <Folder :size="14" />
-            Files
+            <span>Files</span>
+            <div v-if="activeTab === 'files'" class="tab-indicator"></div>
           </button>
           <button
             @click="activeTab = 'docker'"
-            :class="[
-              'px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all',
-              activeTab === 'docker'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200',
-            ]"
+            :class="['tab', { 'tab-active': activeTab === 'docker' }]"
           >
-            
-            Docker
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 7h-9"></path>
+              <path d="M14 17H5"></path>
+              <circle cx="17" cy="17" r="3"></circle>
+              <circle cx="7" cy="7" r="3"></circle>
+            </svg>
+            <span>Docker</span>
+            <div v-if="activeTab === 'docker'" class="tab-indicator"></div>
           </button>
         </div>
 
-        <div class="h-6 w-px bg-slate-800"></div>
+        <div class="header-divider"></div>
 
         <ServerStatusBadge :status="serverStatus" />
       </div>
     </header>
-    <div class="grid grid-cols-5">
-      <div class="col-span-4" v-show="activeTab === 'terminal'">
+    
+    <!-- Main content grid - this is the key fix -->
+    <div class="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
+      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'terminal'">
         <template v-if="sessionId">
           <SshTerminal :session-id="sessionId" />
         </template>
       </div>
-      <div class="col-span-4" v-show="activeTab === 'files'">
+      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'files'">
         <FileManager />
       </div>
-      <div class="col-span-4" v-show="activeTab === 'docker'">
+      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'docker'">
         <DockerManager :host-id="hostStore.selectedHost?.id" />
       </div>
-      <ServerStats
-        v-if="hostStore.selectedHost?.id != null && sessionId"
-        :host-id="hostStore.selectedHost.id"
-      />
+      <div class="col-span-1 h-full overflow-hidden">
+        <ServerStats
+          v-if="hostStore.selectedHost?.id != null && sessionId"
+          :host-id="hostStore.selectedHost.id"
+        />
+      </div>
     </div>
   </main>
 </template>
@@ -181,7 +179,152 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.terminal-view {
-  height: 600px;
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+
+.main-page {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Background */
+.main-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
+  z-index: 0;
+}
+
+.main-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Header */
+.main-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 1.5rem;
+  background: rgba(20, 25, 32, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.breadcrumb-item {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.breadcrumb-separator {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.breadcrumb-current {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Header right */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: rgba(30, 35, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: -0.01em;
+}
+
+.tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-active {
+  color: #7fa1c3;
+  background: rgba(127, 161, 195, 0.12);
+}
+
+.tab-active:hover {
+  color: #7fa1c3;
+  background: rgba(127, 161, 195, 0.15);
+}
+
+.tab svg {
+  flex-shrink: 0;
+}
+
+.tab span {
+  flex-shrink: 0;
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0.5rem;
+  right: 0.5rem;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #7fa1c3, transparent);
+  border-radius: 1px;
+  animation: tab-indicator-slide 0.3s ease;
+}
+
+@keyframes tab-indicator-slide {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* Divider */
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.06);
 }
 </style>

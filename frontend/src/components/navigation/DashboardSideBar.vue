@@ -1,271 +1,202 @@
 <template>
-  <aside
-    class="w-72 bg-[#121214] border-r border-slate-800 flex flex-col shrink-0 transition-all duration-300"
-  >
-    <div
-      class="p-6 flex items-center justify-between border-b border-slate-800"
-    >
-      <div class="flex items-center gap-2">
-        <div class="p-2 bg-indigo-500/10 rounded-lg">
-          <Terminal :size="20" class="text-indigo-400" />
+  <aside class="sidebar">
+    <!-- Background layers -->
+    <div class="sidebar-bg"></div>
+    <div class="sidebar-noise"></div>
+    
+    <!-- Header -->
+    <div class="sidebar-header">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <Terminal :size="20" />
         </div>
-        <RouterLink :to="{ name: 'home' }">
-          <h1 class="font-bold text-white tracking-tight text-lg">
-            Konek
-          </h1></RouterLink
-        >
+        <RouterLink :to="{ name: 'home' }" class="logo-link">
+          <h1 class="logo-text">Konek</h1>
+        </RouterLink>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-4 space-y-6">
-      <div>
-        <div class="flex items-center justify-between mb-4 px-2">
-          <span
-            class="text-xs font-semibold text-slate-500 uppercase tracking-widest"
-            >Saved Hosts</span
-          >
-          <button
-            @click="isModalOpen = true"
-            class="p-1 hover:bg-slate-800 rounded transition-colors"
-          >
-            <Plus :size="16" />
-          </button>
-        </div>
+    <!-- Hosts list -->
+    <div class="hosts-container">
+      <div class="section-header">
+        <span class="section-title">Saved Hosts</span>
+        <button @click="isModalOpen = true" class="add-btn" title="Add new host">
+          <Plus :size="16" />
+        </button>
+      </div>
 
-        <div class="space-y-1">
-          <button
-            v-for="host in hostStore.hosts"
-            :key="host.id"
-            @click="setActiveHost(host)"
-            :class="[
-              'w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all',
-              hostStore.selectedHost?.id === host.id
-                ? 'bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/30'
-                : 'hover:bg-slate-800/50 text-slate-400',
-            ]"
-          >
-            <Server
-              :size="18"
-              :class="
-                hostStore.selectedHost?.id === host.id
-                  ? 'text-indigo-400'
-                  : 'text-slate-500'
-              "
-            />
-            <div class="flex-1 text-left truncate">
-              <p
-                :class="[
-                  'text-sm font-medium truncate',
-                  hostStore.selectedHost?.id === host.id ? 'text-white' : '',
-                ]"
-              >
-                {{ host.alias }}
-              </p>
-              <p class="text-[10px] opacity-60 font-mono">
-                <span v-if="host.sshEnabled"
-                  >{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span
-                >
-                <span v-else>{{ host.hostname }}</span>
-              </p>
-              <p class="text-[10px] text-slate-500 font-mono mt-1">
-                CPU:
-                {{ host.stats?.cpu?.usagePercent?.toFixed(0) || "..." }}% | Mem:
-                {{ host.stats?.memory?.percent?.toFixed(0) || "..." }}%
-              </p>
+      <div class="hosts-list">
+        <button
+          v-for="host in hostStore.hosts"
+          :key="host.id"
+          @click="setActiveHost(host)"
+          :class="['host-card', { 'host-card-active': hostStore.selectedHost?.id === host.id }]"
+        >
+          <Server :size="18" class="host-icon" />
+          
+          <div class="host-info">
+            <p class="host-alias">{{ host.alias }}</p>
+            <p class="host-connection">
+              <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
+              <span v-else>{{ host.hostname }}</span>
+            </p>
+            
+            <!-- Improved stats display -->
+            <div class="host-stats">
+              <div class="stat-item">
+                <span class="stat-label">CPU</span>
+                <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || "--" }}%</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-label">MEM</span>
+                <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || "--" }}%</span>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <button
-                v-if="host.macAddress"
-                @click.stop="wakeHost(host.id!)"
-                class="opacity-0 group-hover:opacity-100 p-1 hover:text-purple-400 transition-opacity"
-                title="Wake On LAN"
-              >
-                <Zap :size="14" />
-              </button>
-              <button
-                @click.stop="editHost(host)"
-                class="opacity-0 group-hover:opacity-100 p-1 hover:text-yellow-400 transition-opacity"
-                title="Edit Host"
-              >
-                <Pencil :size="14" />
-              </button>
-              <button
-                @click.stop="deleteHost(host.id!)"
-                class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
-                title="Delete Host"
-              >
-                <Trash2 :size="14" />
-              </button>
-            </div>
-          </button>
-        </div>
+          </div>
+
+          <div class="host-actions">
+            <button
+              v-if="host.macAddress"
+              @click.stop="wakeHost(host.id!)"
+              class="action-btn wake"
+              title="Wake On LAN"
+            >
+              <Zap :size="14" />
+            </button>
+            <button
+              @click.stop="editHost(host)"
+              class="action-btn edit"
+              title="Edit Host"
+            >
+              <Pencil :size="14" />
+            </button>
+            <button
+              @click.stop="deleteHost(host.id!)"
+              class="action-btn delete"
+              title="Delete Host"
+            >
+              <Trash2 :size="14" />
+            </button>
+          </div>
+        </button>
       </div>
     </div>
 
-    <!-- User Profile -->
-    <div class="p-4 border-t border-slate-800 bg-[#0c0c0e]">
-      <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-900/50">
-        <div
-          class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold"
-        >
-          JD
+    <!-- User profile -->
+    <div class="user-profile">
+      <div class="profile-card">
+        <div class="profile-avatar">JD</div>
+        <div class="profile-info">
+          <p class="profile-name">Local User</p>
+          <p class="profile-subtitle">Settings & Profile</p>
         </div>
-        <div class="flex-1 min-w-0 text-xs">
-          <p class="text-white font-medium">Local User</p>
-          <p class="text-slate-500 truncate">Settings & Profile</p>
-        </div>
-        <Settings :size="14" class="text-slate-600" />
+        <Settings :size="14" class="profile-icon" />
       </div>
     </div>
   </aside>
-  <div
-    v-if="isModalOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center p-6"
-  >
-    <div
-      class="absolute inset-0 bg-black/80 backdrop-blur-sm"
-      @click="cancelEdit"
-    ></div>
-    <div
-      class="relative w-full max-w-md bg-[#16161a] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden"
-    >
-      <div class="p-8">
-        <div class="flex items-center justify-between mb-8">
+
+  <!-- Modal -->
+  <Transition name="modal-fade">
+    <div v-if="isModalOpen" class="modal-overlay" @click.self="cancelEdit">
+      <div class="modal-content">
+        <div class="modal-header">
           <div>
-            <h2 class="text-xl font-bold text-white">
-              {{ editingHost ? "Edit Host" : "Add New Host" }}
-            </h2>
-            <p class="text-slate-500 text-sm mt-1">
-              {{
-                editingHost
-                  ? "Update the host details."
-                  : "Configure a new remote endpoint."
-              }}
+            <h2 class="modal-title">{{ editingHost ? "Edit Host" : "Add New Host" }}</h2>
+            <p class="modal-subtitle">
+              {{ editingHost ? "Update the host details." : "Configure a new remote endpoint." }}
             </p>
           </div>
-          <button
-            @click="cancelEdit"
-            class="text-slate-500 hover:text-white transition-colors"
-          >
+          <button @click="cancelEdit" class="modal-close">
             <X :size="24" />
           </button>
         </div>
 
-        <form @submit.prevent="saveHost" class="space-y-5">
-          <div class="flex items-center justify-between">
-            <label
-              for="ssh-toggle"
-              class="block text-xs font-bold text-slate-400 uppercase tracking-widest"
-              >Enable SSH</label
-            >
+        <form @submit.prevent="saveHost" class="modal-form">
+          <div class="form-row">
+            <label for="ssh-toggle" class="form-label">Enable SSH</label>
             <label class="toggle-switch">
-              <input
-                type="checkbox"
-                id="ssh-toggle"
-                v-model="form.sshEnabled"
-              />
-              <span class="slider round"></span>
+              <input type="checkbox" id="ssh-toggle" v-model="form.sshEnabled" />
+              <span class="toggle-slider"></span>
             </label>
           </div>
-          <div>
-            <label
-              class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-              >Friendly Name</label
-            >
+
+          <div class="form-group">
+            <label class="form-label">Friendly Name</label>
             <input
               v-model="form.alias"
               type="text"
               required
               placeholder="e.g. Raspberry Pi Cluster"
-              class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700"
+              class="form-input"
             />
           </div>
-          <div class="grid grid-cols-3 gap-4">
-            <div
-              :class="{
-                'col-span-3': !form.sshEnabled,
-                'col-span-2': form.sshEnabled,
-              }"
-            >
-              <label
-                class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-                >IP / Host</label
-              >
+
+          <div class="form-grid">
+            <div :class="{ 'form-group-full': !form.sshEnabled, 'form-group-2': form.sshEnabled }">
+              <label class="form-label">IP / Host</label>
               <input
                 v-model="form.hostname"
                 type="text"
                 required
                 placeholder="192.168.1.1"
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
+                class="form-input form-input-mono"
               />
             </div>
 
-            <div v-if="form.sshEnabled">
-              <label
-                class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-                >Port</label
-              >
+            <div v-if="form.sshEnabled" class="form-group-1">
+              <label class="form-label">Port</label>
               <input
                 v-model="form.port"
                 type="text"
                 :required="form.sshEnabled"
                 placeholder="22"
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
-              />
-            </div>
-            <div class="col-span-3" v-if="form.sshEnabled">
-              <label
-                class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-                >Username</label
-              >
-              <input
-                v-model="form.username"
-                type="text"
-                :required="form.sshEnabled"
-                placeholder="root"
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
-              />
-            </div>
-            <div class="col-span-3" v-if="form.sshEnabled">
-              <label
-                class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-                >Password</label
-              >
-              <input
-                v-model="form.password"
-                type="password"
-                :placeholder="
-                  editingHost ? '(leave blank to keep unchanged)' : ''
-                "
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
-              />
-            </div>
-            <div class="col-span-3">
-              <label
-                class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
-                >MAC Address (optional)</label
-              >
-              <input
-                v-model="form.macAddress"
-                type="text"
-                placeholder="XX:XX:XX:XX:XX:XX"
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-700 font-mono text-sm"
+                class="form-input form-input-mono"
               />
             </div>
           </div>
-          <div class="flex items-center gap-4 mt-4">
+
+          <div v-if="form.sshEnabled" class="form-group">
+            <label class="form-label">Username</label>
+            <input
+              v-model="form.username"
+              type="text"
+              :required="form.sshEnabled"
+              placeholder="root"
+              class="form-input form-input-mono"
+            />
+          </div>
+
+          <div v-if="form.sshEnabled" class="form-group">
+            <label class="form-label">Password</label>
+            <input
+              v-model="form.password"
+              type="password"
+              :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''"
+              class="form-input form-input-mono"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">MAC Address (optional)</label>
+            <input
+              v-model="form.macAddress"
+              type="text"
+              placeholder="XX:XX:XX:XX:XX:XX"
+              class="form-input form-input-mono"
+            />
+          </div>
+
+          <div class="form-actions">
             <button
               v-if="editingHost"
               type="button"
               @click="cancelEdit"
-              class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-4 rounded-2xl transition-all"
+              class="btn btn-secondary"
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
-            >
+            <button type="submit" class="btn btn-primary">
               <Plus v-if="!editingHost" :size="18" />
               {{ editingHost ? "Update Connection" : "Save Connection" }}
             </button>
@@ -273,21 +204,14 @@
         </form>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
+
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import {
-  Plus,
-  Server,
-  Terminal,
-  Settings,
-  Trash2,
-  X,
-  Zap,
-  Pencil,
-} from "lucide-vue-next";
+import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil } from "lucide-vue-next";
+
 const hostStore = useHostStore();
 
 const defaultForm: Host = {
@@ -296,7 +220,7 @@ const defaultForm: Host = {
   port: 22,
   username: "",
   password: "",
-  macAddress: "", // Initialize macAddress
+  macAddress: "",
   sshEnabled: true,
 };
 
@@ -304,17 +228,15 @@ const form = reactive<Host>({ ...defaultForm });
 const activeHostId = ref<number | null>(null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
-const emits = defineEmits(["select-host"]);
 
 let pollingInterval: number | undefined;
 
 onMounted(async () => {
   await hostStore.fetchHosts();
-  hostStore.fetchBulkHostStatus(); // Initial check
-
+  hostStore.fetchBulkHostStatus();
   pollingInterval = window.setInterval(() => {
     hostStore.fetchBulkHostStatus();
-  }, 5000); // Poll every 5 seconds
+  }, 5000);
 });
 
 onUnmounted(() => {
@@ -337,20 +259,19 @@ async function saveHost() {
     isModalOpen.value = false;
     await hostStore.fetchHosts();
   } catch (e) {
-    // Error handled by store, displayed by template
+    console.error(e);
   }
 }
 
 function editHost(host: Host) {
   editingHost.value = host;
-  // Make a copy to avoid reactive changes on the original object
   form.alias = host.alias;
   form.hostname = host.hostname;
   form.port = host.port;
   form.username = host.username;
   form.macAddress = host.macAddress;
   form.sshEnabled = host.sshEnabled;
-  form.password = ""; // Clear password for security
+  form.password = "";
   isModalOpen.value = true;
 }
 
@@ -379,20 +300,515 @@ async function deleteHost(id: number) {
     try {
       await hostStore.deleteHost(id);
       if (editingHost.value && editingHost.value.id === id) {
-        resetForm(); // Clear form if deleted host was being edited
+        resetForm();
       }
     } catch (e) {
-      // Error handled by store, displayed by template
+      console.error(e);
     }
   }
 }
 </script>
-<style>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+
+.sidebar {
+  position: relative;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Background layers */
+.sidebar-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0f1419 0%, #0a0e12 100%);
+  z-index: 0;
+}
+
+.sidebar-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Header */
+.sidebar-header {
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(107, 140, 174, 0.15);
+  border: 1px solid rgba(107, 140, 174, 0.2);
+  border-radius: 12px;
+  color: #7fa1c3;
+}
+
+.logo-link {
+  text-decoration: none;
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.logo-link:hover .logo-text {
+  color: #7fa1c3;
+}
+
+/* Hosts container */
+.hosts-container {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.hosts-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hosts-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hosts-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.hosts-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(107, 140, 174, 0.12);
+  border: 1px solid rgba(107, 140, 174, 0.2);
+  border-radius: 8px;
+  color: #7fa1c3;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-btn:hover {
+  background: rgba(107, 140, 174, 0.2);
+  transform: scale(1.05);
+}
+
+/* Hosts list */
+.hosts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.host-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: rgba(20, 25, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  overflow: hidden;
+}
+
+.host-card:hover {
+  background: rgba(25, 30, 38, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.host-card-active {
+  background: rgba(107, 140, 174, 0.12);
+  border-color: rgba(107, 140, 174, 0.3);
+  box-shadow: 0 0 0 1px rgba(107, 140, 174, 0.1);
+}
+
+.host-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s ease;
+}
+
+.host-card-active .host-icon {
+  color: #7fa1c3;
+}
+
+.host-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.host-alias {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.host-card-active .host-alias {
+  color: #ffffff;
+}
+
+.host-connection {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'JetBrains Mono', monospace;
+  margin: 0 0 0.5rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Improved stats styling */
+.host-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.stat-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-value {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 28px;
+  text-align: right;
+}
+
+.host-card-active .stat-value {
+  color: #7fa1c3;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.host-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.host-card:hover .host-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+}
+
+.action-btn.wake:hover {
+  background: rgba(168, 85, 247, 0.15);
+  color: #b19dd4;
+}
+
+.action-btn.edit:hover {
+  background: rgba(234, 179, 8, 0.15);
+  color: #e8c368;
+}
+
+.action-btn.delete:hover {
+  background: rgba(214, 93, 93, 0.15);
+  color: #d68a8a;
+}
+
+/* User profile */
+.user-profile {
+  position: relative;
+  z-index: 2;
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 14, 18, 0.5);
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: rgba(20, 25, 32, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.profile-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7fa1c3 0%, #6b8cae 100%);
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.125rem 0;
+  letter-spacing: -0.01em;
+}
+
+.profile-subtitle {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.profile-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: #16161a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 2rem 2rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.375rem 0;
+  letter-spacing: -0.02em;
+}
+
+.modal-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.modal-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* Form */
+.modal-form {
+  padding: 2rem;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.form-group-2 {
+  grid-column: span 1;
+}
+
+.form-group-1 {
+  grid-column: span 1;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: rgba(20, 25, 32, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.form-input:focus {
+  outline: none;
+  background: rgba(25, 30, 38, 0.8);
+  border-color: rgba(127, 161, 195, 0.4);
+  box-shadow: 0 0 0 3px rgba(127, 161, 195, 0.1);
+}
+
+.form-input-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+}
+
+/* Toggle switch */
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 40px;
+  width: 44px;
   height: 24px;
+  cursor: pointer;
 }
 
 .toggle-switch input {
@@ -401,43 +817,95 @@ async function deleteHost(id: number) {
   height: 0;
 }
 
-.slider {
+.toggle-slider {
   position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  -webkit-transition: 0.4s;
-  transition: 0.4s;
-  border-radius: 34px;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
 }
 
-.slider:before {
+.toggle-slider::before {
+  content: '';
   position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  -webkit-transition: 0.4s;
-  transition: 0.4s;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #ffffff;
   border-radius: 50%;
+  transition: all 0.3s ease;
 }
 
-input:checked + .slider {
-  background-color: #2196f3;
+input:checked + .toggle-slider {
+  background: #7fa1c3;
 }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196f3;
+input:checked + .toggle-slider::before {
+  transform: translateX(20px);
 }
 
-input:checked + .slider:before {
-  -webkit-transform: translateX(16px);
-  -ms-transform: translateX(16px);
-  transform: translateX(16px);
+/* Form actions */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #7fa1c3;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #6b8cae;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(127, 161, 195, 0.3);
+}
+
+.btn-secondary {
+  background: rgba(140, 140, 150, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-secondary:hover {
+  background: rgba(140, 140, 150, 0.25);
+}
+
+/* Modal animations */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-active .modal-content,
+.modal-fade-leave-active .modal-content {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-from .modal-content,
+.modal-fade-leave-to .modal-content {
+  transform: scale(0.95);
+  opacity: 0;
 }
 </style>
