@@ -40,23 +40,27 @@
             <span class="widget-value cpu">{{ stats.cpu.usagePercent.toFixed(1) }}%</span>
           </div>
           
-          <div class="chart-container">
-            <TransitionGroup name="bar-slide" tag="div" class="chart">
+          <div class="history-chart">
+            <TransitionGroup name="history-slide" tag="div" class="history-bars">
               <div
                 v-for="(value, index) in cpuHistory"
-                :key="index"
-                class="chart-bar-wrapper"
+                :key="`cpu-${index}-${value}`"
+                class="history-bar-container"
               >
                 <div
-                  class="chart-bar cpu-bar"
-                  :class="{ 'chart-bar-latest': index === cpuHistory.length - 1 }"
+                  class="history-bar cpu-history"
+                  :class="{ 'history-bar-latest': index === cpuHistory.length - 1 }"
                   :style="{ height: `${value}%` }"
-                >
-                  <div class="bar-shimmer"></div>
-                </div>
-                <div class="bar-tooltip">{{ value.toFixed(1) }}%</div>
+                ></div>
               </div>
             </TransitionGroup>
+          </div>
+
+          <div class="widget-details">
+            <span class="detail-label">Load Average</span>
+            <span class="detail-value">
+              <strong>{{ stats.cpu.loadAvg?.[0]?.toFixed(2) || '0.00' }}</strong>
+            </span>
           </div>
         </div>
 
@@ -72,10 +76,20 @@
             <span class="widget-value mem">{{ stats.memory.percent.toFixed(1) }}%</span>
           </div>
 
-          <div class="progress-bar-container">
-            <div class="progress-bar mem-bar" :style="{ width: stats.memory.percent + '%' }">
-              <div class="progress-shimmer"></div>
-            </div>
+          <div class="history-chart">
+            <TransitionGroup name="history-slide" tag="div" class="history-bars">
+              <div
+                v-for="(value, index) in memoryHistory"
+                :key="`mem-${index}-${value}`"
+                class="history-bar-container"
+              >
+                <div
+                  class="history-bar mem-history"
+                  :class="{ 'history-bar-latest': index === memoryHistory.length - 1 }"
+                  :style="{ height: `${value}%` }"
+                ></div>
+              </div>
+            </TransitionGroup>
           </div>
 
           <div class="widget-details">
@@ -127,9 +141,7 @@
             </div>
 
             <div class="progress-bar-container">
-              <div class="progress-bar disk-bar" :style="{ width: disk.percent }">
-                <div class="progress-shimmer"></div>
-              </div>
+              <div class="progress-bar disk-bar" :style="{ width: disk.percent }"></div>
             </div>
 
             <div class="widget-details">
@@ -155,8 +167,9 @@ const props = defineProps<{ hostId: number }>();
 const stats = ref<any>(null);
 const status = ref("loading");
 
-const CPU_HISTORY_SIZE = 20;
+const HISTORY_SIZE = 30;
 const cpuHistory = ref<number[]>([]);
+const memoryHistory = ref<number[]>([]);
 
 let intervalId: number | null = null;
 const iconCache = ref<Record<string, string>>({});
@@ -178,10 +191,18 @@ const fetchStats = async () => {
     stats.value = data;
     status.value = "online";
 
+    // CPU History
     const cpuPercent = Math.min(100, Math.max(0, data.cpu.usagePercent));
     cpuHistory.value.push(cpuPercent);
-    if (cpuHistory.value.length > CPU_HISTORY_SIZE) {
+    if (cpuHistory.value.length > HISTORY_SIZE) {
       cpuHistory.value.shift();
+    }
+
+    // Memory History
+    const memPercent = Math.min(100, Math.max(0, data.memory.percent));
+    memoryHistory.value.push(memPercent);
+    if (memoryHistory.value.length > HISTORY_SIZE) {
+      memoryHistory.value.shift();
     }
   } catch (err) {
     console.error("Failed to fetch stats:", err);
@@ -233,6 +254,7 @@ watch(() => props.hostId, () => {
   stats.value = null;
   status.value = "loading";
   cpuHistory.value = [];
+  memoryHistory.value = [];
   if (intervalId) clearInterval(intervalId);
   fetchStats();
   intervalId = setInterval(fetchStats, 5000);
@@ -454,135 +476,72 @@ watch(() => props.hostId, () => {
   color: #8bc4a0;
 }
 
-/* Chart */
-.chart-container {
-  height: 96px;
-  margin-bottom: 0.5rem;
+/* History Chart */
+.history-chart {
+  height: 80px;
+  margin-bottom: 0.875rem;
+  background: rgba(10, 14, 18, 0.4);
+  border-radius: 10px;
+  padding: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.chart {
+.history-bars {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   height: 100%;
   gap: 2px;
-  background: rgba(30, 35, 42, 0.4);
-  border-radius: 10px;
-  padding: 0.5rem;
 }
 
-.chart-bar-wrapper {
-  position: relative;
+.history-bar-container {
   flex: 1;
   height: 100%;
   display: flex;
   align-items: flex-end;
-  cursor: pointer;
+  min-width: 2px;
 }
 
-.chart-bar {
-  position: relative;
+.history-bar {
   width: 100%;
   min-height: 2px;
-  border-radius: 2px;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.cpu-bar {
-  background: linear-gradient(to top, #5f8aa6 0%, #7fa1c3 100%);
-  opacity: 0.4;
+.cpu-history {
+  background: #7fa1c3;
+  opacity: 0.5;
 }
 
-.chart-bar-latest {
-  opacity: 1;
-  box-shadow: 0 0 8px rgba(127, 161, 195, 0.5);
+.mem-history {
+  background: #b19dd4;
+  opacity: 0.5;
 }
 
-.bar-shimmer {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    transparent 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 100%
-  );
-  animation: shimmer 2s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  0%, 100% { transform: translateY(100%); }
-  50% { transform: translateY(-100%); }
-}
-
-.bar-tooltip {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(100% + 6px);
-  padding: 0.25rem 0.5rem;
-  background: rgba(20, 25, 32, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  color: #ffffff;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.chart-bar-wrapper:hover .bar-tooltip {
-  opacity: 1;
+.history-bar-latest {
+  opacity: 1 !important;
 }
 
 /* Progress bar */
 .progress-bar-container {
   position: relative;
   width: 100%;
-  height: 10px;
+  height: 8px;
   background: rgba(30, 35, 42, 0.4);
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
   margin-bottom: 0.875rem;
 }
 
 .progress-bar {
-  position: relative;
   height: 100%;
-  border-radius: 5px;
+  border-radius: 4px;
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.mem-bar {
-  background: linear-gradient(to right, #9a7fca 0%, #b19dd4 100%);
-  box-shadow: 0 0 12px rgba(177, 157, 212, 0.4);
 }
 
 .disk-bar {
-  background: linear-gradient(to right, #6ba87d 0%, #8bc4a0 100%);
-  box-shadow: 0 0 12px rgba(139, 196, 160, 0.4);
-}
-
-.progress-shimmer {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 100%
-  );
-  animation: shimmer-horizontal 2s ease-in-out infinite;
-}
-
-@keyframes shimmer-horizontal {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  background: #8bc4a0;
 }
 
 /* Widget details */
@@ -673,12 +632,20 @@ watch(() => props.hostId, () => {
 }
 
 /* Animations */
-.bar-slide-enter-active {
-  transition: all 0.5s ease-out;
+.history-slide-enter-active {
+  transition: all 0.6s ease-out;
 }
 
-.bar-slide-enter-from {
+.history-slide-enter-from {
   opacity: 0;
   transform: translateY(10px);
+}
+
+.history-slide-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.history-slide-leave-to {
+  opacity: 0;
 }
 </style>

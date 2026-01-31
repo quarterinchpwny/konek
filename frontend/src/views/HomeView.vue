@@ -81,39 +81,43 @@
             </div>
           </div>
 
-          <!-- Stats mini-grid -->
-          <div class="stats-mini-grid">
+          <!-- Stats with history -->
+          <div class="stats-section">
             <!-- CPU -->
-            <div class="mini-stat cpu">
-              <div class="mini-stat-header">
-                <span class="mini-stat-label">CPU</span>
-                <Activity :size="12" />
+            <div class="stat-item">
+              <div class="stat-header">
+                <span class="stat-label">CPU</span>
+                <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || 0 }}%</span>
               </div>
-              <div class="mini-stat-value">
-                {{ host.stats?.cpu?.percent?.toFixed(0) || 0 }}%
-              </div>
-              <div class="mini-stat-bar">
-                <div class="mini-stat-fill cpu-fill" :style="{ width: `${host.stats?.cpu?.percent || 0}%` }">
-                  <div class="mini-stat-shimmer"></div>
-                </div>
+              <div class="stat-history">
+                <div
+                  v-for="(value, index) in getHistory(host.id!, 'cpu')"
+                  :key="`cpu-${host.id}-${index}`"
+                  class="history-bar cpu-bar"
+                  :class="{ 'history-bar-latest': index === getHistory(host.id!, 'cpu').length - 1 }"
+                  :style="{ height: `${value}%` }"
+                ></div>
               </div>
             </div>
 
-            <!-- RAM -->
-            <div class="mini-stat mem">
-              <div class="mini-stat-header">
-                <span class="mini-stat-label">RAM</span>
-                <Cpu :size="12" />
+            <!-- Memory -->
+            <div class="stat-item">
+              <div class="stat-header">
+                <span class="stat-label">MEM</span>
+                <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || 0 }}%</span>
               </div>
-              <div class="mini-stat-value">
-                {{ formatBytes(host.stats?.memory?.used || 0) }}
-              </div>
-              <div class="mini-stat-bar">
-                <div class="mini-stat-fill mem-fill" :style="{ width: `${host.stats?.memory?.percent || 0}%` }">
-                  <div class="mini-stat-shimmer"></div>
-                </div>
+              <div class="stat-history">
+                <div
+                  v-for="(value, index) in getHistory(host.id!, 'memory')"
+                  :key="`mem-${host.id}-${index}`"
+                  class="history-bar mem-bar"
+                  :class="{ 'history-bar-latest': index === getHistory(host.id!, 'memory').length - 1 }"
+                  :style="{ height: `${value}%` }"
+                ></div>
               </div>
             </div>
+
+          
           </div>
 
           <!-- Card footer -->
@@ -248,7 +252,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Trash2, X, Activity, Cpu, Zap, Pencil } from "lucide-vue-next";
+import { Plus, Server, Trash2, X, Zap, Pencil } from "lucide-vue-next";
 import { useRouter } from "vue-router";
 
 const hostStore = useHostStore();
@@ -269,14 +273,71 @@ const activeHostId = ref<number | null>(null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
 
+// History tracking
+const HISTORY_SIZE = 20;
+const statsHistory = ref<Record<number, {
+  cpu: number[];
+  memory: number[];
+}>>({});
+
 let pollingInterval: number | undefined;
+
+// Initialize history for a host
+const initializeHistory = (hostId: number) => {
+  if (!statsHistory.value[hostId]) {
+    statsHistory.value[hostId] = {
+      cpu: [],
+      memory: []
+    };
+  }
+};
+
+// Update history with new stats
+const updateHistory = (hostId: number, stats: any) => {
+  initializeHistory(hostId);
+  
+  const history = statsHistory.value[hostId];
+  
+  // CPU
+  const cpuPercent = Math.min(100, Math.max(0, stats?.cpu?.usagePercent || 0));
+  history.cpu.push(cpuPercent);
+  if (history.cpu.length > HISTORY_SIZE) history.cpu.shift();
+  
+  // Memory
+  const memPercent = Math.min(100, Math.max(0, stats?.memory?.percent || 0));
+  history.memory.push(memPercent);
+  if (history.memory.length > HISTORY_SIZE) history.memory.shift();
+};
+
+// Get history for a specific metric
+const getHistory = (hostId: number, metric: 'cpu' | 'memory'): number[] => {
+  if (!statsHistory.value[hostId]) {
+    return [];
+  }
+  return statsHistory.value[hostId][metric] || [];
+};
 
 onMounted(async () => {
   await hostStore.fetchHosts();
-  hostStore.fetchBulkHostStatus();
+  await hostStore.fetchBulkHostStatus();
+  
+  // Initialize history for all hosts
+  hostStore.hosts.forEach(host => {
+    if (host.id) {
+      initializeHistory(host.id);
+      updateHistory(host.id, host.stats);
+    }
+  });
 
-  pollingInterval = window.setInterval(() => {
-    hostStore.fetchBulkHostStatus();
+  pollingInterval = window.setInterval(async () => {
+    await hostStore.fetchBulkHostStatus();
+    
+    // Update history for all hosts
+    hostStore.hosts.forEach(host => {
+      if (host.id && host.stats) {
+        updateHistory(host.id, host.stats);
+      }
+    });
   }, 5000);
 });
 
@@ -298,15 +359,6 @@ function getStatusColorClass(status: Host["status"]): { dot: string; text: strin
       return { dot: "status-dot-unknown", text: "status-text-unknown" };
   }
 }
-
-const formatBytes = (bytes: number) => {
-  if (!bytes || bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const formattedValue = (bytes / Math.pow(k, i)).toFixed(2);
-  return `${formattedValue} ${sizes[i]}`;
-};
 
 function resetForm() {
   Object.assign(form, defaultForm);
@@ -366,6 +418,10 @@ async function deleteHost(id: number) {
     try {
       await hostStore.deleteHost(id);
       if (activeHostId.value === id) activeHostId.value = null;
+      // Clean up history
+      if (statsHistory.value[id]) {
+        delete statsHistory.value[id];
+      }
     } catch (e) {
       console.error(e);
     }
@@ -697,92 +753,100 @@ async function deleteHost(id: number) {
   color: #d68a8a;
 }
 
-/* Stats mini-grid */
-.stats-mini-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.875rem;
+/* Stats section */
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
-}
-
-.mini-stat {
-  padding: 0.875rem 1rem;
-  background: rgba(30, 35, 42, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1rem;
+  background: rgba(10, 14, 18, 0.4);
   border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.mini-stat-header {
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.stat-item-simple {
+  gap: 0.5rem;
+}
+
+.stat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
 }
 
-.mini-stat-label {
+.stat-label {
   font-size: 0.6875rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.mini-stat.cpu {
-  color: #7fa1c3;
-}
-
-.mini-stat.mem {
-  color: #b19dd4;
-}
-
-.mini-stat-value {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #ffffff;
   font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 0.625rem;
 }
 
-.mini-stat-bar {
+.stat-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-history {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 28px;
+  gap: 2px;
+  background: rgba(10, 14, 18, 0.4);
+  border-radius: 6px;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.history-bar {
+  flex: 1;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.5;
+}
+
+.history-bar-latest {
+  opacity: 1 !important;
+}
+
+.cpu-bar {
+  background: #7fa1c3;
+}
+
+.mem-bar {
+  background: #b19dd4;
+}
+
+/* Simple bar for disk */
+.stat-bar-track {
   position: relative;
   width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
   overflow: hidden;
 }
 
-.mini-stat-fill {
-  position: relative;
+.stat-bar-fill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.cpu-fill {
-  background: linear-gradient(to right, #5f8aa6 0%, #7fa1c3 100%);
-}
-
-.mem-fill {
-  background: linear-gradient(to right, #9a7fca 0%, #b19dd4 100%);
-}
-
-.mini-stat-shimmer {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 100%
-  );
-  animation: shimmer-mini 2s ease-in-out infinite;
-}
-
-@keyframes shimmer-mini {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.disk-fill {
+  background: #e8c368;
 }
 
 /* Card footer */
