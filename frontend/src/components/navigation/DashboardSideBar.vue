@@ -3,7 +3,7 @@
     <!-- Background layers -->
     <div class="sidebar-bg"></div>
     <div class="sidebar-noise"></div>
-    
+
     <!-- Header -->
     <div class="sidebar-header">
       <div class="logo-container">
@@ -18,69 +18,131 @@
 
     <!-- Hosts list -->
     <div class="hosts-container">
-      <div class="section-header">
-        <span class="section-title">Saved Hosts</span>
-        <button @click="isModalOpen = true" class="add-btn" title="Add new host">
-          <Plus :size="16" />
-        </button>
-      </div>
 
-      <div class="hosts-list">
-        <button
-          v-for="host in hostStore.hosts"
-          :key="host.id"
-          @click="setActiveHost(host)"
-          :class="['host-card', { 'host-card-active': hostStore.selectedHost?.id === host.id }]"
-        >
-          <Server :size="18" class="host-icon" />
-          
-          <div class="host-info">
-            <p class="host-alias">{{ host.alias }}</p>
-            <p class="host-connection">
-              <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
-              <span v-else>{{ host.hostname }}</span>
-            </p>
-            
-            <!-- Improved stats display -->
-            <div class="host-stats">
-              <div class="stat-item">
-                <span class="stat-label">CPU</span>
-                <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || "--" }}%</span>
+      <template v-if="routeName !== 'home'">
+        <div class="section-header">
+          <span class="section-title">Saved Hosts</span>
+          <button @click="isModalOpen = true" class="add-btn" title="Add new host">
+            <Plus :size="16" />
+          </button>
+        </div>
+
+        <div class="hosts-list">
+          <button v-for="host in hostStore.hosts" :key="host.id" @click="setActiveHost(host)"
+            :class="['host-card', { 'host-card-active': hostStore.selectedHost?.id === host.id }]">
+            <Server :size="18" class="host-icon" />
+
+            <div class="host-info">
+              <p class="host-alias">{{ host.alias }}</p>
+              <p class="host-connection">
+                <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
+                <span v-else>{{ host.hostname }}</span>
+              </p>
+
+              <!-- Improved stats display -->
+              <div class="host-stats">
+                <div class="stat-item">
+                  <span class="stat-label">CPU</span>
+                  <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || "--" }}%</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                  <span class="stat-label">MEM</span>
+                  <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || "--" }}%</span>
+                </div>
               </div>
-              <div class="stat-divider"></div>
-              <div class="stat-item">
-                <span class="stat-label">MEM</span>
-                <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || "--" }}%</span>
+            </div>
+
+            <div class="host-actions">
+              <button v-if="host.macAddress" @click.stop="wakeHost(host.id!)" class="action-btn wake"
+                title="Wake On LAN">
+                <Zap :size="14" />
+              </button>
+              <button @click.stop="editHost(host)" class="action-btn edit" title="Edit Host">
+                <Pencil :size="14" />
+              </button>
+              <button @click.stop="deleteHost(host.id!)" class="action-btn delete" title="Delete Host">
+                <Trash2 :size="14" />
+              </button>
+            </div>
+          </button>
+        </div>
+      </template>
+
+      <!-- Home page content -->
+      <template v-else>
+        <div class="home-sidebar-content">
+          <!-- Quick Stats -->
+          <div class="stats-card">
+            <div class="stats-card-header">
+              <Server :size="20" class="stats-card-icon" />
+              <div class="stats-card-title">Infrastructure</div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-box-value">{{ hostStore.hosts.length }}</div>
+                <div class="stat-box-label">Total Hosts</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-value online">{{ onlineHostsCount }}</div>
+                <div class="stat-box-label">Online</div>
               </div>
             </div>
           </div>
 
-          <div class="host-actions">
-            <button
-              v-if="host.macAddress"
-              @click.stop="wakeHost(host.id!)"
-              class="action-btn wake"
-              title="Wake On LAN"
-            >
-              <Zap :size="14" />
-            </button>
-            <button
-              @click.stop="editHost(host)"
-              class="action-btn edit"
-              title="Edit Host"
-            >
-              <Pencil :size="14" />
-            </button>
-            <button
-              @click.stop="deleteHost(host.id!)"
-              class="action-btn delete"
-              title="Delete Host"
-            >
-              <Trash2 :size="14" />
+          <!-- Quick Actions -->
+          <div class="quick-actions-section">
+            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Quick Actions</div>
+            <button @click="isModalOpen = true" class="action-card">
+              <div class="action-card-icon">
+                <Plus :size="20" />
+              </div>
+              <div class="action-card-content">
+                <div class="action-card-title">Add New Host</div>
+                <div class="action-card-subtitle">Configure connection</div>
+              </div>
             </button>
           </div>
-        </button>
-      </div>
+
+          <!-- Recent Activity -->
+          <div class="recent-activity-section">
+            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Recent Activity</div>
+            <div class="activity-list">
+              <div class="activity-item" v-if="hostStore.hosts.length > 0">
+                <div class="activity-icon success">
+                  <Server :size="12" />
+                </div>
+                <div class="activity-info">
+                  <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' : ''
+                    }} configured</p>
+                  <p class="activity-time">Ready to connect</p>
+                </div>
+              </div>
+
+              <div class="activity-item" v-if="onlineHostsCount > 0">
+                <div class="activity-icon online">
+                  <Activity :size="12" />
+                </div>
+                <div class="activity-info">
+                  <p class="activity-title">{{ onlineHostsCount }} host{{ onlineHostsCount !== 1 ? 's' : '' }} online
+                  </p>
+                  <p class="activity-time">System operational</p>
+                </div>
+              </div>
+
+              <div class="activity-item" v-if="hostStore.hosts.length === 0">
+                <div class="activity-icon info">
+                  <AlertCircle :size="12" />
+                </div>
+                <div class="activity-info">
+                  <p class="activity-title">No hosts configured</p>
+                  <p class="activity-time">Add your first host to get started</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- User profile -->
@@ -123,77 +185,44 @@
 
           <div class="form-group">
             <label class="form-label">Friendly Name</label>
-            <input
-              v-model="form.alias"
-              type="text"
-              required
-              placeholder="e.g. Raspberry Pi Cluster"
-              class="form-input"
-            />
+            <input v-model="form.alias" type="text" required placeholder="e.g. Raspberry Pi Cluster"
+              class="form-input" />
           </div>
 
           <div class="form-grid">
             <div :class="{ 'form-group-full': !form.sshEnabled, 'form-group-2': form.sshEnabled }">
               <label class="form-label">IP / Host</label>
-              <input
-                v-model="form.hostname"
-                type="text"
-                required
-                placeholder="192.168.1.1"
-                class="form-input form-input-mono"
-              />
+              <input v-model="form.hostname" type="text" required placeholder="192.168.1.1"
+                class="form-input form-input-mono" />
             </div>
 
             <div v-if="form.sshEnabled" class="form-group-1">
               <label class="form-label">Port</label>
-              <input
-                v-model="form.port"
-                type="text"
-                :required="form.sshEnabled"
-                placeholder="22"
-                class="form-input form-input-mono"
-              />
+              <input v-model="form.port" type="text" :required="form.sshEnabled" placeholder="22"
+                class="form-input form-input-mono" />
             </div>
           </div>
 
           <div v-if="form.sshEnabled" class="form-group">
             <label class="form-label">Username</label>
-            <input
-              v-model="form.username"
-              type="text"
-              :required="form.sshEnabled"
-              placeholder="root"
-              class="form-input form-input-mono"
-            />
+            <input v-model="form.username" type="text" :required="form.sshEnabled" placeholder="root"
+              class="form-input form-input-mono" />
           </div>
 
           <div v-if="form.sshEnabled" class="form-group">
             <label class="form-label">Password</label>
-            <input
-              v-model="form.password"
-              type="password"
-              :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''"
-              class="form-input form-input-mono"
-            />
+            <input v-model="form.password" type="password"
+              :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''" class="form-input form-input-mono" />
           </div>
 
           <div class="form-group">
             <label class="form-label">MAC Address (optional)</label>
-            <input
-              v-model="form.macAddress"
-              type="text"
-              placeholder="XX:XX:XX:XX:XX:XX"
-              class="form-input form-input-mono"
-            />
+            <input v-model="form.macAddress" type="text" placeholder="XX:XX:XX:XX:XX:XX"
+              class="form-input form-input-mono" />
           </div>
 
           <div class="form-actions">
-            <button
-              v-if="editingHost"
-              type="button"
-              @click="cancelEdit"
-              class="btn btn-secondary"
-            >
+            <button v-if="editingHost" type="button" @click="cancelEdit" class="btn btn-secondary">
               Cancel
             </button>
             <button type="submit" class="btn btn-primary">
@@ -208,11 +237,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive } from "vue";
+import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil } from "lucide-vue-next";
+import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle } from "lucide-vue-next";
+import { useRoute } from "vue-router";
 
 const hostStore = useHostStore();
+const route = useRoute();
 
 const defaultForm: Host = {
   alias: "",
@@ -228,6 +259,12 @@ const form = reactive<Host>({ ...defaultForm });
 const activeHostId = ref<number | null>(null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
+const routeName = computed(() => route.name);
+
+// Computed property for online hosts count
+const onlineHostsCount = computed(() =>
+  hostStore.hosts.filter(host => host.online || host.status === 'online').length
+);
 
 let pollingInterval: number | undefined;
 
@@ -606,6 +643,192 @@ async function deleteHost(id: number) {
   color: #d68a8a;
 }
 
+/* Home Sidebar Content */
+.home-sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stats-card {
+  padding: 1.25rem;
+  background: rgba(20, 25, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
+.stats-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stats-card-icon {
+  color: #7fa1c3;
+}
+
+.stats-card-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.stat-box {
+  padding: 1rem;
+  background: rgba(10, 14, 18, 0.5);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.stat-box-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 0.25rem;
+}
+
+.stat-box-value.online {
+  color: #8bc4a0;
+}
+
+.stat-box-label {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+/* Quick Actions */
+.quick-actions-section {
+  padding: 0;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem;
+  background: rgba(20, 25, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.action-card:hover {
+  background: rgba(25, 30, 38, 0.7);
+  border-color: rgba(127, 161, 195, 0.3);
+  transform: translateX(2px);
+}
+
+.action-card-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 161, 195, 0.15);
+  border-radius: 12px;
+  color: #7fa1c3;
+}
+
+.action-card-content {
+  flex: 1;
+}
+
+.action-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.25rem;
+}
+
+.action-card-subtitle {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Recent Activity */
+.recent-activity-section {
+  padding: 0;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: rgba(20, 25, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.activity-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.activity-icon.success {
+  background: rgba(139, 196, 160, 0.15);
+  color: #8bc4a0;
+}
+
+.activity-icon.online {
+  background: rgba(127, 161, 195, 0.15);
+  color: #7fa1c3;
+}
+
+.activity-icon.info {
+  background: rgba(232, 195, 104, 0.15);
+  color: #e8c368;
+}
+
+.activity-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.125rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
 /* User profile */
 .user-profile {
   position: relative;
@@ -837,11 +1060,11 @@ async function deleteHost(id: number) {
   transition: all 0.3s ease;
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
   background: #7fa1c3;
 }
 
-input:checked + .toggle-slider::before {
+input:checked+.toggle-slider::before {
   transform: translateX(20px);
 }
 
