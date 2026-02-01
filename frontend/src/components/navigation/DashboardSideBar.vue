@@ -98,7 +98,7 @@
                 </div>
                 <div class="activity-info">
                   <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' : ''
-                  }} configured</p>
+                    }} configured</p>
                   <p class="activity-time">Ready to connect</p>
                 </div>
               </div>
@@ -430,14 +430,14 @@ async function deleteHost(id: number) {
   background: rgba(255, 255, 255, 0.15);
 }
 
-`.section-header {
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
   padding: 0 0.5rem;
 }
-`
+
 .section-title {
   font-size: 0.6875rem;
   font-weight: 700;
