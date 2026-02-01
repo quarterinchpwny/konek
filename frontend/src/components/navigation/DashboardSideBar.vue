@@ -73,22 +73,7 @@
       <template v-else>
         <div class="home-sidebar-content">
           <!-- Quick Stats -->
-          <div class="stats-card">
-            <div class="stats-card-header">
-              <Server :size="20" class="stats-card-icon" />
-              <div class="stats-card-title">Infrastructure</div>
-            </div>
-            <div class="stats-grid">
-              <div class="stat-box">
-                <div class="stat-box-value">{{ hostStore.hosts.length }}</div>
-                <div class="stat-box-label">Total Hosts</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-box-value online">{{ onlineHostsCount }}</div>
-                <div class="stat-box-label">Online</div>
-              </div>
-            </div>
-          </div>
+
 
           <!-- Quick Actions -->
           <div class="quick-actions-section">
@@ -104,9 +89,8 @@
             </button>
           </div>
 
-          <!-- Recent Activity -->
           <div class="recent-activity-section">
-            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Recent Activity</div>
+            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Infrastructure</div>
             <div class="activity-list">
               <div class="activity-item" v-if="hostStore.hosts.length > 0">
                 <div class="activity-icon success">
@@ -114,7 +98,7 @@
                 </div>
                 <div class="activity-info">
                   <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' : ''
-                    }} configured</p>
+                  }} configured</p>
                   <p class="activity-time">Ready to connect</p>
                 </div>
               </div>
@@ -141,6 +125,7 @@
               </div>
             </div>
           </div>
+          <RecentActivity class="mt-4" /> <!-- Adding margin top for spacing -->
         </div>
       </template>
     </div>
@@ -240,6 +225,7 @@
 import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
 import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle } from "lucide-vue-next";
+import RecentActivity from '../RecentActivity.vue';
 import { useRoute } from "vue-router";
 
 const hostStore = useHostStore();
@@ -444,14 +430,14 @@ async function deleteHost(id: number) {
   background: rgba(255, 255, 255, 0.15);
 }
 
-.section-header {
+`.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
   padding: 0 0.5rem;
 }
-
+`
 .section-title {
   font-size: 0.6875rem;
   font-weight: 700;

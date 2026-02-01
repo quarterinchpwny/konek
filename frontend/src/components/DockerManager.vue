@@ -253,6 +253,26 @@ import { useDockerStore } from '../stores/dockerStore';
 import DockerLogsViewer from './DockerLogsViewer.vue';
 import { Icon } from '@iconify/vue';
 
+interface Container {
+  id: string;
+  name: string;
+  image: string;
+  status: string;
+  health: string;
+  restartPolicy: string;
+  compose?: {
+    project: string;
+    service: string;
+  };
+  stats?: {
+    cpu: number;
+    memUsed: number;
+    memLimit: number;
+  };
+  group?: string;
+  labels?: Record<string, string>;
+}
+
 const props = defineProps<{ hostId?: number }>();
 
 const sshStore = useSshStore();
@@ -262,7 +282,7 @@ const stats = ref<any>(null);
 const isLoading = ref(false);
 
 const showLogsModal = ref(false);
-const selectedContainerId = ref<string | null>(null);
+const selectedContainerId = ref<string | undefined>(undefined);
 
 const search = ref('');
 const showOnlyRunning = ref(false);
@@ -276,7 +296,7 @@ const HISTORY_LENGTH = 20;
 const dockerInfo = computed(() => stats.value?.docker);
 
 const runningCount = computed(() => {
-  return (dockerInfo.value?.containers || []).filter((c: any) => c.status.startsWith('Up')).length;
+  return (dockerInfo.value?.containers || []).filter((c: Container) => c.status.startsWith('Up')).length;
 });
 
 const fetchStats = async () => {
@@ -293,14 +313,14 @@ const fetchStats = async () => {
     const newStats = await res.json();
 
     if (stats.value?.docker?.containers) {
-      const oldMap = new Map(stats.value.docker.containers.map((c: any) => [c.id, c]));
-      const newMap = new Map(newStats.docker.containers.map((c: any) => [c.id, c]));
+      const oldMap = new Map(stats.value.docker.containers.map((c: Container) => [c.id, c]));
+      const newMap = new Map(newStats.docker.containers.map((c: Container) => [c.id, c]));
       
       oldMap.forEach((oldContainer, id) => {
-        const newContainer = newMap.get(id);
+        const newContainer = newMap.get(id) as Container;
         if (newContainer) {
           Object.keys(newContainer).forEach(key => {
-            oldContainer[key] = newContainer[key];
+            (oldContainer as any)[key] = (newContainer as any)[key];
           });
           
           if (newContainer.stats) {
@@ -309,7 +329,7 @@ const fetchStats = async () => {
             }
             const history = historyCache.value[id];
             history.cpu.push(newContainer.stats.cpu);
-            history.mem.push(memPercent(newContainer));
+            history.mem.push(memPercent(newContainer as Container));
             
             if (history.cpu.length > HISTORY_LENGTH) history.cpu.shift();
             if (history.mem.length > HISTORY_LENGTH) history.mem.shift();
@@ -317,31 +337,31 @@ const fetchStats = async () => {
         }
       });
       
-      newMap.forEach((newContainer, id) => {
+      newMap.forEach((newContainer: Container, id: string) => {
         if (!oldMap.has(id)) {
           stats.value.docker.containers.push(newContainer);
           if (newContainer.stats) {
             historyCache.value[id] = {
               cpu: [newContainer.stats.cpu],
-              mem: [memPercent(newContainer)]
+              mem: [memPercent(newContainer as Container)]
             };
           }
         }
       });
       
       stats.value.docker.containers = stats.value.docker.containers.filter(
-        (c: any) => newMap.has(c.id)
+        (c: Container) => newMap.has(c.id)
       );
       
-      Object.keys(historyCache.value).forEach(id => {
-        if (!newMap.has(id)) {
-          delete historyCache.value[id];
+      Object.keys(historyCache.value).forEach((idString: string) => {
+        if (!newMap.has(idString)) {
+          delete historyCache.value[idString];
         }
       });
     } else {
       stats.value = newStats;
       if (newStats.docker?.containers) {
-        newStats.docker.containers.forEach((c: any) => {
+        newStats.docker.containers.forEach((c: Container) => {
           if (c.stats) {
             historyCache.value[c.id] = {
               cpu: [c.stats.cpu],
@@ -360,7 +380,7 @@ const fetchStats = async () => {
 
 const groupedContainers = computed(() => {
   const q = search.value.toLowerCase();
-  const filtered = (dockerInfo.value?.containers || []).filter((c: any) => {
+  const filtered = (dockerInfo.value?.containers || []).filter((c: Container) => {
     if (showOnlyRunning.value && !c.status.startsWith('Up')) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) ||
@@ -370,8 +390,8 @@ const groupedContainers = computed(() => {
            c.compose?.service?.toLowerCase().includes(q);
   });
 
-  const groups: Record<string, any[]> = {};
-  filtered.forEach((c: any) => {
+  const groups: Record<string, Container[]> = {};
+  filtered.forEach((c: Container) => {
     const key = c.group || 'other';
     if (!groups[key]) groups[key] = [];
     groups[key].push(c);
@@ -381,7 +401,7 @@ const groupedContainers = computed(() => {
 
 const stackTotals = computed(() => {
   const totals: Record<string, any> = {};
-  (dockerInfo.value?.containers || []).forEach((c: any) => {
+  (dockerInfo.value?.containers || []).forEach((c: Container) => {
     const g = c.group;
     if (!g || !c.stats) return;
     if (!totals[g]) totals[g] = { cpu: 0, memUsed: 0, memLimit: 0 };
@@ -416,19 +436,19 @@ const formatBytes = (b: number) => {
   return `${b.toFixed(1)}${u[i]}`;
 };
 
-const memPercent = (c: any) => {
+const memPercent = (c: Container) => {
   if (!c.stats?.memUsed || !c.stats?.memLimit) return 0;
   return Math.min(100, (c.stats.memUsed / c.stats.memLimit) * 100);
 };
 
-const getIcon = (containerData: Record<string, any>) => {
+const getIcon = (containerData: Container) => {
   if (!containerData) return 'mdi:docker';
   const containerName = containerData.labels?.['com.docker.compose.project'] || containerData.image || 'docker';
-  const baseName = containerName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
+  const baseName = (containerName?.split(':')[0]?.split('/').pop() || 'docker').toLowerCase();
   return `simple-icons:${baseName}`;
 };
 
-const getIconCached = (container: Record<string, any>) => {
+const getIconCached = (container: Container) => {
   const id = container.id;
   if (iconCache.value[id]) return iconCache.value[id];
   const icon = getIcon(container);
@@ -436,13 +456,13 @@ const getIconCached = (container: Record<string, any>) => {
   return icon;
 };
 
-const getCpuHistory = (container: Record<string, any>) => {
+const getCpuHistory = (container: Container) => {
   const history = historyCache.value[container.id]?.cpu || [];
   const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
   return padded;
 };
 
-const getMemHistory = (container: Record<string, any>) => {
+const getMemHistory = (container: Container) => {
   const history = historyCache.value[container.id]?.mem || [];
   const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
   return padded;

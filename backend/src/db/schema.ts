@@ -11,3 +11,11 @@ export const serverHosts = sqliteTable('server_hosts', {
   macAddress: text('mac_address'),
   sshEnabled: integer('ssh_enabled').notNull().default(1),
 });
+
+export const activityLog = sqliteTable('activity_log', {
+  id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
+  hostId: integer('host_id').notNull().references(() => serverHosts.id),
+  actionType: text('action_type').notNull(),
+  details: text('details'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(new Date()),
+});

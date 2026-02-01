@@ -26,9 +26,11 @@ import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import axios from 'axios';
 
 const props = defineProps({
   sessionId: String,
+  hostId: Number, // Add this line
 });
 
 const terminalContainer = ref<HTMLElement | null>(null);
@@ -39,6 +41,18 @@ let term: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let socket: WebSocket | null = null;
 let resizeObserver: ResizeObserver | null = null;
+
+const logActivity = async (actionType: string, details: string) => {
+  if (props.hostId == null) {
+    console.warn('Cannot log activity: hostId is null.');
+    return;
+  }
+  try {
+    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/activity`, { hostId: props.hostId, actionType, details });
+  } catch (error) {
+    console.error('Failed to log activity:', error);
+  }
+};
 
 const wsUrl = computed(() => {
   const host = window.location.hostname;
@@ -57,7 +71,6 @@ const initTerminal = () => {
       foreground: "#e8e8e8",
       cursor: "#7fa1c3",
       cursorAccent: "#0a0e12",
-      selection: "rgba(127, 161, 195, 0.3)",
       black: "#0a0e12",
       red: "#d68a8a",
       green: "#8bc4a0",
@@ -83,8 +96,26 @@ const initTerminal = () => {
 
   fitAddon.fit();
 
+  let command_buffer = "";
   term.onData((data) => {
-    if (socket?.readyState === WebSocket.OPEN) socket.send(data);
+    if (socket?.readyState === WebSocket.OPEN) {
+      // Handle backspace
+      if (data === '\x7F' || data === '\b') { // \x7F is DEL, \b is BS
+        if (command_buffer.length > 0) {
+          command_buffer = command_buffer.slice(0, -1);
+        }
+      } else if (data === '\r') {
+        // Only log if the command_buffer is not empty after stripping whitespace
+        const trimmedCommand = command_buffer.trim();
+        if (trimmedCommand.length > 0) {
+          logActivity('command', trimmedCommand);
+        }
+        command_buffer = "";
+      } else if (data.length === 1 && data.charCodeAt(0) >= 32) { // Only append printable characters
+        command_buffer += data;
+      }
+      socket.send(data)
+    };
   });
 
   connectWebSocket();

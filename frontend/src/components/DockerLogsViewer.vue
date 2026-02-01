@@ -86,7 +86,6 @@ const logBox = ref<HTMLElement | null>(null);
 let ws: WebSocket | null = null;
 
 const wsUrl = computed(() => {
-  const host = window.location.hostname;
   return `ws://${window.location.hostname}:3000?sessionId=${sshStore.sessionId}&dockerId=${props.containerId}`;
 });
 

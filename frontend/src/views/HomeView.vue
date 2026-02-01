@@ -17,6 +17,9 @@
         </button>
       </div>
 
+
+
+
       <!-- Empty state -->
       <div v-if="hostStore.hosts.length === 0" class="empty-state">
         <div class="empty-card">
@@ -34,12 +37,8 @@
 
       <!-- Hosts grid -->
       <div v-else class="hosts-grid">
-        <div
-          v-for="host in hostStore.hosts"
-          :key="host.id"
-          @click="setActiveHost(host)"
-          :class="['host-card', { 'host-card-active': activeHostId === host.id }]"
-        >
+        <div v-for="host in hostStore.hosts" :key="host.id" @click="setActiveHost(host)"
+          :class="['host-card', { 'host-card-active': activeHostId === host.id }]">
           <!-- Card header -->
           <div class="card-header">
             <div class="card-header-left">
@@ -56,26 +55,14 @@
             </div>
 
             <div class="card-actions">
-              <button
-                v-if="host.macAddress"
-                @click.stop="wakeHost(host.id!)"
-                class="action-btn wake"
-                title="Wake On LAN"
-              >
+              <button v-if="host.macAddress" @click.stop="wakeHost(host.id!)" class="action-btn wake"
+                title="Wake On LAN">
                 <Zap :size="16" />
               </button>
-              <button
-                @click.stop="editHost(host)"
-                class="action-btn edit"
-                title="Edit Host"
-              >
+              <button @click.stop="editHost(host)" class="action-btn edit" title="Edit Host">
                 <Pencil :size="16" />
               </button>
-              <button
-                @click.stop="deleteHost(host.id!)"
-                class="action-btn delete"
-                title="Delete Host"
-              >
+              <button @click.stop="deleteHost(host.id!)" class="action-btn delete" title="Delete Host">
                 <Trash2 :size="16" />
               </button>
             </div>
@@ -90,13 +77,10 @@
                 <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || 0 }}%</span>
               </div>
               <div class="stat-history">
-                <div
-                  v-for="(value, index) in getHistory(host.id!, 'cpu')"
-                  :key="`cpu-${host.id}-${index}`"
+                <div v-for="(value, index) in getHistory(host.id!, 'cpu')" :key="`cpu-${host.id}-${index}`"
                   class="history-bar cpu-bar"
                   :class="{ 'history-bar-latest': index === getHistory(host.id!, 'cpu').length - 1 }"
-                  :style="{ height: `${value}%` }"
-                ></div>
+                  :style="{ height: `${value}%` }"></div>
               </div>
             </div>
 
@@ -107,17 +91,14 @@
                 <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || 0 }}%</span>
               </div>
               <div class="stat-history">
-                <div
-                  v-for="(value, index) in getHistory(host.id!, 'memory')"
-                  :key="`mem-${host.id}-${index}`"
+                <div v-for="(value, index) in getHistory(host.id!, 'memory')" :key="`mem-${host.id}-${index}`"
                   class="history-bar mem-bar"
                   :class="{ 'history-bar-latest': index === getHistory(host.id!, 'memory').length - 1 }"
-                  :style="{ height: `${value}%` }"
-                ></div>
+                  :style="{ height: `${value}%` }"></div>
               </div>
             </div>
 
-          
+
           </div>
 
           <!-- Card footer -->
@@ -164,77 +145,45 @@
 
             <div class="form-group">
               <label class="form-label">Friendly Name</label>
-              <input
-                v-model="form.alias"
-                type="text"
-                required
-                placeholder="e.g. Raspberry Pi Cluster"
-                class="form-input"
-              />
+              <input v-model="form.alias" type="text" required placeholder="e.g. Raspberry Pi Cluster"
+                class="form-input" />
             </div>
 
             <div class="form-grid">
               <div :class="{ 'form-group-full': !form.sshEnabled, 'form-group-2': form.sshEnabled }">
                 <label class="form-label">IP / Host</label>
-                <input
-                  v-model="form.hostname"
-                  type="text"
-                  required
-                  placeholder="192.168.1.1"
-                  class="form-input form-input-mono"
-                />
+                <input v-model="form.hostname" type="text" required placeholder="192.168.1.1"
+                  class="form-input form-input-mono" />
               </div>
 
               <div v-if="form.sshEnabled" class="form-group-1">
                 <label class="form-label">Port</label>
-                <input
-                  v-model="form.port"
-                  type="text"
-                  :required="form.sshEnabled"
-                  placeholder="22"
-                  class="form-input form-input-mono"
-                />
+                <input v-model="form.port" type="text" :required="form.sshEnabled" placeholder="22"
+                  class="form-input form-input-mono" />
               </div>
             </div>
 
             <div v-if="form.sshEnabled" class="form-group">
               <label class="form-label">Username</label>
-              <input
-                v-model="form.username"
-                type="text"
-                :required="form.sshEnabled"
-                placeholder="root"
-                class="form-input form-input-mono"
-              />
+              <input v-model="form.username" type="text" :required="form.sshEnabled" placeholder="root"
+                class="form-input form-input-mono" />
             </div>
 
             <div v-if="form.sshEnabled" class="form-group">
               <label class="form-label">Password</label>
-              <input
-                v-model="form.password"
-                type="password"
+              <input v-model="form.password" type="password"
                 :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''"
-                class="form-input form-input-mono"
-              />
+                class="form-input form-input-mono" />
             </div>
 
             <div class="form-group">
               <label class="form-label">MAC Address (optional)</label>
-              <input
-                v-model="form.macAddress"
-                type="text"
-                placeholder="XX:XX:XX:XX:XX:XX"
-                class="form-input form-input-mono"
-              />
+              <input v-model="form.macAddress" type="text" placeholder="XX:XX:XX:XX:XX:XX"
+                class="form-input form-input-mono" />
             </div>
 
             <div class="form-actions">
-              <button
-                v-if="editingHost"
-                type="button"
-                @click="cancelEdit"
-                class="btn btn-secondary"
-              >
+              <button v-if="editingHost" type="button" @click="cancelEdit" class="btn btn-secondary">
                 Cancel
               </button>
               <button type="submit" class="btn btn-primary">
@@ -251,6 +200,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from "vue";
+import RecentActivity from "../components/RecentActivity.vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
 import { Plus, Server, Trash2, X, Zap, Pencil } from "lucide-vue-next";
 import { useRouter } from "vue-router";
@@ -295,14 +245,15 @@ const initializeHistory = (hostId: number) => {
 // Update history with new stats
 const updateHistory = (hostId: number, stats: any) => {
   initializeHistory(hostId);
-  
+
   const history = statsHistory.value[hostId];
-  
+  if (!history) return;
+
   // CPU
   const cpuPercent = Math.min(100, Math.max(0, stats?.cpu?.usagePercent || 0));
   history.cpu.push(cpuPercent);
   if (history.cpu.length > HISTORY_SIZE) history.cpu.shift();
-  
+
   // Memory
   const memPercent = Math.min(100, Math.max(0, stats?.memory?.percent || 0));
   history.memory.push(memPercent);
@@ -320,7 +271,7 @@ const getHistory = (hostId: number, metric: 'cpu' | 'memory'): number[] => {
 onMounted(async () => {
   await hostStore.fetchHosts();
   await hostStore.fetchBulkHostStatus();
-  
+
   // Initialize history for all hosts
   hostStore.hosts.forEach(host => {
     if (host.id) {
@@ -331,7 +282,7 @@ onMounted(async () => {
 
   pollingInterval = window.setInterval(async () => {
     await hostStore.fetchBulkHostStatus();
-    
+
     // Update history for all hosts
     hostStore.hosts.forEach(host => {
       if (host.id && host.stats) {
@@ -444,7 +395,7 @@ async function deleteHost(id: number) {
 .home-bg {
   position: absolute;
   inset: 0;
-  background: 
+  background:
     radial-gradient(ellipse at top, rgba(16, 24, 32, 0.9) 0%, rgba(8, 12, 16, 0.95) 100%),
     linear-gradient(135deg, #0a0e12 0%, #121820 50%, #0f1419 100%);
   z-index: 0;
@@ -893,8 +844,15 @@ async function deleteHost(id: number) {
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .status-text {
@@ -904,11 +862,25 @@ async function deleteHost(id: number) {
   letter-spacing: 0.08em;
 }
 
-.status-text-online { color: #8bc4a0; }
-.status-text-offline { color: #d68a8a; }
-.status-text-error { color: #e8c368; }
-.status-text-checking { color: rgba(255, 255, 255, 0.5); }
-.status-text-unknown { color: rgba(255, 255, 255, 0.4); }
+.status-text-online {
+  color: #8bc4a0;
+}
+
+.status-text-offline {
+  color: #d68a8a;
+}
+
+.status-text-error {
+  color: #e8c368;
+}
+
+.status-text-checking {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.status-text-unknown {
+  color: rgba(255, 255, 255, 0.4);
+}
 
 .online-indicator {
   display: flex;
@@ -1093,11 +1065,11 @@ async function deleteHost(id: number) {
   transition: all 0.3s ease;
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
   background: #7fa1c3;
 }
 
-input:checked + .toggle-slider::before {
+input:checked+.toggle-slider::before {
   transform: translateX(20px);
 }
 

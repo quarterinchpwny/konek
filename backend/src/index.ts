@@ -9,6 +9,7 @@ import filesRoute from "./routes/files";
 import terminalRoute from "./routes/terminal";
 import statsRoute from "./routes/stats";
 import dockerRoute from "./routes/docker";
+import activityRoute from "./routes/activity";
 import { Server as HttpServer } from "node:http";
 
 const app = new Hono();
@@ -20,11 +21,14 @@ app.use(
   })
 );
 
+
+
 app.route("/api/hosts", hostsRoute);
 app.route("/api/files", filesRoute);
 app.route("/api/docker", dockerRoute);
 app.route("/api", terminalRoute);
 app.route("/api/stats", statsRoute);
+app.route("/api/activity", activityRoute);
 
 const port = 3000;
 

@@ -60,11 +60,11 @@
     <div class="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
       <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'terminal'">
         <template v-if="sessionId">
-          <SshTerminal :session-id="sessionId" />
+          <SshTerminal :session-id="sessionId" :host-id="hostStore.selectedHost?.id" />
         </template>
       </div>
       <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'files'">
-        <FileManager />
+        <FileManager :host-id="hostStore.selectedHost?.id" />
       </div>
       <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'docker'">
         <DockerManager :host-id="hostStore.selectedHost?.id" />
@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, defineComponent } from "vue";
+import { ref, watch, onUnmounted } from "vue";
 import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";

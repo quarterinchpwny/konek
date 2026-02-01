@@ -204,8 +204,26 @@ import {
   TrashIcon,
 } from "@heroicons/vue/24/outline";
 import { X } from "lucide-vue-next";
+import axios from 'axios';
 
 const sshStore = useSshStore();
+
+const props = defineProps<{
+  hostId?: number;
+}>();
+
+const logActivity = async (actionType: string, details: string) => {
+  if (props.hostId == null) {
+    console.warn('Cannot log activity: hostId is null.');
+    return;
+  }
+  try {
+    await axios.post(`${import.meta.env.VITE_API_BASE_URL}/activity`, { hostId: props.hostId, actionType, details });
+  } catch (error) {
+    console.error('Failed to log activity:', error);
+  }
+};
+
 
 // UI State
 const editorContent = ref("");
@@ -228,7 +246,7 @@ const showUploadModal = ref(false);
 const showProgressDialog = ref(false);
 const filesToUpload = ref<File[]>([]);
 const uploadProgress = ref(0);
-const uploadError = ref<string | null>(null);
+const uploadError = ref<string | undefined>(undefined);
 
 // --- Generic File/Folder Logic ---
 const isMediaFile = (
@@ -248,6 +266,7 @@ const openMediaViewer = (path: string, type: "image" | "video" | null) => {
   mediaViewerSrc.value = sshStore.fileURL(path);
   mediaViewerType.value = type;
   showMediaViewer.value = true;
+  logActivity('view', `Viewed media: ${path}`);
 };
 
 const allSelected = computed({
@@ -285,6 +304,7 @@ const openFile = async (path: string) => {
   const content = await sshStore.readFile(path);
   editorContent.value = content;
   showEditor.value = true;
+  logActivity('view', `Viewed file: ${path}`);
 };
 
 const refreshAndClearSelection = async () => {
@@ -315,6 +335,11 @@ const promptDelete = () => {
       path: String(file.path),
       type: (file.isDirectory ? "directory" : "file") as "file" | "directory",
     }));
+    
+    itemsToDelete.forEach(item => {
+      logActivity('delete', `Deleted ${item.type}: ${item.path}`);
+    });
+
     await sshStore.deleteFiles(itemsToDelete);
     await refreshAndClearSelection();
   };
@@ -332,7 +357,7 @@ const startUpload = async (files: File[]) => {
   filesToUpload.value = files;
   showProgressDialog.value = true;
   uploadProgress.value = 0;
-  uploadError.value = null;
+  uploadError.value = undefined;
 
   try {
     await sshStore.uploadFiles(
@@ -345,6 +370,9 @@ const startUpload = async (files: File[]) => {
         uploadProgress.value = percentCompleted;
       }
     );
+    files.forEach(file => {
+      logActivity('upload', `Uploaded file: ${file.name} to ${sshStore.currentPath}`);
+    });
   } catch (e: any) {
     uploadError.value = e.message || "An unknown error occurred.";
   }
