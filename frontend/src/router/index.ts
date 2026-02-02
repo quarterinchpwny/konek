@@ -16,6 +16,12 @@ const routes = [
     meta: { layout: DashboardLayout },
   },
   {
+    path: "/network-map",
+    name: "network-map",
+    component: () => import("../views/NetworkMapView.vue"),
+    meta: { layout: DashboardLayout },
+  },
+  {
     path:"/test",
     name:"test",
     component: () => import("../views/TestView.vue"),

@@ -87,6 +87,15 @@
                 <div class="action-card-subtitle">Configure connection</div>
               </div>
             </button>
+            <router-link :to="{ name: 'network-map' }" class="action-card">
+              <div class="action-card-icon">
+                <Network :size="20" />
+              </div>
+              <div class="action-card-content">
+                <div class="action-card-title">Network Map</div>
+                <div class="action-card-subtitle">Visualize your infrastructure</div>
+              </div>
+            </router-link>
           </div>
 
           <div class="recent-activity-section">
@@ -224,7 +233,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle } from "lucide-vue-next";
+import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle, Network } from "lucide-vue-next";
 import RecentActivity from '../RecentActivity.vue';
 import { useRoute } from "vue-router";
 
