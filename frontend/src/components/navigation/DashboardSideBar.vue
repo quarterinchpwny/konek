@@ -19,7 +19,7 @@
     <!-- Hosts list -->
     <div class="hosts-container">
 
-      <template v-if="routeName !== 'home'">
+      <template v-if="willShowSavedHost">
         <div class="section-header">
           <span class="section-title">Saved Hosts</span>
           <button @click="isModalOpen = true" class="add-btn" title="Add new host">
@@ -87,6 +87,15 @@
                 <div class="action-card-subtitle">Configure connection</div>
               </div>
             </button>
+            <router-link :to="{ name: 'tmux-manager' }" class="action-card">
+              <div class="action-card-icon">
+                <Terminal :size="20" />
+              </div>
+              <div class="action-card-content">
+                <div class="action-card-title">Tmux Manager</div>
+                <div class="action-card-subtitle">Manage background sessions</div>
+              </div>
+            </router-link>
             <router-link :to="{ name: 'network-map' }" class="action-card">
               <div class="action-card-icon">
                 <Network :size="20" />
@@ -107,7 +116,7 @@
                 </div>
                 <div class="activity-info">
                   <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' : ''
-                    }} configured</p>
+                  }} configured</p>
                   <p class="activity-time">Ready to connect</p>
                 </div>
               </div>
@@ -254,7 +263,11 @@ const form = reactive<Host>({ ...defaultForm });
 const activeHostId = ref<number | null>(null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
-const routeName = computed(() => route.name);
+
+
+const willShowSavedHost = computed(() => {
+  return route.meta.willShowSavedHost === true
+})
 
 // Computed property for online hosts count
 const onlineHostsCount = computed(() =>

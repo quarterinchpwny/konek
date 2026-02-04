@@ -10,7 +10,10 @@ import {
 } from "../services/monitor";
 import { wake } from "wake_on_lan";
 
+import tmuxRoute from "./tmux";
+
 const hostsRoute = new Hono();
+hostsRoute.route("/:hostId/tmux", tmuxRoute);
 /**
  * GET /api/hosts
  */

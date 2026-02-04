@@ -1,33 +1,32 @@
 import { createRouter, createWebHistory } from "vue-router";
 import DashboardLayout from "../layouts/DashboardLayout.vue";
-import FullScreenLayout from "../layouts/FullScreenLayout.vue";
 
 const routes = [
   {
     path: "/",
     name: "home",
     component: () => import("../views/HomeView.vue"),
-    meta: { layout: DashboardLayout },
+    meta: { layout: DashboardLayout, willShowSavedHost: false },
   },
   {
     path: "/dashboard",
     name: "dashboard",
     component: () => import("../views/DashboardView.vue"),
-    meta: { layout: DashboardLayout },
+    meta: { layout: DashboardLayout, willShowSavedHost: true },
   },
   {
     path: "/network-map",
     name: "network-map",
     component: () => import("../views/NetworkMapView.vue"),
-    meta: { layout: DashboardLayout },
+    meta: { layout: DashboardLayout, willShowSavedHost: false },
   },
   {
-    path:"/test",
-    name:"test",
-    component: () => import("../views/TestView.vue"),
-    meta: { layout: FullScreenLayout },
+    path: "/dashboard/tmux-manager",
+    name: "tmux-manager",
+    component: () => import("../views/TmuxView.vue"),
+    meta: { layout: DashboardLayout, willShowSavedHost: false },
+  },
 
-  }
 ];
 
 const router = createRouter({

@@ -74,6 +74,7 @@
           v-if="hostStore.selectedHost?.id != null && sessionId"
           :host-id="hostStore.selectedHost.id"
         />
+        <QuickActions class="mt-4" />
       </div>
     </div>
   </main>
@@ -85,6 +86,7 @@ import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";
 import DockerManager from "../components/DockerManager.vue";
+import QuickActions from "../components/QuickActions.vue";
 
 import { Terminal, ChevronRight, Folder } from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
@@ -116,7 +118,7 @@ const handleConnect = async () => {
     await sshStore.connect(id);
 
     const connectResponse = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/connect`,
+      `${import.meta.env.VITE_API_BASE_URL}/terminal/connect`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +144,7 @@ const handleConnect = async () => {
 
 const disconnectFromHost = async (hostId: number) => {
   if (sessionId.value) {
-    await fetch(`${import.meta.env.VITE_API_BASE_URL}/disconnect`, {
+    await fetch(`${import.meta.env.VITE_API_BASE_URL}/terminal/disconnect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: sessionId.value }),

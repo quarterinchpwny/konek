@@ -116,21 +116,54 @@
 
                     <!-- List of items inside the group card -->
                     <div class="items-list">
-                      <div v-for="item in group.children" :key="item.id" class="list-item" :class="getItemClass(item)">
-                        <div class="item-icon-wrapper" :class="getItemIconClass(item)">
-                          <Icon :icon="getItemIcon(item)" class="item-icon" />
+                      <!-- Group services by compose project or image -->
+                      <template v-if="group.type === 'service-group'">
+                        <div v-for="(items, subGroup) in groupServiceItems(group.children)" :key="subGroup"
+                          class="service-subgroup">
+                          <!-- Subgroup header -->
+                          <div class="subgroup-header" @click="toggleSubgroup(subGroup)">
+                            <button class="subgroup-collapse-btn">
+                              <Icon :icon="collapsedSubgroups.has(subGroup) ? 'mdi:chevron-right' : 'mdi:chevron-down'"
+                                class="collapse-icon-small" />
+                            </button>
+                            <h5 class="subgroup-title">{{ subGroup }}</h5>
+                            <span class="subgroup-count">{{ items.length }}</span>
+                          </div>
+
+                          <!-- Subgroup items -->
+                          <transition name="subgroup-slide">
+                            <div v-show="!collapsedSubgroups.has(subGroup)" class="subgroup-items">
+                              <div v-for="item in items" :key="item.id" class="list-item service-item">
+                                <div class="item-icon-wrapper service-icon">
+                                  <Icon :icon="getItemIcon(item)" class="item-icon" />
+                                </div>
+                                <div class="item-info">
+                                  <span class="item-name">{{ item.name }}</span>
+                                  <span v-if="item.image" class="item-detail">{{ item.image }}</span>
+                                </div>
+                                <span v-if="item.state" class="state-badge" :class="getStateClass(item.state)">
+                                  {{ item.state }}
+                                </span>
+                              </div>
+                            </div>
+                          </transition>
                         </div>
-                        <div class="item-info">
-                          <span class="item-name">{{ item.name }}</span>
-                          <span v-if="item.image" class="item-detail">{{ item.image }}</span>
-                          <span v-if="item.type === 'port'" class="item-detail">
-                            {{ item.name.split('/')[1] }}
-                          </span>
+                      </template>
+
+                      <!-- Port items (no grouping needed) -->
+                      <template v-else>
+                        <div v-for="item in group.children" :key="item.id" class="list-item port-item">
+                          <div class="item-icon-wrapper port-icon">
+                            <Icon :icon="getItemIcon(item)" class="item-icon" />
+                          </div>
+                          <div class="item-info">
+                            <span class="item-name">{{ item.name }}</span>
+                            <span v-if="item.type === 'port'" class="item-detail">
+                              {{ item.name.split('/')[1] }}
+                            </span>
+                          </div>
                         </div>
-                        <span v-if="item.state" class="state-badge" :class="getStateClass(item.state)">
-                          {{ item.state }}
-                        </span>
-                      </div>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -239,6 +272,7 @@ interface GraphLink {
 const networkStore = useNetworkStore();
 
 const expandedNodes = ref<Set<string>>(new Set());
+const collapsedSubgroups = ref<Set<string>>(new Set());
 const viewMode = ref<'tree' | 'graph'>('tree');
 
 // Graph view state
@@ -294,6 +328,37 @@ const toggleNode = (nodeId: string) => {
   } else {
     expandedNodes.value.add(nodeId);
   }
+};
+
+const toggleSubgroup = (subgroupId: string) => {
+  if (collapsedSubgroups.value.has(subgroupId)) {
+    collapsedSubgroups.value.delete(subgroupId);
+  } else {
+    collapsedSubgroups.value.add(subgroupId);
+  }
+};
+
+const groupServiceItems = (items: ServiceNode[]) => {
+  const groups: Record<string, ServiceNode[]> = {};
+
+  items.forEach((item) => {
+    // Try to extract compose project from labels or use image name
+    let groupKey = 'other';
+
+    // Check if item has compose project info (would be in labels)
+    // For now, group by image base name since we don't have labels
+    if (item.image) {
+      const imageParts = item.image.split(':')[0].split('/');
+      groupKey = imageParts[imageParts.length - 1] || 'other';
+    }
+
+    if (!groups[groupKey]) {
+      groups[groupKey] = [];
+    }
+    groups[groupKey].push(item);
+  });
+
+  return groups;
 };
 
 const getHostChildrenCount = (host: HostNode) => {
@@ -994,6 +1059,97 @@ onUnmounted(() => {
 .items-list::-webkit-scrollbar-thumb {
   background: rgba(107, 140, 174, 0.3);
   border-radius: 3px;
+}
+
+/* Service subgroups */
+.service-subgroup {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.service-subgroup:last-child {
+  border-bottom: none;
+}
+
+.subgroup-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.subgroup-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.subgroup-collapse-btn {
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subgroup-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.collapse-icon-small {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.subgroup-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+  flex: 1;
+  font-family: 'Orbitron', monospace;
+}
+
+.subgroup-count {
+  padding: 0.25rem 0.5rem;
+  background: rgba(107, 140, 174, 0.12);
+  color: #7fa1c3;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  font-family: 'Orbitron', monospace;
+  border: 1px solid rgba(107, 140, 174, 0.2);
+}
+
+.subgroup-items {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.subgroup-slide-enter-active,
+.subgroup-slide-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.subgroup-slide-enter-from,
+.subgroup-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.subgroup-slide-enter-to,
+.subgroup-slide-leave-from {
+  opacity: 1;
+  max-height: 500px;
 }
 
 .list-item {

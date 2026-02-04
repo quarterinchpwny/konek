@@ -31,6 +31,7 @@ import axios from 'axios';
 const props = defineProps({
   sessionId: String,
   hostId: Number, // Add this line
+  tmuxSessionName: String, // Prop for tmux session
 });
 
 const terminalContainer = ref<HTMLElement | null>(null);
@@ -56,7 +57,11 @@ const logActivity = async (actionType: string, details: string) => {
 
 const wsUrl = computed(() => {
   const host = window.location.hostname;
-  return `ws://${host}:3000?sessionId=${props.sessionId}`;
+  let url = `ws://${host}:3000?sessionId=${props.sessionId}`;
+  if (props.tmuxSessionName) {
+    url += `&tmuxSessionName=${props.tmuxSessionName}`;
+  }
+  return url;
 });
 
 const initTerminal = () => {
@@ -249,8 +254,15 @@ onBeforeUnmount(() => {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .status-text {
@@ -335,12 +347,35 @@ onBeforeUnmount(() => {
 }
 
 @keyframes blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Selection styling */
 :deep(.xterm-selection) {
   background: rgba(127, 161, 195, 0.3) !important;
+}
+
+.terminal-modal-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* To this: */
+.terminal-modal-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+  /* ← ADD THIS LINE - Critical for flexbox child sizing */
 }
 </style>
