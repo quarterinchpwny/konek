@@ -110,16 +110,21 @@
           <div class="recent-activity-section">
             <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Infrastructure</div>
             <div class="activity-list">
-              <div class="activity-item" v-if="hostStore.hosts.length > 0">
+
+
+              <router-link :to="{ name: 'home' }" class="activity-item" v-if="hostStore.hosts.length > 0">
                 <div class="activity-icon success">
                   <Server :size="12" />
                 </div>
                 <div class="activity-info">
-                  <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' : ''
+                  <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' :
+                    ''
                   }} configured</p>
                   <p class="activity-time">Ready to connect</p>
                 </div>
-              </div>
+              </router-link>
+
+
 
               <div class="activity-item" v-if="onlineHostsCount > 0">
                 <div class="activity-icon online">
