@@ -19,3 +19,12 @@ export const activityLog = sqliteTable('activity_log', {
   details: text('details'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(new Date()),
 });
+
+export const mediaConfigs = sqliteTable('media_configs', {
+  id: integer('id', { mode: 'number' }).primaryKey({ autoIncrement: true }),
+  hostId: integer('host_id').notNull().references(() => serverHosts.id),
+  serviceType: text('service_type').notNull(), // 'sonarr', 'radarr', 'jellyfin', 'jellyseerr'
+  url: text('url').notNull(),
+  apiKey: text('api_key').notNull(),
+  enabled: integer('enabled').notNull().default(1),
+});

@@ -46,7 +46,9 @@ export const useHostStore = defineStore("hosts", {
     hosts: [] as Host[],
     isLoading: false,
     error: null as string | null,
-    selectedHost: null,
+    selectedHost: localStorage.getItem("selectedHost") 
+      ? JSON.parse(localStorage.getItem("selectedHost")!) 
+      : null,
   }),
 
   getters: {
@@ -58,8 +60,13 @@ export const useHostStore = defineStore("hosts", {
   },
 
   actions: {
-    async setSelectedHost(host: Host){
+    async setSelectedHost(host: Host | null){
       this.selectedHost = host;
+      if (host) {
+        localStorage.setItem("selectedHost", JSON.stringify(host));
+      } else {
+        localStorage.removeItem("selectedHost");
+      }
     },
     async fetchHosts() {
       this.isLoading = true;

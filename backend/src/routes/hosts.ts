@@ -11,9 +11,13 @@ import {
 import { wake } from "wake_on_lan";
 
 import tmuxRoute from "./tmux";
+import processesRoute from "./processes";
+import mediaRoute from "./media";
 
 const hostsRoute = new Hono();
 hostsRoute.route("/:hostId/tmux", tmuxRoute);
+hostsRoute.route("/:hostId/processes", processesRoute);
+hostsRoute.route("/:hostId/media", mediaRoute);
 /**
  * GET /api/hosts
  */

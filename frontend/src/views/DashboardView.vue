@@ -48,6 +48,22 @@
             <span>Docker</span>
             <div v-if="activeTab === 'docker'" class="tab-indicator"></div>
           </button>
+          <button
+            @click="activeTab = 'processes'"
+            :class="['tab', { 'tab-active': activeTab === 'processes' }]"
+          >
+            <Activity :size="14" />
+            <span>Processes</span>
+            <div v-if="activeTab === 'processes'" class="tab-indicator"></div>
+          </button>
+          <button
+            @click="activeTab = 'media'"
+            :class="['tab', { 'tab-active': activeTab === 'media' }]"
+          >
+            <Play :size="14" />
+            <span>Media</span>
+            <div v-if="activeTab === 'media'" class="tab-indicator"></div>
+          </button>
         </div>
 
         <div class="header-divider"></div>
@@ -69,6 +85,12 @@
       <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'docker'">
         <DockerManager :host-id="hostStore.selectedHost?.id" />
       </div>
+      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'processes'">
+        <ProcessManager :host-id="hostStore.selectedHost?.id" />
+      </div>
+      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'media'">
+        <MediaManager :host-id="hostStore.selectedHost?.id" />
+      </div>
       <div class="col-span-1 h-full overflow-hidden">
         <ServerStats
           v-if="hostStore.selectedHost?.id != null && sessionId"
@@ -86,9 +108,11 @@ import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";
 import DockerManager from "../components/DockerManager.vue";
+import ProcessManager from "../components/ProcessManager.vue";
+import MediaManager from "../components/MediaManager.vue";
 import QuickActions from "../components/QuickActions.vue";
 
-import { Terminal, ChevronRight, Folder } from "lucide-vue-next";
+import { Terminal, ChevronRight, Folder, Activity, Play } from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
 import { type Host, useHostStore } from "../stores/hostStore";
 import ServerStatusBadge from "../components/ServerStatusBadge.vue";
@@ -115,20 +139,21 @@ const handleConnect = async () => {
   if (id == null) return;
 
   try {
-    await sshStore.connect(id);
-
-    const connectResponse = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/terminal/connect`,
-      {
+    // If we already have a session, just register stats and set status
+    if (sshStore.sessionId) {
+      sessionId.value = sshStore.sessionId;
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostId: id }),
-      },
-    );
-    const connectData = await connectResponse.json();
+        body: JSON.stringify({ id }),
+      });
+      serverStatus.value = "online";
+      return;
+    }
 
-    if (connectData.status === "success") {
-      sessionId.value = connectData.sessionId;
+    await sshStore.connect(id);
+    if (sshStore.sessionId) {
+      sessionId.value = sshStore.sessionId;
       await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,29 +169,37 @@ const handleConnect = async () => {
 
 const disconnectFromHost = async (hostId: number) => {
   if (sessionId.value) {
-    await fetch(`${import.meta.env.VITE_API_BASE_URL}/terminal/disconnect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: sessionId.value }),
-    });
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/terminal/disconnect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sessionId.value }),
+      });
+    } catch (e) {
+      console.error("Failed to notify backend of disconnect", e);
+    }
     sessionId.value = null;
-    sshStore.isConnected = false;
+    sshStore.disconnect();
   }
 
-  await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/stop`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: hostId }),
-  });
+  try {
+    await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/stop`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: hostId }),
+    });
+  } catch (e) {
+    console.error("Failed to stop stats", e);
+  }
 };
 
 watch(
-  () => hostStore.selectedHost,
-  async (newHost, oldHost) => {
-    if (oldHost && oldHost.id) {
-      await disconnectFromHost(oldHost.id);
+  () => hostStore.selectedHost?.id,
+  async (newId, oldId) => {
+    if (oldId && newId !== oldId) {
+      await disconnectFromHost(oldId);
     }
-    if (newHost) {
+    if (newId) {
       await handleConnect();
     }
   },
@@ -174,9 +207,7 @@ watch(
 );
 
 onUnmounted(() => {
-  if (props.selectedHost && props.selectedHost.id) {
-    disconnectFromHost(props.selectedHost.id);
-  }
+  // We don't disconnect on unmount anymore to persist state
 });
 </script>
 

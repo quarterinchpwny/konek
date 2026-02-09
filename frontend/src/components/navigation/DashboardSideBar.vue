@@ -155,6 +155,10 @@
 
     <!-- User profile -->
     <div class="user-profile">
+      <button v-if="hostStore.selectedHost" @click="disconnectHost" class="disconnect-btn">
+        <X :size="14" />
+        <span>Disconnect from {{ hostStore.selectedHost.alias }}</span>
+      </button>
       <div class="profile-card">
         <div class="profile-avatar">JD</div>
         <div class="profile-info">
@@ -249,10 +253,11 @@ import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
 import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle, Network } from "lucide-vue-next";
 import RecentActivity from '../RecentActivity.vue';
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const hostStore = useHostStore();
 const route = useRoute();
+const router = useRouter();
 
 const defaultForm: Host = {
   alias: "",
@@ -334,6 +339,14 @@ function setActiveHost(host: Host) {
   if (!host.sshEnabled) return;
   activeHostId.value = host?.id ?? null;
   hostStore.setSelectedHost(host);
+  if (route.name !== 'dashboard') {
+    router.push({ name: 'dashboard' });
+  }
+}
+
+function disconnectHost() {
+  hostStore.setSelectedHost(null);
+  router.push({ name: 'home' });
 }
 
 async function wakeHost(id: number) {
@@ -849,6 +862,32 @@ async function deleteHost(id: number) {
   padding: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(10, 14, 18, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.disconnect-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem;
+  background: rgba(214, 93, 93, 0.1);
+  border: 1px solid rgba(214, 93, 93, 0.2);
+  border-radius: 10px;
+  color: #d68a8a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-btn:hover {
+  background: rgba(214, 93, 93, 0.2);
+  border-color: rgba(214, 93, 93, 0.3);
+  transform: translateY(-1px);
 }
 
 .profile-card {

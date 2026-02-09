@@ -207,7 +207,7 @@ onBeforeUnmount(disconnect);
 /* Header */
 .logs-header {
   display: flex;
-  align-items: center;
+  align-items: center; 
   justify-content: space-between;
   padding: 1.5rem 2rem;
   background: rgba(20, 25, 32, 0.8);

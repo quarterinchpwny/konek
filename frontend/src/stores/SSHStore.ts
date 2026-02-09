@@ -5,13 +5,16 @@ const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const useSshStore = defineStore('ssh', {
 
-  state: () => ({
-    sessionId: localStorage.getItem('sessionId') as string | null,
-    currentPath: '/',
-    files: [] as any[],
-    isConnected: false,
-    isLoading: false,
-  }),
+  state: () => {
+    const sessionId = localStorage.getItem('sessionId');
+    return {
+      sessionId: sessionId as string | null,
+      currentPath: '/',
+      files: [] as any[],
+      isConnected: !!sessionId,
+      isLoading: false,
+    };
+  },
 
   getters: {
     hasSession: (state) => !!state.sessionId,

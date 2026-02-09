@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive } from "vue";
+import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import RecentActivity from "../components/RecentActivity.vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
 import { Plus, Server, Trash2, X, Zap, Pencil } from "lucide-vue-next";
@@ -219,7 +219,7 @@ const defaultForm: Host = {
 };
 
 const form = reactive<Host>({ ...defaultForm });
-const activeHostId = ref<number | null>(null);
+const activeHostId = computed(() => hostStore.selectedHost?.id ?? null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
 
