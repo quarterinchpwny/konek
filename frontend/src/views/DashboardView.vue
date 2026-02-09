@@ -104,6 +104,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from "vue";
+import axios from "axios";
 import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
 import FileManager from "../components/FileManager.vue";
@@ -139,9 +140,33 @@ const handleConnect = async () => {
   if (id == null) return;
 
   try {
-    // If we already have a session, just register stats and set status
+    // If we have a sessionId in store, validate it first
     if (sshStore.sessionId) {
-      sessionId.value = sshStore.sessionId;
+      const isValid = await sshStore.validateSession();
+      if (isValid) {
+        sessionId.value = sshStore.sessionId;
+        await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        serverStatus.value = "online";
+        return;
+      }
+    }
+
+    // Try to find if there's an existing session for this host on the backend
+    const sessionsRes = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/terminal/sessions`, {
+      params: { hostId: id }
+    });
+    
+    if (sessionsRes.data.sessions && sessionsRes.data.sessions.length > 0) {
+      const existingSessionId = sessionsRes.data.sessions[0].sessionId;
+      sshStore.sessionId = existingSessionId;
+      localStorage.setItem('sessionId', existingSessionId);
+      sshStore.isConnected = true;
+      sessionId.value = existingSessionId;
+      
       await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

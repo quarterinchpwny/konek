@@ -70,6 +70,40 @@ terminalRoute.post("/connect", async (c) => {
 });
 
 /**
+ * GET /api/terminal/validate
+ */
+terminalRoute.get("/validate", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ status: "error", message: "Invalid session" }, 401);
+  }
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+  return c.json({ status: "success", host: session.host });
+});
+
+/**
+ * GET /api/terminal/sessions
+ */
+terminalRoute.get("/sessions", async (c) => {
+  const hostId = c.req.query("hostId");
+  if (!hostId) return c.json({ sessions: [] });
+
+  const [host] = await db
+    .select()
+    .from(serverHosts)
+    .where(eq(serverHosts.id, parseInt(hostId)));
+
+  if (!host) return c.json({ sessions: [] });
+
+  const activeSessions = Array.from(sessions.entries())
+    .filter(([_, s]) => s.host === host.hostname)
+    .map(([id, s]) => ({ sessionId: id, host: s.host }));
+
+  return c.json({ sessions: activeSessions });
+});
+
+/**
  * POST /api/terminal/execute
  */
 terminalRoute.post("/execute", async (c) => {

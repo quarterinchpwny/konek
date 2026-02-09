@@ -110,19 +110,44 @@
       >
         <div class="fm-modal" @click.stop>
           <div class="fm-modal-header">
-            <span class="fm-modal-title">Editor</span>
-            <button
-              @click="showEditor = false"
-              class="fm-modal-close"
-            >
-              <X :size="20" />
-            </button>
+            <span class="fm-modal-title">{{ currentFileName }}</span>
+            <div class="flex items-center gap-2">
+              <button
+                @click="copyToClipboard"
+                class="fm-modal-btn"
+                title="Copy to clipboard"
+              >
+                <ClipboardIcon class="w-4 h-4" />
+                <span>Copy</span>
+              </button>
+              <button
+                v-if="!isReadOnly"
+                @click="saveFile"
+                class="fm-modal-btn fm-modal-btn-primary"
+                title="Save"
+              >
+                <Check :size="16" />
+                <span>Save</span>
+              </button>
+              <button
+                @click="showEditor = false"
+                class="fm-modal-close"
+              >
+                <X :size="20" />
+              </button>
+            </div>
           </div>
-          <textarea
-            v-model="editorContent"
-            class="fm-editor"
-            placeholder="File content..."
-          ></textarea>
+          <div class="fm-editor-container">
+            <div v-if="isCodeFile" class="fm-code-viewer" ref="codeViewer">
+              <pre><code :class="languageClass" v-html="highlightedCode"></code></pre>
+            </div>
+            <textarea
+              v-else
+              v-model="editorContent"
+              class="fm-editor"
+              placeholder="File content..."
+            ></textarea>
+          </div>
         </div>
       </div>
     </Transition>
@@ -136,27 +161,69 @@
       >
         <div class="fm-modal fm-modal-media" @click.stop>
           <div class="fm-modal-header">
-            <span class="fm-modal-title">Media Viewer</span>
-            <button
-              @click="showMediaViewer = false"
-              class="fm-modal-close"
-            >
-              <X :size="20" />
-            </button>
+            <span class="fm-modal-title">{{ currentMediaName }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-white/40 mr-4">{{ currentMediaIndex + 1 }} / {{ mediaFiles.length }}</span>
+              <button
+                @click="showMediaViewer = false"
+                class="fm-modal-close"
+              >
+                <X :size="20" />
+              </button>
+            </div>
           </div>
-          <div class="fm-media-container">
+          <div class="fm-media-container group">
+            <!-- Navigation Arrows -->
+            <button 
+              v-if="mediaFiles.length > 1"
+              @click="prevMedia" 
+              class="fm-media-nav fm-media-nav-prev"
+              title="Previous"
+            >
+              <ChevronLeft :size="32" />
+            </button>
+            
             <img
               v-if="mediaViewerType === 'image'"
               :src="mediaViewerSrc"
-              class="fm-media"
+              class="fm-media zoom-in"
               alt="Media preview"
+              @click="toggleZoom"
+              :class="{ 'fm-media-zoomed': isZoomed }"
             />
             <video
               v-if="mediaViewerType === 'video'"
               :src="mediaViewerSrc"
               controls
+              autoplay
               class="fm-media"
             ></video>
+            <audio
+              v-if="mediaViewerType === 'audio'"
+              :src="mediaViewerSrc"
+              controls
+              autoplay
+              class="fm-audio"
+            ></audio>
+
+            <button 
+              v-if="mediaFiles.length > 1"
+              @click="nextMedia" 
+              class="fm-media-nav fm-media-nav-next"
+              title="Next"
+            >
+              <ChevronRight :size="32" />
+            </button>
+          </div>
+          <!-- Media Toolbar -->
+          <div class="fm-media-footer">
+            <button @click="toggleZoom" v-if="mediaViewerType === 'image'" class="fm-btn-icon" title="Toggle Zoom">
+              <MagnifyingGlassIcon v-if="!isZoomed" class="w-5 h-5" />
+              <MinusIcon v-else class="w-5 h-5" />
+            </button>
+            <a :href="mediaViewerSrc" target="_blank" download class="fm-btn-icon" title="Download">
+              <ArrowDownTrayIcon class="w-5 h-5" />
+            </a>
           </div>
         </div>
       </div>
@@ -190,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useSshStore } from "../stores/SSHStore";
 import ConfirmationDialog from "./ConfirmationDialog.vue";
 import UploadModal from "./UploadModal.vue";
@@ -202,9 +269,15 @@ import {
   ArrowUturnLeftIcon,
   ArrowUpTrayIcon,
   TrashIcon,
+  MagnifyingGlassIcon,
+  MinusIcon,
+  ArrowDownTrayIcon,
+  ClipboardIcon,
 } from "@heroicons/vue/24/outline";
-import { X } from "lucide-vue-next";
+import { X, Check, ChevronLeft, ChevronRight } from "lucide-vue-next";
 import axios from 'axios';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 const sshStore = useSshStore();
 
@@ -228,10 +301,18 @@ const logActivity = async (actionType: string, details: string) => {
 // UI State
 const editorContent = ref("");
 const showEditor = ref(false);
+const currentFileName = ref("");
+const currentFilePath = ref("");
+const isReadOnly = ref(true);
 const selectedFiles = ref<any[]>([]);
+
+// Media State
 const showMediaViewer = ref(false);
 const mediaViewerSrc = ref("");
-const mediaViewerType = ref<"image" | "video" | null>(null);
+const mediaViewerType = ref<"image" | "video" | "audio" | null>(null);
+const currentMediaName = ref("");
+const currentMediaPath = ref("");
+const isZoomed = ref(false);
 
 // --- Delete Confirmation State ---
 const showConfirmation = ref(false);
@@ -248,26 +329,110 @@ const filesToUpload = ref<File[]>([]);
 const uploadProgress = ref(0);
 const uploadError = ref<string | undefined>(undefined);
 
-// --- Generic File/Folder Logic ---
+// --- Syntax Highlighting Logic ---
+const isCodeFile = computed(() => {
+  const ext = currentFileName.value.split('.').pop()?.toLowerCase();
+  const codeExts = ['js', 'ts', 'vue', 'json', 'html', 'css', 'scss', 'py', 'go', 'rs', 'c', 'cpp', 'java', 'php', 'rb', 'sh', 'md', 'yml', 'yaml', 'sql', 'xml'];
+  return ext && codeExts.includes(ext);
+});
+
+const languageClass = computed(() => {
+  const ext = currentFileName.value.split('.').pop()?.toLowerCase();
+  if (ext === 'js') return 'language-javascript';
+  if (ext === 'ts') return 'language-typescript';
+  if (ext === 'yml' || ext === 'yaml') return 'language-yaml';
+  if (ext === 'py') return 'language-python';
+  if (ext === 'md') return 'language-markdown';
+  return `language-${ext}`;
+});
+
+const highlightedCode = computed(() => {
+  if (!isCodeFile.value) return '';
+  try {
+    return hljs.highlightAuto(editorContent.value).value;
+  } catch (e) {
+    console.error('Highlight error', e);
+    return editorContent.value;
+  }
+});
+
+// --- Media Logic ---
+const mediaFiles = computed(() => {
+  return sshStore.files.filter(f => !f.isDirectory && isMediaFile(f.name).isMedia);
+});
+
+const currentMediaIndex = computed(() => {
+  return mediaFiles.value.findIndex(f => f.path === currentMediaPath.value);
+});
+
 const isMediaFile = (
   filePath: string,
-): { isMedia: boolean; mediaType: "image" | "video" | null } => {
+): { isMedia: boolean; mediaType: "image" | "video" | "audio" | null } => {
   const imageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
-  const videoExtensions = [".mp4", ".webm", ".ogg"];
+  const videoExtensions = [".mp4", ".webm", ".ogg", ".mov", ".mkv"];
+  const audioExtensions = [".mp3", ".wav", ".flac", ".aac", ".m4a"];
   const extIndex = filePath.lastIndexOf(".");
   const ext = extIndex > 0 ? filePath.substring(extIndex).toLowerCase() : "";
 
   if (imageExtensions.includes(ext)) return { isMedia: true, mediaType: "image" };
   if (videoExtensions.includes(ext)) return { isMedia: true, mediaType: "video" };
+  if (audioExtensions.includes(ext)) return { isMedia: true, mediaType: "audio" };
   return { isMedia: false, mediaType: null };
 };
 
-const openMediaViewer = (path: string, type: "image" | "video" | null) => {
-  mediaViewerSrc.value = sshStore.fileURL(path);
-  mediaViewerType.value = type;
+const openMediaViewer = (file: any) => {
+  const mediaInfo = isMediaFile(file.name);
+  mediaViewerSrc.value = sshStore.fileURL(file.path);
+  mediaViewerType.value = mediaInfo.mediaType;
+  currentMediaName.value = file.name;
+  currentMediaPath.value = file.path;
   showMediaViewer.value = true;
-  logActivity('view', `Viewed media: ${path}`);
+  isZoomed.value = false;
+  logActivity('view', `Viewed media: ${file.path}`);
 };
+
+const nextMedia = () => {
+  const index = currentMediaIndex.value;
+  if (index < mediaFiles.value.length - 1) {
+    openMediaViewer(mediaFiles.value[index + 1]);
+  } else {
+    openMediaViewer(mediaFiles.value[0]);
+  }
+};
+
+const prevMedia = () => {
+  const index = currentMediaIndex.value;
+  if (index > 0) {
+    openMediaViewer(mediaFiles.value[index - 1]);
+  } else {
+    openMediaViewer(mediaFiles.value[mediaFiles.value.length - 1]);
+  }
+};
+
+const toggleZoom = () => {
+  if (mediaViewerType.value === 'image') {
+    isZoomed.value = !isZoomed.value;
+  }
+};
+
+const handleKeydown = (e: KeyboardEvent) => {
+  if (showMediaViewer.value) {
+    if (e.key === 'ArrowRight') nextMedia();
+    if (e.key === 'ArrowLeft') prevMedia();
+    if (e.key === 'Escape') showMediaViewer.value = false;
+  }
+  if (showEditor.value && e.key === 'Escape') {
+    showEditor.value = false;
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 const allSelected = computed({
   get: () => sshStore.files?.length > 0 && selectedFiles.value.length === sshStore.files.length,
@@ -285,9 +450,9 @@ const handleNavigate = async (file: any) => {
   } else {
     const mediaInfo = isMediaFile(file.name);
     if (mediaInfo.isMedia) {
-      openMediaViewer(file.path, mediaInfo.mediaType);
+      openMediaViewer(file);
     } else {
-      openFile(file.path);
+      openFile(file);
     }
   }
 };
@@ -300,11 +465,29 @@ const goUp = async () => {
   selectedFiles.value = [];
 };
 
-const openFile = async (path: string) => {
-  const content = await sshStore.readFile(path);
+const openFile = async (file: any) => {
+  const content = await sshStore.readFile(file.path);
   editorContent.value = content;
+  currentFileName.value = file.name;
+  currentFilePath.value = file.path;
   showEditor.value = true;
-  logActivity('view', `Viewed file: ${path}`);
+  isReadOnly.value = true; // For now view-only
+  logActivity('view', `Viewed file: ${file.path}`);
+};
+
+const saveFile = async () => {
+  // Logic to save file back to server
+  // This would need a new endpoint or using sftp in backend
+  console.log('Saving file...', currentFilePath.value);
+};
+
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(editorContent.value);
+    // Maybe add a toast notification here
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+  }
 };
 
 const refreshAndClearSelection = async () => {
@@ -712,10 +895,37 @@ const closeProgressDialog = () => {
 }
 
 /* Editor */
+.fm-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0d1117;
+}
+
+.fm-code-viewer {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.fm-code-viewer pre {
+  margin: 0;
+  background: transparent !important;
+}
+
+.fm-code-viewer code {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
 .fm-editor {
   flex: 1;
   padding: 1.5rem;
-  background: #0a0e12;
+  background: #0d1117;
   border: none;
   color: rgba(255, 255, 255, 0.9);
   font-family: 'JetBrains Mono', monospace;
@@ -729,14 +939,37 @@ const closeProgressDialog = () => {
   color: rgba(255, 255, 255, 0.25);
 }
 
+.fm-modal-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fm-modal-btn-primary {
+  background: #238636;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+  color: #ffffff;
+}
+
+.fm-modal-btn-primary:hover {
+  background: #2ea043;
+}
+
 /* Media container */
 .fm-media-container {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  background: #0a0e12;
+  padding: 0;
+  background: #000;
   overflow: hidden;
 }
 
@@ -744,7 +977,86 @@ const closeProgressDialog = () => {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 8px;
+  transition: transform 0.3s ease;
+}
+
+.fm-media-zoomed {
+  max-width: none;
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.zoom-in {
+  cursor: zoom-in;
+}
+
+.fm-audio {
+  width: 80%;
+  max-width: 600px;
+}
+
+/* Navigation */
+.fm-media-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.fm-media-container:hover .fm-media-nav {
+  opacity: 1;
+}
+
+.fm-media-nav:hover {
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.fm-media-nav-prev {
+  left: 20px;
+}
+
+.fm-media-nav-next {
+  right: 20px;
+}
+
+/* Media Footer */
+.fm-media-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: rgba(20, 25, 32, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fm-btn-icon {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fm-btn-icon:hover {
+  color: white;
+  transform: scale(1.2);
 }
 
 /* Modal animations */

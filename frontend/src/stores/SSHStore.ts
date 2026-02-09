@@ -51,6 +51,23 @@ export const useSshStore = defineStore('ssh', {
       }
     },
 
+    async validateSession() {
+      if (!this.sessionId) return false;
+      try {
+        const res = await axios.get(`${API_URL}/terminal/validate`, {
+          params: { sessionId: this.sessionId }
+        });
+        if (res.data.status === 'success') {
+          this.isConnected = true;
+          return true;
+        }
+      } catch (e) {
+        console.error('Session validation failed', e);
+      }
+      this.disconnect();
+      return false;
+    },
+
     async listFiles(path: string) {
       if (!this.sessionId) return;
 
