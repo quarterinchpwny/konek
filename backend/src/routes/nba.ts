@@ -54,9 +54,35 @@ nbaRoute.get("/scores", async (c) => {
             console.error(`parse error: ${e}, stdout: ${stdout}`);
             resolve(c.json({ error: "Failed to parse NBA data", plays: [] }, 500));
           }
+            });
+          });
         });
-      });
-    });
-    
-    export default nbaRoute;
-    
+        
+        nbaRoute.get("/boxscore", async (c) => {
+          const gameId = c.req.query("gameId");
+          if (!gameId) return c.json({ error: "gameId is required", players: [] }, 400);
+        
+          return new Promise((resolve) => {
+            const pythonCmd = "python3";
+            const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+            const cmd = `${pythonCmd} ${scriptPath} --gameId ${gameId} --type boxscore`;
+            
+            exec(cmd, (error, stdout, stderr) => {
+              if (error) {
+                console.error(`exec error: ${error}`);
+                return resolve(c.json({ error: error.message, players: [] }, 500));
+              }
+              
+              try {
+                const data = JSON.parse(stdout);
+                resolve(c.json(data));
+              } catch (e) {
+                console.error(`parse error: ${e}, stdout: ${stdout}`);
+                resolve(c.json({ error: "Failed to parse NBA data", players: [] }, 500));
+              }
+            });
+          });
+        });
+        
+        export default nbaRoute;
+        

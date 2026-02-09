@@ -2,11 +2,23 @@ import sys
 import json
 import argparse
 from datetime import datetime
-from nba_api.stats.endpoints import scoreboardv2, playbyplayv2
+from nba_api.stats.endpoints import scoreboardv2, playbyplayv3, boxscoretraditionalv3
+
+# Custom headers to avoid being blocked
+HEADERS = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'x-nba-stats-origin': 'stats',
+    'x-nba-stats-token': 'true',
+    'Connection': 'keep-alive',
+    'Referer': 'https://stats.nba.com/',
+}
 
 def fetch_by_date(game_date):
     try:
-        sb = scoreboardv2.ScoreboardV2(game_date=game_date)
+        sb = scoreboardv2.ScoreboardV2(game_date=game_date, headers=HEADERS, timeout=30)
         data = sb.get_dict()
         
         scoreboard_data = data['resultSets'][0]
@@ -70,50 +82,93 @@ def fetch_by_date(game_date):
             
         return games
     except Exception as e:
+        sys.stderr.write(f"Error in fetch_by_date: {str(e)}\n")
         return []
 
 def fetch_play_by_play(game_id):
     try:
-        pbp = playbyplayv2.PlayByPlayV2(game_id=game_id)
+        # V3 returns a more nested JSON structure
+        pbp = playbyplayv3.PlayByPlayV3(game_id=game_id, headers=HEADERS, timeout=30)
         data = pbp.get_dict()
         
-        pbp_data = data['resultSets'][0]
-        headers = pbp_data['headers']
-        rows = pbp_data['rowSet']
-        idx = {header: i for i, header in enumerate(headers)}
-        
         plays = []
-        for row in rows:
-            # We want to capture the actual play description from home, visitor or neutral columns
-            home_desc = row[idx['HOMEDESCRIPTION']]
-            visitor_desc = row[idx['VISITORDESCRIPTION']]
-            neutral_desc = row[idx['NEUTRALDESCRIPTION']]
-            
-            description = home_desc or visitor_desc or neutral_desc
+        # Structure: data['game']['actions']
+        game_data = data.get('game', {})
+        actions = game_data.get('actions', [])
+        
+        for action in actions:
+            description = action.get('description')
             if not description: continue
 
+            # Format clock (e.g., PT06M05.00S -> 6:05)
+            clock = action.get('clock', '')
+            if clock.startswith('PT'):
+                clock = clock.replace('PT', '').replace('S', '')
+                if 'M' in clock:
+                    minutes, seconds = clock.split('M')
+                    clock = f"{int(minutes)}:{seconds.split('.')[0].zfill(2)}"
+                else:
+                    clock = f"0:{clock.split('.')[0].zfill(2)}"
+
             plays.append({
-                'eventMsgType': row[idx['EVENTMSGTYPE']],
-                'period': row[idx['PERIOD']],
-                'clock': row[idx['PCTIMESTRING']],
+                'eventMsgType': action.get('actionType'),
+                'period': action.get('period'),
+                'clock': clock,
                 'description': description,
-                'score': row[idx['SCORE']],
-                'teamId': row[idx['PLAYER1_TEAM_ID']] # Often indicates who made the play
+                'score': f"{action.get('scoreAway')} - {action.get('scoreHome')}" if action.get('scoreAway') else "",
+                'teamId': action.get('teamId')
             })
             
-        # Return last 50 plays to keep it snappy
         return plays[-50:]
     except Exception as e:
+        sys.stderr.write(f"Error in fetch_play_by_play: {str(e)}\n")
+        return []
+
+def fetch_box_score(game_id):
+    try:
+        box = boxscoretraditionalv3.BoxScoreTraditionalV3(game_id=game_id, headers=HEADERS, timeout=30)
+        data = box.get_dict()
+        
+        players = []
+        box_data = data.get('boxScoreTraditional', {})
+        
+        for side in ['homeTeam', 'awayTeam']:
+            team_data = box_data.get(side, {})
+            team_id = team_data.get('teamId')
+            for player in team_data.get('players', []):
+                min_str = player.get('statistics', {}).get('minutes', '00:00')
+                if min_str == '00:00' or not min_str: continue
+                
+                stats = player.get('statistics', {})
+                players.append({
+                    'id': player.get('personId'),
+                    'name': f"{player.get('firstName')} {player.get('familyName')}",
+                    'teamId': team_id,
+                    'min': min_str,
+                    'pts': stats.get('points', 0),
+                    'reb': stats.get('reboundsTotal', 0),
+                    'ast': stats.get('assists', 0),
+                    'stl': stats.get('steals', 0),
+                    'blk': stats.get('blocks', 0)
+                })
+                
+        return players
+    except Exception as e:
+        sys.stderr.write(f"Error in fetch_box_score: {str(e)}\n")
         return []
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', help='Date in YYYY-MM-DD format')
-    parser.add_argument('--gameId', help='NBA Game ID for play-by-play')
+    parser.add_argument('--gameId', help='NBA Game ID')
+    parser.add_argument('--type', help='Type of data to fetch: pbp or boxscore')
     args = parser.parse_args()
 
     if args.gameId:
-        result = {'plays': fetch_play_by_play(args.gameId)}
+        if args.type == 'boxscore':
+            result = {'players': fetch_box_score(args.gameId)}
+        else:
+            result = {'plays': fetch_play_by_play(args.gameId)}
     else:
         target_date = args.date if args.date else datetime.now().strftime('%Y-%m-%d')
         result = {'games': fetch_by_date(target_date)}

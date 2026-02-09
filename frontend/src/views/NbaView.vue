@@ -50,7 +50,7 @@
       </div>
 
       <div v-else class="games-grid">
-        <div v-for="game in filteredGames" :key="game.id" class="game-card" @click="openPBP(game)">
+        <div v-for="game in filteredGames" :key="game.id" class="game-card" @click="openGameDetails(game)">
           <div class="game-status" :class="getStatusClass(game)">
             {{ game.status }}
           </div>
@@ -92,7 +92,7 @@
       </div>
     </div>
 
-    <!-- Play by Play Modal -->
+    <!-- Game Details Modal -->
     <Transition name="modal-fade">
       <div v-if="selectedGame" class="modal-overlay" @click="selectedGame = null">
         <div class="modal-content" @click.stop>
@@ -109,7 +109,7 @@
               </div>
             </div>
             <div class="text-right">
-              <h3 class="text-lg font-bold">Play-by-Play</h3>
+              <h3 class="text-lg font-bold">Game Details</h3>
               <p class="text-xs text-blue-400 font-bold">{{ selectedGame.status }}</p>
             </div>
             <button @click="selectedGame = null" class="modal-close-btn">
@@ -117,7 +117,24 @@
             </button>
           </div>
           
-          <div class="pbp-list">
+          <!-- Modal Tabs -->
+          <div class="modal-tabs">
+            <button 
+              @click="activeTab = 'pbp'" 
+              :class="['modal-tab', { active: activeTab === 'pbp' }]"
+            >
+              Play-by-Play
+            </button>
+            <button 
+              @click="activeTab = 'box'" 
+              :class="['modal-tab', { active: activeTab === 'box' }]"
+            >
+              Box Score
+            </button>
+          </div>
+
+          <!-- Play-by-Play Content -->
+          <div v-if="activeTab === 'pbp'" class="pbp-list">
             <div v-if="isLoadingPBP" class="flex flex-col items-center justify-center py-12">
               <div class="spinner-small"></div>
               <p class="text-sm text-gray-400 mt-4">Loading plays...</p>
@@ -132,6 +149,69 @@
                 {{ play.description }}
               </div>
               <div class="pbp-period">Q{{ play.period }}</div>
+            </div>
+          </div>
+
+          <!-- Box Score Content -->
+          <div v-else class="box-score-container">
+            <div v-if="isLoadingBox" class="flex flex-col items-center justify-center py-12">
+              <div class="spinner-small"></div>
+              <p class="text-sm text-gray-400 mt-4">Loading stats...</p>
+            </div>
+            <div v-else class="box-score-scroll">
+              <!-- Home Team -->
+              <div class="team-box-header">{{ selectedGame.homeTeam.name }}</div>
+              <table class="box-table">
+                <thead>
+                  <tr>
+                    <th class="text-left pl-4">Player</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="player in homePlayers" :key="player.id">
+                    <td class="text-left pl-4 font-medium">{{ player.name }}</td>
+                    <td class="text-gray-400">{{ player.min }}</td>
+                    <td class="font-bold text-white">{{ player.pts }}</td>
+                    <td>{{ player.reb }}</td>
+                    <td>{{ player.ast }}</td>
+                    <td>{{ player.stl }}</td>
+                    <td>{{ player.blk }}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Away Team -->
+              <div class="team-box-header mt-6">{{ selectedGame.awayTeam.name }}</div>
+              <table class="box-table">
+                <thead>
+                  <tr>
+                    <th class="text-left pl-4">Player</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="player in awayPlayers" :key="player.id">
+                    <td class="text-left pl-4 font-medium">{{ player.name }}</td>
+                    <td class="text-gray-400">{{ player.min }}</td>
+                    <td class="font-bold text-white">{{ player.pts }}</td>
+                    <td>{{ player.reb }}</td>
+                    <td>{{ player.ast }}</td>
+                    <td>{{ player.stl }}</td>
+                    <td>{{ player.blk }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -150,6 +230,18 @@ interface Play {
   description: string;
   period: number;
   score: string;
+}
+
+interface PlayerStats {
+  id: number;
+  name: string;
+  teamId: number;
+  min: string;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
 }
 
 interface Team {
@@ -176,14 +268,31 @@ const isLoading = ref(false);
 const isLive = ref(false);
 const selectedDate = ref(new Date().toISOString().split('T')[0]);
 
-// PBP State
+// Modal State
 const selectedGame = ref<Game | null>(null);
+const activeTab = ref<'pbp' | 'box'>('pbp');
+
+// PBP State
 const plays = ref<Play[]>([]);
 const isLoadingPBP = ref(false);
 
+// Box Score State
+const boxPlayers = ref<PlayerStats[]>([]);
+const isLoadingBox = ref(false);
+
 const reversedPlays = computed(() => [...plays.value].reverse());
 
-// Generate dates for tabs (3 days back, today, 3 days forward)
+const homePlayers = computed(() => {
+  if (!selectedGame.value) return [];
+  return boxPlayers.value.filter(p => p.teamId === selectedGame.value?.homeTeam.id);
+});
+
+const awayPlayers = computed(() => {
+  if (!selectedGame.value) return [];
+  return boxPlayers.value.filter(p => p.teamId === selectedGame.value?.awayTeam.id);
+});
+
+// Generate dates for tabs
 const dates = computed(() => {
   const result = [];
   for (let i = -3; i <= 3; i++) {
@@ -210,16 +319,15 @@ const fetchGames = async () => {
       params: { date: selectedDate.value }
     });
     games.value = response.data.games || [];
-    
-    // Check if any game is live to set the indicator
     isLive.value = games.value.some(g => g.statusCode === 2);
     
-    // If modal is open for a live game, refresh it too
+    // Refresh modal data if open and live
     if (selectedGame.value && selectedGame.value.statusCode === 2) {
-      // Find updated version of selected game
       const updated = games.value.find(g => g.id === selectedGame.value?.id);
       if (updated) selectedGame.value = updated;
-      fetchPBP(selectedGame.value.id);
+      
+      if (activeTab.value === 'pbp') fetchPBP(selectedGame.value.id);
+      else fetchBoxScore(selectedGame.value.id);
     }
   } catch (err) {
     console.error('Failed to fetch NBA games:', err);
@@ -228,9 +336,11 @@ const fetchGames = async () => {
   }
 };
 
-const openPBP = (game: Game) => {
+const openGameDetails = (game: Game) => {
   selectedGame.value = game;
+  activeTab.value = 'pbp'; // Default to PBP
   plays.value = [];
+  boxPlayers.value = [];
   fetchPBP(game.id);
 };
 
@@ -247,6 +357,31 @@ const fetchPBP = async (gameId: string) => {
     isLoadingPBP.value = false;
   }
 };
+
+const fetchBoxScore = async (gameId: string) => {
+  isLoadingBox.value = true;
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/nba/boxscore`, {
+      params: { gameId }
+    });
+    boxPlayers.value = response.data.players || [];
+  } catch (err) {
+    console.error('Failed to fetch Box Score:', err);
+  } finally {
+    isLoadingBox.value = false;
+  }
+};
+
+// Watch active tab to fetch data on switch
+watch(activeTab, (newTab) => {
+  if (selectedGame.value) {
+    if (newTab === 'pbp' && !plays.value.length) {
+      fetchPBP(selectedGame.value.id);
+    } else if (newTab === 'box' && !boxPlayers.value.length) {
+      fetchBoxScore(selectedGame.value.id);
+    }
+  }
+});
 
 const getStatusClass = (game: Game) => {
   if (game.statusCode === 2) return 'status-live';
@@ -270,7 +405,6 @@ let refreshInterval: number | undefined;
 
 onMounted(() => {
   fetchGames();
-  // Refresh live games every 30 seconds
   refreshInterval = window.setInterval(() => {
     if (isLive.value || !games.value.length) {
       fetchGames();
@@ -464,6 +598,7 @@ watch(selectedDate, () => {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .game-card:hover {
@@ -624,8 +759,8 @@ watch(selectedDate, () => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.5rem;
   width: 100%;
-  max-width: 600px;
-  max-height: 80vh;
+  max-width: 650px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -651,6 +786,37 @@ watch(selectedDate, () => {
 .modal-close-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: white;
+}
+
+/* Modal Tabs */
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.modal-tab {
+  flex: 1;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.modal-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.modal-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .pbp-list {
@@ -705,6 +871,69 @@ watch(selectedDate, () => {
   font-weight: 700;
   color: rgba(255, 255, 255, 0.2);
   text-transform: uppercase;
+}
+
+/* Box Score */
+.box-score-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.box-score-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.box-score-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.box-score-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.team-box-header {
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid #60a5fa;
+}
+
+.box-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.box-table th {
+  text-align: right;
+  padding: 0.5rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.box-table td {
+  text-align: right;
+  padding: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.box-table tr:last-child td {
+  border-bottom: none;
+}
+
+.box-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+  color: white;
 }
 
 .spinner-small {
