@@ -124,6 +124,35 @@ filesRoute.get("/read", async (c) => {
 });
 
 /**
+ * POST /api/files/write
+ */
+filesRoute.post("/write", async (c) => {
+  const { sessionId, path, content } = await c.req.json();
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "No session" }, 401);
+  }
+
+  const session = sessions.get(sessionId)!;
+
+  return new Promise((resolve) => {
+    session.client.sftp((err, sftp) => {
+      if (err || !sftp) return resolve(c.json({ error: "SFTP error" }, 500));
+      const stream = sftp.createWriteStream(path);
+      stream.on("close", () => {
+        sftp.end();
+        resolve(c.json({ status: "success" }));
+      });
+      stream.on("error", (writeErr) => {
+        sftp.end();
+        resolve(c.json({ error: writeErr.message }, 500));
+      });
+      stream.end(content);
+    });
+  });
+});
+
+/**
  * POST /api/files/upload
  */
 filesRoute.post("/upload", async (c) => {
@@ -220,6 +249,8 @@ filesRoute.post("/delete", async (c) => {
               }
             });
           } else if (item.type === "directory") {
+            // Need to handle recursive delete for directories via shell if they're not empty
+            // For now, simple rmdir
             sftp.rmdir(item.path, (rmdirErr) => {
               if (rmdirErr) {
                 rejectFile({
@@ -244,6 +275,95 @@ filesRoute.post("/delete", async (c) => {
       const results = await Promise.allSettled(deletePromises);
       sftp.end();
       resolve(c.json({ message: "Delete process finished.", results }));
+    });
+  });
+});
+
+/**
+ * POST /api/files/rename
+ */
+filesRoute.post("/rename", async (c) => {
+  const { sessionId, oldPath, newPath } = await c.req.json();
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "Session not found or disconnected" }, 401);
+  }
+
+  const session = sessions.get(sessionId)!;
+  session.lastActive = Date.now();
+
+  return new Promise<Response>((resolve) => {
+    session.client.sftp((err, sftp) => {
+      if (err || !sftp) return resolve(c.json({ error: "SFTP error" }, 500));
+      sftp.rename(oldPath, newPath, (renameErr) => {
+        sftp.end();
+        if (renameErr) return resolve(c.json({ error: renameErr.message }, 500));
+        resolve(c.json({ status: "success" }));
+      });
+    });
+  });
+});
+
+/**
+ * POST /api/files/archive
+ */
+filesRoute.post("/archive", async (c) => {
+  const { sessionId, items, archiveName, format } = await c.req.json();
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "No session" }, 401);
+  }
+
+  const session = sessions.get(sessionId)!;
+  const parentDir = path.posix.dirname(items[0]);
+  const itemNames = items.map((i: string) => `"${path.posix.basename(i)}"`).join(" ");
+  
+  let cmd = "";
+  if (format === "zip") {
+    cmd = `cd "${parentDir}" && zip -r "${archiveName}.zip" ${itemNames}`;
+  } else {
+    cmd = `cd "${parentDir}" && tar -czf "${archiveName}.tar.gz" ${itemNames}`;
+  }
+
+  return new Promise((resolve) => {
+    session.client.exec(cmd, (err, stream) => {
+      if (err) return resolve(c.json({ error: err.message }, 500));
+      stream.on("close", (code: number) => {
+        if (code === 0) resolve(c.json({ status: "success" }));
+        else resolve(c.json({ error: `Archive failed with code ${code}` }, 500));
+      });
+    });
+  });
+});
+
+/**
+ * POST /api/files/unarchive
+ */
+filesRoute.post("/unarchive", async (c) => {
+  const { sessionId, archivePath } = await c.req.json();
+
+  if (!sessionId || !sessions.has(sessionId)) {
+    return c.json({ error: "No session" }, 401);
+  }
+
+  const session = sessions.get(sessionId)!;
+  const dir = path.posix.dirname(archivePath);
+  const fileName = path.posix.basename(archivePath);
+  
+  let cmd = "";
+  if (fileName.endsWith(".zip")) {
+    cmd = `cd "${dir}" && unzip "${fileName}"`;
+  } else if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) {
+    cmd = `cd "${dir}" && tar -xzf "${fileName}"`;
+  }
+
+  return new Promise((resolve) => {
+    session.client.exec(cmd, (err, stream) => {
+      if (err) return resolve(c.json({ error: err.message }, 500));
+      stream.on("close", (code: number) => {
+        if (code === 0) resolve(c.json({ status: "success" }));
+        else resolve(c.json({ error: `Extraction failed with code ${code}` }, 500));
+      });
     });
   });
 });

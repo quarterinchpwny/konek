@@ -157,7 +157,7 @@
               </div>
             </div>
           </div>
-          <RecentActivity class="mt-4" /> <!-- Adding margin top for spacing -->
+          <RecentActivity />
         </div>
       </template>
     </div>
@@ -392,6 +392,8 @@ async function deleteHost(id: number) {
   flex-shrink: 0;
   overflow: hidden;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  z-index: 20;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Background layers */

@@ -102,6 +102,15 @@ export const useSshStore = defineStore('ssh', {
       return res.data.content;
     },
 
+    async writeFile(path: string, content: string) {
+      if (!this.sessionId) return;
+      await axios.post(`${API_URL}/files/write`, {
+        sessionId: this.sessionId,
+        path,
+        content
+      });
+    },
+
     async uploadFiles(
       path: string,
       filesToUpload: File[],
@@ -148,6 +157,33 @@ export const useSshStore = defineStore('ssh', {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    async renameFile(oldPath: string, newPath: string) {
+      if (!this.sessionId) return;
+      await axios.post(`${API_URL}/files/rename`, {
+        sessionId: this.sessionId,
+        oldPath,
+        newPath
+      });
+    },
+
+    async archiveItems(items: string[], archiveName: string, format: 'zip' | 'tar') {
+      if (!this.sessionId) return;
+      await axios.post(`${API_URL}/files/archive`, {
+        sessionId: this.sessionId,
+        items,
+        archiveName,
+        format
+      });
+    },
+
+    async unarchiveFile(archivePath: string) {
+      if (!this.sessionId) return;
+      await axios.post(`${API_URL}/files/unarchive`, {
+        sessionId: this.sessionId,
+        archivePath
+      });
     },
 
     disconnect() {

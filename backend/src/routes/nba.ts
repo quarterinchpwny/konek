@@ -4,85 +4,126 @@ import path from "path";
 
 const nbaRoute = new Hono();
 
+// Fast Path Cache
+const cache = new Map<string, { data: any, timestamp: number }>();
+const SCORE_CACHE_TTL = 15 * 1000; 
+const LIVE_DETAIL_CACHE_TTL = 5 * 1000;
+
+// NBA Official API Endpoints (The fast ones)
+const SCOREBOARD_URL = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json";
+
 nbaRoute.get("/scores", async (c) => {
-  const date = c.req.query("date");
+  const date = c.req.query("date") || new Date().toISOString().split('T')[0];
+  const cacheKey = `scores_${date}`;
   
+  const cached = cache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < SCORE_CACHE_TTL)) {
+    return c.json(cached.data);
+  }
+
+  // --- STANDARD PATH (Python) ---
   return new Promise((resolve) => {
-    // In Docker, python3 is in /usr/bin/python3
-    // Locally, it might be different, so we'll try 'python3' directly
-    const pythonCmd = "python3";
     const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
-    
-    const cmd = date ? `${pythonCmd} ${scriptPath} --date ${date}` : `${pythonCmd} ${scriptPath}`;
-    
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`exec error: ${error}`);
-        return resolve(c.json({ error: error.message, games: [] }, 500));
-      }
-      
+    exec(`python3 ${scriptPath} --date ${date}`, (error, stdout) => {
       try {
-        const data = JSON.parse(stdout);
-        resolve(c.json(data));
+        const result = JSON.parse(stdout);
+        if (result.games && result.games.length > 0) {
+            cache.set(cacheKey, { data: result, timestamp: Date.now() });
+        }
+        resolve(c.json(result));
       } catch (e) {
-        console.error(`parse error: ${e}, stdout: ${stdout}`);
-        resolve(c.json({ error: "Failed to parse NBA data", games: [] }, 500));
+        resolve(c.json({ error: "Parse error", games: [] }));
       }
-        });
-      });
     });
-    
-    nbaRoute.get("/pbp", async (c) => {
-      const gameId = c.req.query("gameId");
-      if (!gameId) return c.json({ error: "gameId is required", plays: [] }, 400);
-    
-      return new Promise((resolve) => {
-        const pythonCmd = "python3";
-        const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
-        const cmd = `${pythonCmd} ${scriptPath} --gameId ${gameId}`;
-        
-        exec(cmd, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`exec error: ${error}`);
-            return resolve(c.json({ error: error.message, plays: [] }, 500));
-          }
-          
-          try {
-            const data = JSON.parse(stdout);
-            resolve(c.json(data));
-          } catch (e) {
-            console.error(`parse error: ${e}, stdout: ${stdout}`);
-            resolve(c.json({ error: "Failed to parse NBA data", plays: [] }, 500));
-          }
-            });
-          });
-        });
-        
-        nbaRoute.get("/boxscore", async (c) => {
-          const gameId = c.req.query("gameId");
-          if (!gameId) return c.json({ error: "gameId is required", players: [] }, 400);
-        
-          return new Promise((resolve) => {
-            const pythonCmd = "python3";
-            const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
-            const cmd = `${pythonCmd} ${scriptPath} --gameId ${gameId} --type boxscore`;
-            
-            exec(cmd, (error, stdout, stderr) => {
-              if (error) {
-                console.error(`exec error: ${error}`);
-                return resolve(c.json({ error: error.message, players: [] }, 500));
-              }
-              
-              try {
-                const data = JSON.parse(stdout);
-                resolve(c.json(data));
-              } catch (e) {
-                console.error(`parse error: ${e}, stdout: ${stdout}`);
-                resolve(c.json({ error: "Failed to parse NBA data", players: [] }, 500));
-              }
-            });
-          });
-        });
-        
-        export default nbaRoute;
-        
+  });
+});
+
+// Deep Stats endpoints remain on Python but with shorter cache
+nbaRoute.get("/pbp", async (c) => {
+  const gameId = c.req.query("gameId");
+  const cacheKey = `pbp_${gameId}`;
+  const cached = cache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < LIVE_DETAIL_CACHE_TTL)) {
+    return c.json(cached.data);
+  }
+
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --gameId ${gameId} --type pbp`, (err, stdout) => {
+      try {
+        const res = JSON.parse(stdout);
+        cache.set(cacheKey, { data: res, timestamp: Date.now() });
+        resolve(c.json(res));
+      } catch (e) { resolve(c.json({ plays: [], momentum: [] })); }
+    });
+  });
+});
+
+nbaRoute.get("/boxscore", async (c) => {
+  const gameId = c.req.query("gameId");
+  const cacheKey = `box_${gameId}`;
+  const cached = cache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < LIVE_DETAIL_CACHE_TTL)) {
+    return c.json(cached.data);
+  }
+
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --gameId ${gameId} --type boxscore`, (err, stdout) => {
+      try {
+        const res = JSON.parse(stdout);
+        cache.set(cacheKey, { data: res, timestamp: Date.now() });
+        resolve(c.json(res));
+      } catch (e) { resolve(c.json({ players: [], teamStats: {} })); }
+    });
+  });
+});
+
+nbaRoute.get("/standings", async (c) => {
+  if (cache.has("standings")) return c.json(cache.get("standings")!.data);
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --type standings`, (err, stdout) => {
+      try {
+        const res = JSON.parse(stdout);
+        cache.set("standings", { data: res, timestamp: Date.now() });
+        resolve(c.json(res));
+      } catch (e) { resolve(c.json({ standings: [] })); }
+    });
+  });
+});
+
+nbaRoute.get("/team", async (c) => {
+  const teamId = c.req.query("teamId");
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --teamId ${teamId} --type team`, (err, stdout) => {
+      try { resolve(c.json(JSON.parse(stdout))); }
+      catch (e) { resolve(c.json({ teamDetails: {} })); }
+    });
+  });
+});
+
+nbaRoute.get("/player", async (c) => {
+  const playerId = c.req.query("playerId");
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --playerId ${playerId} --type player`, (err, stdout) => {
+      try { resolve(c.json(JSON.parse(stdout))); }
+      catch (e) { resolve(c.json({ playerInfo: {} })); }
+    });
+  });
+});
+
+nbaRoute.get("/shots", async (c) => {
+  const gameId = c.req.query("gameId");
+  return new Promise((resolve) => {
+    const scriptPath = path.join(process.cwd(), "src", "lib", "nba_fetcher.py");
+    exec(`python3 ${scriptPath} --gameId ${gameId} --type shots`, (err, stdout) => {
+      try { resolve(c.json(JSON.parse(stdout))); }
+      catch (e) { resolve(c.json({ shots: [] })); }
+    });
+  });
+});
+
+export default nbaRoute;

@@ -5,7 +5,7 @@
     <div class="main-noise"></div>
 
     <!-- Top Header -->
-    <header class="main-header">
+    <header class="main-header blur-layer">
       <!-- Breadcrumb -->
       <div class="breadcrumb">
         <span class="breadcrumb-item">Connections</span>
@@ -269,7 +269,6 @@ onUnmounted(() => {
   height: 64px;
   padding: 0 1.5rem;
   background: rgba(20, 25, 32, 0.8);
-  backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }

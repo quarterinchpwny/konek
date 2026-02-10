@@ -40,8 +40,21 @@ html {
 
 body {
   font-family: var(--font);
-  background-color: hsl(var(--background));
+  background-color: #0a0e12;
   color: hsl(var(--foreground));
+}
+
+/* Backdrop Filter Optimization */
+.blur-layer {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blur-layer {
+    backdrop-filter: none;
+    background: rgba(20, 25, 32, 0.95);
+  }
 }
 
 .text-glow {
