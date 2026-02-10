@@ -27,12 +27,6 @@ const routes = [
     component: () => import("../views/TmuxView.vue"),
     meta: { layout: DashboardLayout, requiresHost: true, willShowSavedHost: true },
   },
-  {
-    path: "/nba-monitor",
-    name: "nba-monitor",
-    component: () => import("../views/NbaView.vue"),
-    meta: { layout: DashboardLayout, requiresHost: false, willShowSavedHost: false },
-  },
 
 ];
 
