@@ -6,48 +6,46 @@
 
     <!-- Top Header -->
     <header class="main-header blur-layer">
-      <!-- Breadcrumb -->
-      <div class="breadcrumb">
-        <span class="breadcrumb-item">Connections</span>
-        <ChevronRight :size="12" class="breadcrumb-separator" />
-        <span class="breadcrumb-current">
-          {{ hostStore.selectedHost?.alias || "No connection selected" }}
-        </span>
+      <!-- Row 1 (mobile) / Left group (desktop): Breadcrumb + Status -->
+      <div class="header-top">
+        <div class="breadcrumb">
+          <span class="breadcrumb-item hidden sm:inline">Connections</span>
+          <ChevronRight
+            :size="12"
+            class="breadcrumb-separator hidden sm:inline"
+          />
+          <span class="breadcrumb-current">
+            {{ hostStore.selectedHost?.alias || "No connection selected" }}
+          </span>
+        </div>
+
+        <div class="header-actions">
+          <ServerStatusBadge :status="serverStatus" />
+          <!-- Mobile stats toggle — hidden on md+ where sidebar is accessible via the drawer won't exist -->
+          <button
+            class="stats-toggle md:hidden"
+            @click="showMobileStats = !showMobileStats"
+            :aria-label="showMobileStats ? 'Hide stats' : 'Show stats'"
+          >
+            <BarChart2 :size="16" />
+          </button>
+        </div>
       </div>
 
-      <!-- Right side with tabs and status -->
-      <div class="header-right">
-        <!-- Tab Switcher -->
-        <div class="tabs-container">
+      <!-- Row 2 (mobile) / Centre-right group (desktop): Tabs -->
+      <div class="tabs-row">
+        <div class="tabs-container" role="tablist">
           <button
-            @click="activeTab = 'home'"
-            :class="['tab', { 'tab-active': activeTab === 'home' }]"
+            v-for="tab in tabs"
+            :key="tab.id"
+            @click="activeTab = tab.id"
+            :class="['tab', { 'tab-active': activeTab === tab.id }]"
+            :aria-selected="activeTab === tab.id"
+            role="tab"
           >
-            <House :size="14" />
-            <span>Home</span>
-            <div v-if="activeTab === 'home'" class="tab-indicator"></div>
-          </button>
-          <button
-            @click="activeTab = 'terminal'"
-            :class="['tab', { 'tab-active': activeTab === 'terminal' }]"
-          >
-            <Terminal :size="14" />
-            <span>Terminal</span>
-            <div v-if="activeTab === 'terminal'" class="tab-indicator"></div>
-          </button>
-          <button
-            @click="activeTab = 'files'"
-            :class="['tab', { 'tab-active': activeTab === 'files' }]"
-          >
-            <Folder :size="14" />
-            <span>Files</span>
-            <div v-if="activeTab === 'files'" class="tab-indicator"></div>
-          </button>
-          <button
-            @click="activeTab = 'docker'"
-            :class="['tab', { 'tab-active': activeTab === 'docker' }]"
-          >
+            <component :is="tab.icon" :size="14" v-if="tab.icon" />
             <svg
+              v-else-if="tab.svg"
               width="14"
               height="14"
               viewBox="0 0 24 24"
@@ -56,95 +54,91 @@
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-            >
-              <path d="M20 7h-9"></path>
-              <path d="M14 17H5"></path>
-              <circle cx="17" cy="17" r="3"></circle>
-              <circle cx="7" cy="7" r="3"></circle>
-            </svg>
-            <span>Docker</span>
-            <div v-if="activeTab === 'docker'" class="tab-indicator"></div>
-          </button>
-          <button
-            @click="activeTab = 'processes'"
-            :class="['tab', { 'tab-active': activeTab === 'processes' }]"
-          >
-            <Activity :size="14" />
-            <span>Processes</span>
-            <div v-if="activeTab === 'processes'" class="tab-indicator"></div>
-          </button>
-          <button
-            @click="activeTab = 'media'"
-            :class="['tab', { 'tab-active': activeTab === 'media' }]"
-          >
-            <Play :size="14" />
-            <span>Media</span>
-            <div v-if="activeTab === 'media'" class="tab-indicator"></div>
+              v-html="tab.svg"
+            />
+            <span>{{ tab.label }}</span>
+            <div v-if="activeTab === tab.id" class="tab-indicator"></div>
           </button>
         </div>
-
-        <div class="header-divider"></div>
-
-        <ServerStatusBadge :status="serverStatus" />
       </div>
     </header>
 
-    <!-- Main content grid - this is the key fix -->
-    <div class="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'home'"
-      >
-        <HomeView :embedded="true" />
+    <!-- Main content grid -->
+    <div class="content-wrapper">
+      <!-- Tab panels -->
+      <div class="content-main" role="tabpanel">
+        <div v-show="activeTab === 'home'" class="panel-full">
+          <HomeView :embedded="true" />
+        </div>
+        <div v-show="activeTab === 'terminal'" class="panel-full">
+          <template v-if="sessionId">
+            <SshTerminal
+              :session-id="sessionId"
+              :host-id="hostStore.selectedHost?.id"
+            />
+          </template>
+          <div v-else class="panel-empty">
+            <Terminal :size="32" class="panel-empty-icon" />
+            <p>Connecting to terminal…</p>
+          </div>
+        </div>
+        <div v-show="activeTab === 'files'" class="panel-full">
+          <FileManager :host-id="hostStore.selectedHost?.id" />
+        </div>
+        <div v-show="activeTab === 'docker'" class="panel-full">
+          <DockerManager :host-id="hostStore.selectedHost?.id" />
+        </div>
+        <div v-show="activeTab === 'processes'" class="panel-full">
+          <ProcessManager :host-id="hostStore.selectedHost?.id" />
+        </div>
+        <div v-show="activeTab === 'media'" class="panel-full">
+          <MediaManager :host-id="hostStore.selectedHost?.id" />
+        </div>
       </div>
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'terminal'"
-      >
-        <template v-if="sessionId">
-          <SshTerminal
-            :session-id="sessionId"
-            :host-id="hostStore.selectedHost?.id"
-          />
-        </template>
-      </div>
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'files'"
-      >
-        <FileManager :host-id="hostStore.selectedHost?.id" />
-      </div>
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'docker'"
-      >
-        <DockerManager :host-id="hostStore.selectedHost?.id" />
-      </div>
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'processes'"
-      >
-        <ProcessManager :host-id="hostStore.selectedHost?.id" />
-      </div>
-      <div
-        class="col-span-4 h-full overflow-hidden"
-        v-show="activeTab === 'media'"
-      >
-        <MediaManager :host-id="hostStore.selectedHost?.id" />
-      </div>
-      <div class="col-span-1 h-full overflow-hidden">
+
+      <!-- Desktop sidebar -->
+      <aside class="sidebar-desktop" aria-label="Server stats">
         <ServerStats
           v-if="hostStore.selectedHost?.id != null && sessionId"
           :host-id="hostStore.selectedHost.id"
         />
         <QuickActions class="mt-4" />
-      </div>
+      </aside>
     </div>
+
+    <!-- Mobile stats drawer -->
+    <Transition name="drawer">
+      <div
+        v-if="showMobileStats"
+        class="stats-drawer md:hidden"
+        aria-label="Server stats"
+      >
+        <div class="stats-drawer-handle" @click="showMobileStats = false">
+          <div class="handle-bar"></div>
+        </div>
+        <div class="stats-drawer-content">
+          <ServerStats
+            v-if="hostStore.selectedHost?.id != null && sessionId"
+            :host-id="hostStore.selectedHost.id"
+          />
+          <QuickActions class="mt-4" />
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Mobile stats backdrop -->
+    <Transition name="fade">
+      <div
+        v-if="showMobileStats"
+        class="stats-backdrop md:hidden"
+        @click="showMobileStats = false"
+      />
+    </Transition>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from "vue";
+import { ref, watch, onUnmounted, computed } from "vue";
 import axios from "axios";
 import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
@@ -162,6 +156,7 @@ import {
   Activity,
   Play,
   House,
+  BarChart2,
 } from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
 import { type Host, useHostStore } from "../stores/hostStore";
@@ -176,6 +171,24 @@ const sessionId = ref<string | null>(null);
 const hostStore = useHostStore();
 const activeTab = ref("home");
 const serverStatus = ref("offline");
+const showMobileStats = ref(false);
+
+// Tab definitions — centralised so the template is DRY
+const tabs = [
+  { id: "home", label: "Home", icon: House },
+  { id: "terminal", label: "Terminal", icon: Terminal },
+  { id: "files", label: "Files", icon: Folder },
+  {
+    id: "docker",
+    label: "Docker",
+    icon: null,
+    svg: `<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>`,
+  },
+  { id: "processes", label: "Proc", icon: Activity },
+  { id: "media", label: "Media", icon: Play },
+];
+
+// ── Connection logic (unchanged) ──────────────────────────────────────────────
 
 const handleConnect = async () => {
   if (!hostStore.selectedHost) {
@@ -187,7 +200,6 @@ const handleConnect = async () => {
   if (id == null) return;
 
   try {
-    // If we have a sessionId in store, validate it first
     if (sshStore.sessionId) {
       const isValid = await sshStore.validateSession();
       if (isValid) {
@@ -202,15 +214,12 @@ const handleConnect = async () => {
       }
     }
 
-    // Try to find if there's an existing session for this host on the backend
     const sessionsRes = await axios.get(
       `${import.meta.env.VITE_API_BASE_URL}/terminal/sessions`,
-      {
-        params: { hostId: id },
-      },
+      { params: { hostId: id } },
     );
 
-    if (sessionsRes.data.sessions && sessionsRes.data.sessions.length > 0) {
+    if (sessionsRes.data.sessions?.length > 0) {
       const existingSessionId = sessionsRes.data.sessions[0].sessionId;
       sshStore.sessionId = existingSessionId;
       localStorage.setItem("sessionId", existingSessionId);
@@ -282,12 +291,14 @@ watch(
 );
 
 onUnmounted(() => {
-  // We don't disconnect on unmount anymore to persist state
+  // State persisted intentionally — no disconnect on unmount
 });
 </script>
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
 
 .main-page {
   font-family:
@@ -297,7 +308,6 @@ onUnmounted(() => {
     sans-serif;
 }
 
-/* Background */
 .main-bg {
   position: absolute;
   inset: 0;
@@ -313,68 +323,151 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* Header */
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
 .main-header {
   position: relative;
   z-index: 10;
   display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1rem;
+  background: rgba(20, 25, 32, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  backdrop-filter: blur(12px);
+  gap: 0.375rem;
+}
+
+/* On md+ screens: single row, fixed height */
+@media (min-width: 768px) {
+  .main-header {
+    padding: 0 1.5rem;
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    gap: 1rem;
+    /* Prevent children from overflowing the header */
+    overflow: hidden;
+  }
+}
+
+/* ── Header top row (breadcrumb + actions) ───────────────────────────────────*/
+
+.header-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
-  padding: 0 1.5rem;
-  background: rgba(20, 25, 32, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 0.5rem;
+  /* Never shrink the breadcrumb+badge group below its content */
   flex-shrink: 0;
 }
 
-/* Breadcrumb */
+@media (min-width: 768px) {
+  .header-top {
+    justify-content: flex-start;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ── Breadcrumb ──────────────────────────────────────────────────────────────*/
+
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
   font-size: 0.8125rem;
+  min-width: 0;
 }
 
 .breadcrumb-item {
   color: rgba(255, 255, 255, 0.4);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .breadcrumb-separator {
   color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .breadcrumb-current {
   color: rgba(255, 255, 255, 0.9);
   font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
 }
 
-/* Header right */
-.header-right {
+@media (min-width: 768px) {
+  .breadcrumb-current {
+    max-width: 200px; /* cap it so tabs always have room */
+  }
+}
+
+/* ── Mobile stats toggle ─────────────────────────────────────────────────────*/
+
+.stats-toggle {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(127, 161, 195, 0.1);
+  border: 1px solid rgba(127, 161, 195, 0.2);
+  color: #7fa1c3;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
 }
 
-/* Tabs */
+.stats-toggle:hover {
+  background: rgba(127, 161, 195, 0.18);
+}
+
+/* ── Tabs row ────────────────────────────────────────────────────────────────*/
+
+.tabs-row {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* On desktop this grows to fill remaining header space */
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.tabs-row::-webkit-scrollbar {
+  display: none;
+}
+
 .tabs-container {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.125rem;
   padding: 0.25rem;
   background: rgba(30, 35, 42, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
+  /* Allow natural width up to parent; scroll if needed */
+  width: max-content;
+  max-width: 100%;
 }
 
 .tab {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -385,6 +478,15 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+@media (min-width: 640px) {
+  .tab {
+    padding: 0.625rem 1rem;
+  }
 }
 
 .tab:hover {
@@ -400,14 +502,6 @@ onUnmounted(() => {
 .tab-active:hover {
   color: #7fa1c3;
   background: rgba(127, 161, 195, 0.15);
-}
-
-.tab svg {
-  flex-shrink: 0;
-}
-
-.tab span {
-  flex-shrink: 0;
 }
 
 .tab-indicator {
@@ -432,10 +526,130 @@ onUnmounted(() => {
   }
 }
 
-/* Divider */
-.header-divider {
-  width: 1px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.06);
+/* ── Content wrapper ─────────────────────────────────────────────────────────*/
+
+.content-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Main panel area ─────────────────────────────────────────────────────────*/
+
+.content-main {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-full {
+  height: 100%;
+  overflow: auto;
+}
+
+.panel-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.875rem;
+}
+
+.panel-empty-icon {
+  opacity: 0.4;
+}
+
+/* ── Desktop sidebar ─────────────────────────────────────────────────────────*/
+
+.sidebar-desktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sidebar-desktop {
+    display: block;
+    flex: 0 0 260px;
+    width: 260px;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 1rem;
+  }
+}
+
+/* ── Mobile stats drawer ─────────────────────────────────────────────────────*/
+
+.stats-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+}
+
+.stats-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(14, 18, 24, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px 16px 0 0;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-drawer-handle {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.handle-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stats-drawer-content {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0 1rem 1.5rem;
+}
+
+/* ── Drawer / backdrop transitions ───────────────────────────────────────────*/
+
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateY(100%);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

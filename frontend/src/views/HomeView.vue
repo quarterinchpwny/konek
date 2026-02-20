@@ -717,9 +717,26 @@ async function deleteHost(id: number) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.9fr 1fr;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(min-content, max-content);
   gap: 0.65rem;
+}
+
+@media (max-width: 1400px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  
+  .panel-activity {
+    grid-column: span 1;
+  }
 }
 
 /* ── Panel ───────────────────────────────────────────────────── */

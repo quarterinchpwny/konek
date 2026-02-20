@@ -67,9 +67,11 @@ const wsUrl = computed(() => {
 const initTerminal = () => {
   if (!terminalContainer.value) return;
 
+  const isMobile = window.innerWidth < 768;
+
   term = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
     theme: {
       background: "#0a0e12",
@@ -225,11 +227,17 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 1rem;
   background: rgba(20, 25, 32, 0.8);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .status-bar {
+    padding: 0.75rem 1.25rem;
+  }
 }
 
 .status-indicator {
@@ -305,9 +313,15 @@ onBeforeUnmount(() => {
   z-index: 2;
   flex: 1;
   width: 100%;
-  padding: 1rem;
+  padding: 0.5rem;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .xterm-container {
+    padding: 1rem;
+  }
 }
 
 /* Override xterm styles */

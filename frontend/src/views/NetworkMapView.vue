@@ -769,6 +769,18 @@ onUnmounted(() => {
   margin-bottom: 2rem;
 }
 
+@media (max-width: 1024px) {
+  .stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stat-card {
   display: flex;
   align-items: center;
@@ -935,12 +947,18 @@ onUnmounted(() => {
   border-left: 4px solid #7fa1c3;
   box-shadow: 0 4px 20px rgba(107, 140, 174, 0.15);
   padding: 1.25rem 1.5rem;
-  min-width: 320px;
+  min-width: 280px;
+}
+
+@media (max-width: 640px) {
+  .host-card, .group-card {
+    min-width: calc(100vw - 4rem);
+  }
 }
 
 .group-card {
   border-left: 3px solid rgba(255, 255, 255, 0.15);
-  min-width: 320px;
+  min-width: 280px;
   max-width: 400px;
   padding: 0;
   overflow: hidden;

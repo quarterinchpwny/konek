@@ -57,11 +57,11 @@
         <table class="process-table">
           <thead>
             <tr>
-              <th @click="toggleSort('pid')" :class="{ 'sortable': true, 'active': sortKey === 'pid' }">
+              <th @click="toggleSort('pid')" :class="{ 'sortable': true, 'active': sortKey === 'pid' }" class="hidden sm:table-cell">
                 PID
                 <Icon v-if="sortKey === 'pid'" :icon="sortOrder === 'desc' ? 'mdi:chevron-down' : 'mdi:chevron-up'" />
               </th>
-              <th @click="toggleSort('user')" :class="{ 'sortable': true, 'active': sortKey === 'user' }">
+              <th @click="toggleSort('user')" :class="{ 'sortable': true, 'active': sortKey === 'user' }" class="hidden md:table-cell">
                 USER
                 <Icon v-if="sortKey === 'user'" :icon="sortOrder === 'desc' ? 'mdi:chevron-down' : 'mdi:chevron-up'" />
               </th>
@@ -69,7 +69,7 @@
                 CPU %
                 <Icon v-if="sortKey === 'cpu'" :icon="sortOrder === 'desc' ? 'mdi:chevron-down' : 'mdi:chevron-up'" />
               </th>
-              <th @click="toggleSort('mem')" :class="{ 'sortable': true, 'active': sortKey === 'mem' }">
+              <th @click="toggleSort('mem')" :class="{ 'sortable': true, 'active': sortKey === 'mem' }" class="hidden sm:table-cell">
                 MEM
                 <Icon v-if="sortKey === 'mem'" :icon="sortOrder === 'desc' ? 'mdi:chevron-down' : 'mdi:chevron-up'" />
               </th>
@@ -82,17 +82,17 @@
           </thead>
           <tbody>
             <tr v-for="proc in sortedProcesses" :key="proc.pid">
-              <td class="pid-cell">{{ proc.pid }}</td>
-              <td class="user-cell">{{ proc.user }}</td>
+              <td class="pid-cell hidden sm:table-cell">{{ proc.pid }}</td>
+              <td class="user-cell hidden md:table-cell">{{ proc.user }}</td>
               <td class="cpu-cell">
-                <div class="percent-bar-wrapper">
+                <div class="percent-bar-wrapper min-w-[60px] sm:min-w-[120px]">
                   <span class="percent-value">{{ proc.cpu.toFixed(1) }}%</span>
-                  <div class="percent-bar">
+                  <div class="percent-bar hidden sm:block">
                     <div class="percent-fill cpu" :style="{ width: Math.min(100, proc.cpu) + '%' }"></div>
                   </div>
                 </div>
               </td>
-              <td class="mem-cell">
+              <td class="mem-cell hidden sm:table-cell">
                 <div class="mem-info-wrapper">
                   <div class="percent-bar-wrapper">
                     <span class="percent-value">{{ proc.mem.toFixed(1) }}%</span>
@@ -103,7 +103,12 @@
                   <span class="rss-value">{{ formatBytes(proc.rss * 1024) }}</span>
                 </div>
               </td>
-              <td class="command-cell" :title="proc.command">{{ proc.command }}</td>
+              <td class="command-cell" :title="proc.command">
+                <div class="flex flex-col">
+                  <span class="truncate">{{ proc.command }}</span>
+                  <span class="sm:hidden text-[10px] text-white/30">PID: {{ proc.pid }} • MEM: {{ proc.mem.toFixed(1) }}%</span>
+                </div>
+              </td>
               <td class="actions-cell">
                 <button @click="confirmKill(proc)" class="kill-btn" title="Kill Process">
                   <Icon icon="mdi:trash-can-outline" />
@@ -407,11 +412,13 @@ watch(() => props.hostId, (newId) => {
   align-items: center;
   gap: 1rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .search-wrapper {
   position: relative;
   flex: 1;
+  min-width: 280px;
   max-width: 480px;
 }
 

@@ -1,6 +1,5 @@
 <template>
   <aside class="sidebar">
-    <!-- Background layers -->
     <div class="sidebar-bg"></div>
     <div class="sidebar-noise"></div>
 
@@ -18,50 +17,81 @@
 
     <!-- Hosts list -->
     <div class="hosts-container">
-
       <template v-if="willShowSavedHost">
         <div class="section-header">
           <span class="section-title">Saved Hosts</span>
-          <button @click="isModalOpen = true" class="add-btn" title="Add new host">
+          <button
+            @click="isModalOpen = true"
+            class="add-btn"
+            title="Add new host"
+          >
             <Plus :size="16" />
           </button>
         </div>
 
         <div class="hosts-list">
-          <button v-for="host in hostStore.hosts" :key="host.id" @click="setActiveHost(host)"
-            :class="['host-card', { 'host-card-active': hostStore.selectedHost?.id === host.id }]">
+          <button
+            v-for="host in hostStore.hosts"
+            :key="host.id"
+            @click="setActiveHost(host)"
+            :class="[
+              'host-card',
+              { 'host-card-active': hostStore.selectedHost?.id === host.id },
+            ]"
+          >
             <Server :size="18" class="host-icon" />
 
             <div class="host-info">
               <p class="host-alias">{{ host.alias }}</p>
               <p class="host-connection">
-                <span v-if="host.sshEnabled">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span>
+                <span v-if="host.sshEnabled"
+                  >{{ host.username }}@{{ host.hostname }}:{{ host.port }}</span
+                >
                 <span v-else>{{ host.hostname }}</span>
               </p>
-
-              <!-- Improved stats display -->
               <div class="host-stats">
                 <div class="stat-item">
                   <span class="stat-label">CPU</span>
-                  <span class="stat-value">{{ host.stats?.cpu?.usagePercent?.toFixed(0) || "--" }}%</span>
+                  <span class="stat-value"
+                    >{{
+                      host.stats?.cpu?.usagePercent?.toFixed(0) || "--"
+                    }}%</span
+                  >
                 </div>
                 <div class="stat-divider"></div>
                 <div class="stat-item">
                   <span class="stat-label">MEM</span>
-                  <span class="stat-value">{{ host.stats?.memory?.percent?.toFixed(0) || "--" }}%</span>
+                  <span class="stat-value"
+                    >{{
+                      host.stats?.memory?.percent?.toFixed(0) || "--"
+                    }}%</span
+                  >
                 </div>
               </div>
             </div>
 
+            <!-- Actions: always visible on touch, hover-reveal on mouse -->
             <div class="host-actions">
-              <button v-if="host.macAddress" @click.stop="wakeHost(host.id!)" class="action-btn wake"
-                title="Wake On LAN">
+              <button
+                v-if="host.macAddress"
+                @click.stop="wakeHost(host.id!)"
+                class="action-btn wake"
+                title="Wake On LAN"
+              >
                 <Zap :size="14" />
               </button>
-              <button @click.stop="editHost(host)" class="action-btn edit" title="Edit Host">
+              <button
+                @click.stop="editHost(host)"
+                class="action-btn edit"
+                title="Edit Host"
+              >
                 <Pencil :size="14" />
               </button>
-              <button @click.stop="deleteHost(host.id!)" class="action-btn delete" title="Delete Host">
+              <button
+                @click.stop="deleteHost(host.id!)"
+                class="action-btn delete"
+                title="Delete Host"
+              >
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -69,95 +99,109 @@
         </div>
       </template>
 
-      <!-- Home page content -->
+      <!-- Home / no-host view -->
       <template v-else>
         <div class="home-sidebar-content">
-          <!-- Quick Stats -->
-
-
-          <!-- Quick Actions -->
           <div class="quick-actions-section">
-            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Quick Actions</div>
-            <button @click="isModalOpen = true" class="action-card">
-              <div class="action-card-icon">
-                <Plus :size="20" />
-              </div>
-              <div class="action-card-content">
-                <div class="action-card-title">Add New Host</div>
-                <div class="action-card-subtitle">Configure connection</div>
-              </div>
-            </button>
-            <router-link :to="{ name: 'tmux-manager' }" class="action-card">
-              <div class="action-card-icon">
-                <Terminal :size="20" />
-              </div>
-              <div class="action-card-content">
-                <div class="action-card-title">Tmux Manager</div>
-                <div class="action-card-subtitle">Manage background sessions</div>
-              </div>
-            </router-link>
-            <router-link :to="{ name: 'network-map' }" class="action-card">
-              <div class="action-card-icon">
-                <Network :size="20" />
-              </div>
-              <div class="action-card-content">
-                <div class="action-card-title">Network Map</div>
-                <div class="action-card-subtitle">Visualize your infrastructure</div>
-              </div>
-            </router-link>
+            <div class="section-title qas-title">Quick Actions</div>
+            <div class="action-cards">
+              <button @click="isModalOpen = true" class="action-card">
+                <div class="action-card-icon"><Plus :size="20" /></div>
+                <div class="action-card-content">
+                  <div class="action-card-title">Add New Host</div>
+                  <div class="action-card-subtitle">Configure connection</div>
+                </div>
+              </button>
+              <router-link
+                :to="{ name: 'tmux-manager' }"
+                class="action-card"
+                @click="emit('close')"
+              >
+                <div class="action-card-icon"><Terminal :size="20" /></div>
+                <div class="action-card-content">
+                  <div class="action-card-title">Tmux Manager</div>
+                  <div class="action-card-subtitle">
+                    Manage background sessions
+                  </div>
+                </div>
+              </router-link>
+              <router-link
+                :to="{ name: 'network-map' }"
+                class="action-card"
+                @click="emit('close')"
+              >
+                <div class="action-card-icon"><Network :size="20" /></div>
+                <div class="action-card-content">
+                  <div class="action-card-title">Network Map</div>
+                  <div class="action-card-subtitle">
+                    Visualize your infrastructure
+                  </div>
+                </div>
+              </router-link>
+            </div>
           </div>
 
           <div class="recent-activity-section">
-            <div class="section-title" style="margin-bottom: 0.75rem; padding: 0 0.5rem;">Infrastructure</div>
+            <div class="section-title qas-title">Infrastructure</div>
             <div class="activity-list">
-
-
-              <router-link :to="{ name: 'home' }" class="activity-item" v-if="hostStore.hosts.length > 0">
-                <div class="activity-icon success">
-                  <Server :size="12" />
-                </div>
+              <router-link
+                :to="{ name: 'home' }"
+                class="activity-item"
+                v-if="hostStore.hosts.length > 0"
+              >
+                <div class="activity-icon success"><Server :size="12" /></div>
                 <div class="activity-info">
-                  <p class="activity-title">{{ hostStore.hosts.length }} host{{ hostStore.hosts.length !== 1 ? 's' :
-                    ''
-                  }} configured</p>
+                  <p class="activity-title">
+                    {{ hostStore.hosts.length }} host{{
+                      hostStore.hosts.length !== 1 ? "s" : ""
+                    }}
+                    configured
+                  </p>
                   <p class="activity-time">Ready to connect</p>
                 </div>
               </router-link>
 
-
-
               <div class="activity-item" v-if="onlineHostsCount > 0">
-                <div class="activity-icon online">
-                  <Activity :size="12" />
-                </div>
+                <div class="activity-icon online"><Activity :size="12" /></div>
                 <div class="activity-info">
-                  <p class="activity-title">{{ onlineHostsCount }} host{{ onlineHostsCount !== 1 ? 's' : '' }} online
+                  <p class="activity-title">
+                    {{ onlineHostsCount }} host{{
+                      onlineHostsCount !== 1 ? "s" : ""
+                    }}
+                    online
                   </p>
                   <p class="activity-time">System operational</p>
                 </div>
               </div>
 
               <div class="activity-item" v-if="hostStore.hosts.length === 0">
-                <div class="activity-icon info">
-                  <AlertCircle :size="12" />
-                </div>
+                <div class="activity-icon info"><AlertCircle :size="12" /></div>
                 <div class="activity-info">
                   <p class="activity-title">No hosts configured</p>
-                  <p class="activity-time">Add your first host to get started</p>
+                  <p class="activity-time">
+                    Add your first host to get started
+                  </p>
                 </div>
               </div>
             </div>
           </div>
+
           <RecentActivity />
         </div>
       </template>
     </div>
 
-    <!-- User profile -->
+    <!-- User profile / disconnect -->
     <div class="user-profile">
-      <button v-if="hostStore.selectedHost" @click="disconnectHost" class="disconnect-btn">
+      <button
+        v-if="hostStore.selectedHost"
+        @click="disconnectHost"
+        class="disconnect-btn"
+      >
         <X :size="14" />
-        <span>Disconnect from {{ hostStore.selectedHost.alias }}</span>
+        <span class="disconnect-label"
+          >Disconnect from {{ hostStore.selectedHost.alias }}</span
+        >
       </button>
       <div class="profile-card">
         <div class="profile-avatar">JD</div>
@@ -170,15 +214,21 @@
     </div>
   </aside>
 
-  <!-- Modal -->
+  <!-- Add / Edit Modal -->
   <Transition name="modal-fade">
     <div v-if="isModalOpen" class="modal-overlay" @click.self="cancelEdit">
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h2 class="modal-title">{{ editingHost ? "Edit Host" : "Add New Host" }}</h2>
+            <h2 class="modal-title">
+              {{ editingHost ? "Edit Host" : "Add New Host" }}
+            </h2>
             <p class="modal-subtitle">
-              {{ editingHost ? "Update the host details." : "Configure a new remote endpoint." }}
+              {{
+                editingHost
+                  ? "Update the host details."
+                  : "Configure a new remote endpoint."
+              }}
             </p>
           </div>
           <button @click="cancelEdit" class="modal-close">
@@ -190,51 +240,89 @@
           <div class="form-row">
             <label for="ssh-toggle" class="form-label">Enable SSH</label>
             <label class="toggle-switch">
-              <input type="checkbox" id="ssh-toggle" v-model="form.sshEnabled" />
+              <input
+                type="checkbox"
+                id="ssh-toggle"
+                v-model="form.sshEnabled"
+              />
               <span class="toggle-slider"></span>
             </label>
           </div>
 
           <div class="form-group">
             <label class="form-label">Friendly Name</label>
-            <input v-model="form.alias" type="text" required placeholder="e.g. Raspberry Pi Cluster"
-              class="form-input" />
+            <input
+              v-model="form.alias"
+              type="text"
+              required
+              placeholder="e.g. Raspberry Pi Cluster"
+              class="form-input"
+            />
           </div>
 
           <div class="form-grid">
-            <div :class="{ 'form-group-full': !form.sshEnabled, 'form-group-2': form.sshEnabled }">
+            <div :class="form.sshEnabled ? 'form-group-2' : 'form-group-full'">
               <label class="form-label">IP / Host</label>
-              <input v-model="form.hostname" type="text" required placeholder="192.168.1.1"
-                class="form-input form-input-mono" />
+              <input
+                v-model="form.hostname"
+                type="text"
+                required
+                placeholder="192.168.1.1"
+                class="form-input form-input-mono"
+              />
             </div>
-
             <div v-if="form.sshEnabled" class="form-group-1">
               <label class="form-label">Port</label>
-              <input v-model="form.port" type="text" :required="form.sshEnabled" placeholder="22"
-                class="form-input form-input-mono" />
+              <input
+                v-model="form.port"
+                type="text"
+                :required="form.sshEnabled"
+                placeholder="22"
+                class="form-input form-input-mono"
+              />
             </div>
           </div>
 
           <div v-if="form.sshEnabled" class="form-group">
             <label class="form-label">Username</label>
-            <input v-model="form.username" type="text" :required="form.sshEnabled" placeholder="root"
-              class="form-input form-input-mono" />
+            <input
+              v-model="form.username"
+              type="text"
+              :required="form.sshEnabled"
+              placeholder="root"
+              class="form-input form-input-mono"
+            />
           </div>
 
           <div v-if="form.sshEnabled" class="form-group">
             <label class="form-label">Password</label>
-            <input v-model="form.password" type="password"
-              :placeholder="editingHost ? '(leave blank to keep unchanged)' : ''" class="form-input form-input-mono" />
+            <input
+              v-model="form.password"
+              type="password"
+              :placeholder="
+                editingHost ? '(leave blank to keep unchanged)' : ''
+              "
+              class="form-input form-input-mono"
+            />
           </div>
 
           <div class="form-group">
             <label class="form-label">MAC Address (optional)</label>
-            <input v-model="form.macAddress" type="text" placeholder="XX:XX:XX:XX:XX:XX"
-              class="form-input form-input-mono" />
+            <input
+              v-model="form.macAddress"
+              type="text"
+              placeholder="XX:XX:XX:XX:XX:XX"
+              class="form-input form-input-mono"
+            />
           </div>
 
           <div class="form-actions">
-            <button v-if="editingHost" type="button" @click="cancelEdit" class="btn btn-secondary">
+            <button
+              v-if="editingHost"
+              type="button"
+              @click="cancelEdit"
+              class="btn btn-secondary"
+            >
               Cancel
             </button>
             <button type="submit" class="btn btn-primary">
@@ -251,13 +339,26 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import { Plus, Server, Terminal, Settings, Trash2, X, Zap, Pencil, Activity, AlertCircle, Network } from "lucide-vue-next";
-import RecentActivity from '../RecentActivity.vue';
+import {
+  Plus,
+  Server,
+  Terminal,
+  Settings,
+  Trash2,
+  X,
+  Zap,
+  Pencil,
+  Activity,
+  AlertCircle,
+  Network,
+} from "lucide-vue-next";
+import RecentActivity from "../RecentActivity.vue";
 import { useRoute, useRouter } from "vue-router";
 
 const hostStore = useHostStore();
 const route = useRoute();
 const router = useRouter();
+const emit = defineEmits(["close"]);
 
 const defaultForm: Host = {
   alias: "",
@@ -270,18 +371,12 @@ const defaultForm: Host = {
 };
 
 const form = reactive<Host>({ ...defaultForm });
-const activeHostId = ref<number | null>(null);
 const editingHost = ref<Host | null>(null);
 const isModalOpen = ref(false);
 
-
-const willShowSavedHost = computed(() => {
-  return route.meta.willShowSavedHost === true
-})
-
-// Computed property for online hosts count
-const onlineHostsCount = computed(() =>
-  hostStore.hosts.filter(host => host.online || host.status === 'online').length
+const willShowSavedHost = computed(() => route.meta.willShowSavedHost === true);
+const onlineHostsCount = computed(
+  () => hostStore.hosts.filter((h) => h.online || h.status === "online").length,
 );
 
 let pollingInterval: number | undefined;
@@ -289,14 +384,13 @@ let pollingInterval: number | undefined;
 onMounted(async () => {
   await hostStore.fetchHosts();
   hostStore.fetchBulkHostStatus();
-  pollingInterval = window.setInterval(() => {
-    hostStore.fetchBulkHostStatus();
-  }, 5000);
+  pollingInterval = window.setInterval(
+    () => hostStore.fetchBulkHostStatus(),
+    5000,
+  );
 });
 
-onUnmounted(() => {
-  clearInterval(pollingInterval);
-});
+onUnmounted(() => clearInterval(pollingInterval));
 
 function resetForm() {
   Object.assign(form, defaultForm);
@@ -320,13 +414,7 @@ async function saveHost() {
 
 function editHost(host: Host) {
   editingHost.value = host;
-  form.alias = host.alias;
-  form.hostname = host.hostname;
-  form.port = host.port;
-  form.username = host.username;
-  form.macAddress = host.macAddress;
-  form.sshEnabled = host.sshEnabled;
-  form.password = "";
+  Object.assign(form, { ...host, password: "" });
   isModalOpen.value = true;
 }
 
@@ -337,57 +425,61 @@ function cancelEdit() {
 
 function setActiveHost(host: Host) {
   if (!host.sshEnabled) return;
-  activeHostId.value = host?.id ?? null;
   hostStore.setSelectedHost(host);
-  if (route.name !== 'dashboard') {
-    router.push({ name: 'dashboard' });
-  }
+  emit("close");
+  if (route.name !== "dashboard") router.push({ name: "dashboard" });
 }
 
 function disconnectHost() {
   hostStore.setSelectedHost(null);
-  router.push({ name: 'home' });
+  emit("close");
+  router.push({ name: "home" });
 }
 
 async function wakeHost(id: number) {
   try {
     await hostStore.sendWol(id);
     alert("WOL packet sent!");
-  } catch (e) {
+  } catch {
     alert(`Failed to send WOL packet: ${hostStore.error}`);
   }
 }
 
 async function deleteHost(id: number) {
-  if (confirm("Are you sure you want to delete this host?")) {
-    try {
-      await hostStore.deleteHost(id);
-      if (editingHost.value && editingHost.value.id === id) {
-        resetForm();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  if (!confirm("Are you sure you want to delete this host?")) return;
+  try {
+    await hostStore.deleteHost(id);
+    if (editingHost.value?.id === id) resetForm();
+  } catch (e) {
+    console.error(e);
   }
 }
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
+
+/* ── Shell ───────────────────────────────────────────────────────────────────*/
 
 .sidebar {
   position: relative;
+  /* On mobile (when used as off-canvas), fill the container height */
   width: 280px;
+  max-width: 85vw;
+  height: 100%;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Outfit",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   z-index: 20;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Background layers */
 .sidebar-bg {
   position: absolute;
   inset: 0;
@@ -403,12 +495,14 @@ async function deleteHost(id: number) {
   z-index: 1;
 }
 
-/* Header */
+/* ── Header ──────────────────────────────────────────────────────────────────*/
+
 .sidebar-header {
   position: relative;
   z-index: 2;
-  padding: 1.5rem;
+  padding: 1.25rem 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .logo-container {
@@ -421,12 +515,13 @@ async function deleteHost(id: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   background: rgba(107, 140, 174, 0.15);
   border: 1px solid rgba(107, 140, 174, 0.2);
-  border-radius: 12px;
+  border-radius: 10px;
   color: #7fa1c3;
+  flex-shrink: 0;
 }
 
 .logo-link {
@@ -434,99 +529,103 @@ async function deleteHost(id: number) {
 }
 
 .logo-text {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #fff;
   letter-spacing: -0.02em;
   margin: 0;
-  transition: color 0.2s ease;
+  transition: color 0.2s;
 }
 
 .logo-link:hover .logo-text {
   color: #7fa1c3;
 }
 
-/* Hosts container */
+/* ── Scrollable hosts area ───────────────────────────────────────────────────*/
+
 .hosts-container {
   position: relative;
   z-index: 2;
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  overflow-x: hidden;
+  padding: 0.875rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hosts-container::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
-
 .hosts-container::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .hosts-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
 }
 
-.hosts-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
+/* ── Section headers ─────────────────────────────────────────────────────────*/
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-  padding: 0 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0 0.375rem;
 }
 
 .section-title {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
+.qas-title {
+  margin-bottom: 0.625rem;
+  padding: 0 0.375rem;
+  display: block;
+}
+
 .add-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   background: rgba(107, 140, 174, 0.12);
   border: 1px solid rgba(107, 140, 174, 0.2);
-  border-radius: 8px;
+  border-radius: 7px;
   color: #7fa1c3;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
-
 .add-btn:hover {
-  background: rgba(107, 140, 174, 0.2);
-  transform: scale(1.05);
+  background: rgba(107, 140, 174, 0.22);
 }
 
-/* Hosts list */
+/* ── Host cards ──────────────────────────────────────────────────────────────*/
+
 .hosts-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .host-card {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem;
+  gap: 0.625rem;
+  padding: 0.75rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
   text-align: left;
-  overflow: hidden;
+  width: 100%;
 }
 
 .host-card:hover {
@@ -538,15 +637,13 @@ async function deleteHost(id: number) {
 .host-card-active {
   background: rgba(107, 140, 174, 0.12);
   border-color: rgba(107, 140, 174, 0.3);
-  box-shadow: 0 0 0 1px rgba(107, 140, 174, 0.1);
 }
 
 .host-icon {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.5);
-  transition: color 0.2s ease;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.2s;
 }
-
 .host-card-active .host-icon {
   color: #7fa1c3;
 }
@@ -557,85 +654,91 @@ async function deleteHost(id: number) {
 }
 
 .host-alias {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
 }
-
 .host-card-active .host-alias {
-  color: #ffffff;
+  color: #fff;
 }
 
 .host-connection {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.35);
-  font-family: 'JetBrains Mono', monospace;
-  margin: 0 0 0.5rem 0;
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: "JetBrains Mono", monospace;
+  margin: 0 0 0.4rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Improved stats styling */
 .host-stats {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.375rem 0.5rem;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
+  border-radius: 5px;
   width: fit-content;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.3rem;
 }
 
 .stat-label {
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .stat-value {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
-  font-family: 'JetBrains Mono', monospace;
-  min-width: 28px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "JetBrains Mono", monospace;
+  min-width: 26px;
   text-align: right;
 }
-
 .host-card-active .stat-value {
   color: #7fa1c3;
 }
 
 .stat-divider {
   width: 1px;
-  height: 12px;
+  height: 10px;
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Host actions: hidden on mouse devices until hover; always shown on touch */
 .host-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
 }
 
 .host-card:hover .host-actions {
   opacity: 1;
+}
+
+/* Always show on touch (no hover) */
+@media (hover: none) {
+  .host-actions {
+    opacity: 1;
+  }
 }
 
 .action-btn {
@@ -647,113 +750,61 @@ async function deleteHost(id: number) {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  /* Comfortable tap target */
+  min-width: 28px;
 }
 
 .action-btn:hover {
   transform: scale(1.1);
 }
-
 .action-btn.wake:hover {
   background: rgba(168, 85, 247, 0.15);
   color: #b19dd4;
 }
-
 .action-btn.edit:hover {
   background: rgba(234, 179, 8, 0.15);
   color: #e8c368;
 }
-
 .action-btn.delete:hover {
   background: rgba(214, 93, 93, 0.15);
   color: #d68a8a;
 }
 
-/* Home Sidebar Content */
+/* ── Home sidebar content ────────────────────────────────────────────────────*/
+
 .home-sidebar-content {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.stats-card {
-  padding: 1.25rem;
-  background: rgba(20, 25, 32, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-}
-
-.stats-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.stats-card-icon {
-  color: #7fa1c3;
-}
-
-.stats-card-title {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.stat-box {
-  padding: 1rem;
-  background: rgba(10, 14, 18, 0.5);
-  border-radius: 12px;
-  text-align: center;
-}
-
-.stat-box-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 0.25rem;
-}
-
-.stat-box-value.online {
-  color: #8bc4a0;
-}
-
-.stat-box-label {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-/* Quick Actions */
-.quick-actions-section {
+.quick-actions-section,
+.recent-activity-section {
   padding: 0;
+}
+
+.action-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .action-card {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.875rem;
   width: 100%;
-  padding: 1rem;
+  padding: 0.875rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
   text-align: left;
+  text-decoration: none;
 }
 
 .action-card:hover {
@@ -764,73 +815,76 @@ async function deleteHost(id: number) {
 
 .action-card-icon {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(127, 161, 195, 0.15);
-  border-radius: 12px;
+  background: rgba(127, 161, 195, 0.12);
+  border-radius: 10px;
   color: #7fa1c3;
 }
 
 .action-card-content {
   flex: 1;
+  min-width: 0;
 }
 
 .action-card-title {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .action-card-subtitle {
   font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Recent Activity */
-.recent-activity-section {
-  padding: 0;
-}
+/* ── Activity list ───────────────────────────────────────────────────────────*/
 
 .activity-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .activity-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem;
+  gap: 0.625rem;
+  padding: 0.75rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
+  text-decoration: none;
 }
 
 .activity-icon {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 7px;
 }
 
 .activity-icon.success {
   background: rgba(139, 196, 160, 0.15);
   color: #8bc4a0;
 }
-
 .activity-icon.online {
   background: rgba(127, 161, 195, 0.15);
   color: #7fa1c3;
 }
-
 .activity-icon.info {
   background: rgba(232, 195, 104, 0.15);
   color: #e8c368;
@@ -842,31 +896,33 @@ async function deleteHost(id: number) {
 }
 
 .activity-title {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.125rem 0;
+  margin: 0 0 0.125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .activity-time {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.45);
   margin: 0;
 }
 
-/* User profile */
+/* ── User profile footer ─────────────────────────────────────────────────────*/
+
 .user-profile {
   position: relative;
   z-index: 2;
-  padding: 1rem;
+  padding: 0.875rem;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(10, 14, 18, 0.5);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.625rem;
+  flex-shrink: 0;
 }
 
 .disconnect-btn {
@@ -875,44 +931,53 @@ async function deleteHost(id: number) {
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.625rem;
+  padding: 0.5rem 0.75rem;
   background: rgba(214, 93, 93, 0.1);
   border: 1px solid rgba(214, 93, 93, 0.2);
-  border-radius: 10px;
+  border-radius: 9px;
   color: #d68a8a;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  font-family: inherit;
+  min-height: 36px;
 }
 
 .disconnect-btn:hover {
-  background: rgba(214, 93, 93, 0.2);
+  background: rgba(214, 93, 93, 0.18);
   border-color: rgba(214, 93, 93, 0.3);
-  transform: translateY(-1px);
+}
+
+/* Truncate long alias on small widths */
+.disconnect-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem;
+  gap: 0.625rem;
+  padding: 0.75rem;
   background: rgba(20, 25, 32, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .profile-avatar {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #7fa1c3 0%, #6b8cae 100%);
   border-radius: 50%;
-  color: #ffffff;
-  font-size: 0.75rem;
+  color: #fff;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 
@@ -924,13 +989,16 @@ async function deleteHost(id: number) {
 .profile-name {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 0.125rem 0;
+  color: #fff;
+  margin: 0 0 0.125rem;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-subtitle {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   color: rgba(255, 255, 255, 0.4);
   margin: 0;
 }
@@ -940,44 +1008,76 @@ async function deleteHost(id: number) {
   color: rgba(255, 255, 255, 0.3);
 }
 
-/* Modal */
+/* ── Modal ───────────────────────────────────────────────────────────────────*/
+
 .modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* bottom sheet on mobile */
   justify-content: center;
-  padding: 1.5rem;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 1.5rem;
+  }
 }
 
 .modal-content {
   position: relative;
   width: 100%;
-  max-width: 480px;
   background: #16161a;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+  /* mobile: bottom sheet */
+  border-radius: 20px 20px 0 0;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    border-radius: 20px;
+    max-width: 480px;
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 .modal-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 2rem 2rem 1.5rem;
+  gap: 1rem;
+  padding: 1.5rem 1.5rem 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+@media (min-width: 640px) {
+  .modal-header {
+    padding: 2rem 2rem 1.5rem;
+  }
+}
+
 .modal-title {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 0.375rem 0;
+  color: #fff;
+  margin: 0 0 0.3rem;
   letter-spacing: -0.02em;
+}
+
+@media (min-width: 640px) {
+  .modal-title {
+    font-size: 1.25rem;
+  }
 }
 
 .modal-subtitle {
@@ -998,75 +1098,81 @@ async function deleteHost(id: number) {
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
-
 .modal-close:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
+  color: #fff;
 }
 
-/* Form */
+/* ── Form ────────────────────────────────────────────────────────────────────*/
+
 .modal-form {
-  padding: 2rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .modal-form {
+    padding: 2rem;
+  }
 }
 
 .form-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.125rem;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: 0.75rem;
+  margin-bottom: 1.125rem;
 }
 
 .form-group-full {
   grid-column: 1 / -1;
 }
-
 .form-group-2 {
   grid-column: span 1;
 }
-
 .form-group-1 {
   grid-column: span 1;
 }
 
 .form-label {
   display: block;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.45rem;
 }
 
 .form-input {
   width: 100%;
-  padding: 0.875rem 1rem;
+  padding: 0.75rem 0.875rem;
   background: rgba(20, 25, 32, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  color: #ffffff;
+  color: #fff;
   font-size: 0.9375rem;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  /* Prevent zoom on iOS */
+  font-size: max(16px, 0.9375rem);
 }
 
 .form-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.22);
 }
-
 .form-input:focus {
   outline: none;
   background: rgba(25, 30, 38, 0.8);
@@ -1075,11 +1181,11 @@ async function deleteHost(id: number) {
 }
 
 .form-input-mono {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: max(16px, 0.875rem);
 }
 
-/* Toggle switch */
+/* Toggle */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -1099,26 +1205,25 @@ async function deleteHost(id: number) {
   inset: 0;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
 }
 
 .toggle-slider::before {
-  content: '';
+  content: "";
   position: absolute;
   width: 18px;
   height: 18px;
   left: 3px;
   top: 3px;
-  background: #ffffff;
+  background: #fff;
   border-radius: 50%;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
 }
 
-input:checked+.toggle-slider {
+input:checked + .toggle-slider {
   background: #7fa1c3;
 }
-
-input:checked+.toggle-slider::before {
+input:checked + .toggle-slider::before {
   transform: translateX(20px);
 }
 
@@ -1126,7 +1231,7 @@ input:checked+.toggle-slider::before {
 .form-actions {
   display: flex;
   gap: 0.75rem;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .btn {
@@ -1135,20 +1240,21 @@ input:checked+.toggle-slider::before {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem 1.5rem;
+  padding: 0.875rem 1.25rem;
   border: none;
   border-radius: 12px;
   font-size: 0.9375rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  min-height: 48px; /* comfortable tap target */
 }
 
 .btn-primary {
   background: #7fa1c3;
-  color: #ffffff;
+  color: #fff;
 }
-
 .btn-primary:hover {
   background: #6b8cae;
   transform: translateY(-1px);
@@ -1159,20 +1265,15 @@ input:checked+.toggle-slider::before {
   background: rgba(140, 140, 150, 0.15);
   color: rgba(255, 255, 255, 0.8);
 }
-
 .btn-secondary:hover {
   background: rgba(140, 140, 150, 0.25);
 }
 
-/* Modal animations */
+/* ── Modal transitions ───────────────────────────────────────────────────────*/
+
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-fade-enter-active .modal-content,
-.modal-fade-leave-active .modal-content {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: opacity 0.25s ease;
 }
 
 .modal-fade-enter-from,
@@ -1180,9 +1281,28 @@ input:checked+.toggle-slider::before {
   opacity: 0;
 }
 
+/* Bottom-sheet slide on mobile */
+.modal-fade-enter-active .modal-content,
+.modal-fade-leave-active .modal-content {
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 .modal-fade-enter-from .modal-content,
 .modal-fade-leave-to .modal-content {
-  transform: scale(0.95);
-  opacity: 0;
+  transform: translateY(100%);
+}
+
+@media (min-width: 640px) {
+  .modal-fade-enter-active .modal-content,
+  .modal-fade-leave-active .modal-content {
+    transition:
+      transform 0.25s ease,
+      opacity 0.25s ease;
+  }
+  .modal-fade-enter-from .modal-content,
+  .modal-fade-leave-to .modal-content {
+    transform: scale(0.96);
+    opacity: 0;
+  }
 }
 </style>
