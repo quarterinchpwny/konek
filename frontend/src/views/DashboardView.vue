@@ -6,7 +6,7 @@
 
     <!-- Top Header -->
     <header class="main-header blur-layer">
-      <!-- Row 1 (mobile) / Left group (desktop): Breadcrumb + Status -->
+      <!-- Row 1: Breadcrumb + Status -->
       <div class="header-top">
         <div class="breadcrumb">
           <span class="breadcrumb-item hidden sm:inline">Connections</span>
@@ -21,9 +21,9 @@
 
         <div class="header-actions">
           <ServerStatusBadge :status="serverStatus" />
-          <!-- Mobile stats toggle — hidden on md+ where sidebar is accessible via the drawer won't exist -->
+          <!-- Mobile stats toggle -->
           <button
-            class="stats-toggle md:hidden"
+            class="stats-toggle lg:hidden"
             @click="showMobileStats = !showMobileStats"
             :aria-label="showMobileStats ? 'Hide stats' : 'Show stats'"
           >
@@ -32,7 +32,7 @@
         </div>
       </div>
 
-      <!-- Row 2 (mobile) / Centre-right group (desktop): Tabs -->
+      <!-- Row 2: Tabs -->
       <div class="tabs-row">
         <div class="tabs-container" role="tablist">
           <button
@@ -110,7 +110,7 @@
     <Transition name="drawer">
       <div
         v-if="showMobileStats"
-        class="stats-drawer md:hidden"
+        class="stats-drawer lg:hidden"
         aria-label="Server stats"
       >
         <div class="stats-drawer-handle" @click="showMobileStats = false">
@@ -130,7 +130,7 @@
     <Transition name="fade">
       <div
         v-if="showMobileStats"
-        class="stats-backdrop md:hidden"
+        class="stats-backdrop lg:hidden"
         @click="showMobileStats = false"
       />
     </Transition>
@@ -338,7 +338,7 @@ onUnmounted(() => {
   gap: 0.375rem;
 }
 
-/* On md+ screens: single row, fixed height */
+/* On md+ screens the header is a single tighter row */
 @media (min-width: 768px) {
   .main-header {
     padding: 0 1.5rem;
@@ -346,8 +346,6 @@ onUnmounted(() => {
     align-items: center;
     height: 56px;
     gap: 1rem;
-    /* Prevent children from overflowing the header */
-    overflow: hidden;
   }
 }
 
@@ -358,12 +356,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  /* Never shrink the breadcrumb+badge group below its content */
-  flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
   .header-top {
+    /* On desktop the breadcrumb sits in its own column */
+    flex: 0 0 auto;
     justify-content: flex-start;
   }
 }
@@ -372,7 +370,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
 }
 
 /* ── Breadcrumb ──────────────────────────────────────────────────────────────*/
@@ -382,7 +379,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  min-width: 0;
+  min-width: 0; /* allow text truncation */
 }
 
 .breadcrumb-item {
@@ -408,7 +405,7 @@ onUnmounted(() => {
 
 @media (min-width: 768px) {
   .breadcrumb-current {
-    max-width: 200px; /* cap it so tabs always have room */
+    max-width: none;
   }
 }
 
@@ -436,17 +433,24 @@ onUnmounted(() => {
 /* ── Tabs row ────────────────────────────────────────────────────────────────*/
 
 .tabs-row {
+  /* Horizontally scrollable on small screens */
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar */
   scrollbar-width: none;
-  /* On desktop this grows to fill remaining header space */
-  flex: 1 1 0;
-  min-width: 0;
 }
 
 .tabs-row::-webkit-scrollbar {
   display: none;
+}
+
+@media (min-width: 768px) {
+  .tabs-row {
+    /* On desktop, sit inline with breadcrumb */
+    flex: 1 1 auto;
+    overflow: visible;
+  }
 }
 
 .tabs-container {
@@ -457,9 +461,7 @@ onUnmounted(() => {
   background: rgba(30, 35, 42, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  /* Allow natural width up to parent; scroll if needed */
-  width: max-content;
-  max-width: 100%;
+  min-width: max-content; /* never wrap; let parent scroll */
 }
 
 .tab {
@@ -467,6 +469,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.375rem;
+  /* Slightly smaller on mobile */
   padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
@@ -479,6 +482,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  /* Ensure tap targets are large enough on mobile */
   min-height: 36px;
   touch-action: manipulation;
 }
@@ -553,6 +557,7 @@ onUnmounted(() => {
   overflow: auto;
 }
 
+/* Empty state for unready panels */
 .panel-empty {
   height: 100%;
   display: flex;
