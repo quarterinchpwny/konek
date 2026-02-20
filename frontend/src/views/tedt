@@ -1,10 +1,10 @@
 <template>
-  <div :class="['home-page', { embedded: embedded }]">
-    <div v-if="!embedded" class="home-bg"></div>
-    <div v-if="!embedded" class="home-noise"></div>
+  <div class="home-page">
+    <div class="home-bg"></div>
+    <div class="home-noise"></div>
 
     <div class="home-shell">
-      <header v-if="!embedded" class="top-strip blur-layer">
+      <header class="top-strip blur-layer">
         <nav class="top-nav">
           <button
             v-for="item in topNav"
@@ -18,7 +18,7 @@
         <div class="top-meta">{{ nowLabel }}</div>
       </header>
 
-      <header class="page-header" v-if="!embedded">
+      <header class="page-header">
         <div>
           <p class="header-label">System Overview</p>
           <h2 class="header-title">Active Infrastructure</h2>
@@ -190,17 +190,7 @@
           </div>
           <div class="bookmark-grid">
             <a
-              v-for="item in mediaBookmarks"
-              :key="item.name"
-              :href="item.url"
-              target="_blank"
-              class="bookmark-chip media-bookmark"
-            >
-              <ExternalLink :size="12" />
-              <span>{{ item.name }}</span>
-            </a>
-            <a
-              v-for="item in defaultBookmarks"
+              v-for="item in bookmarks"
               :key="item"
               href="#"
               @click.prevent
@@ -210,10 +200,6 @@
               <span>{{ item }}</span>
             </a>
           </div>
-        </article>
-
-        <article class="panel panel-activity">
-          <RecentActivity :hostId="selectedHost?.id" />
         </article>
 
         <article class="panel">
@@ -354,9 +340,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, reactive, computed } from "vue";
 import { useHostStore, type Host } from "@/stores/hostStore";
-import RecentActivity from "@/components/RecentActivity.vue";
 import {
   Plus,
   Server,
@@ -368,27 +353,25 @@ import {
   Activity,
   Wifi,
   Bookmark,
-  ExternalLink,
 } from "lucide-vue-next";
-
-const props = defineProps<{
-  embedded?: boolean;
-}>();
 
 const hostStore = useHostStore();
 
 const topNav = ["Main", "Media", "Reddit", "News", "AI", "Kanban", "Others"];
-const defaultBookmarks = [
+const bookmarks = [
   "Proxmox",
   "Portainer",
   "Prowlarr",
+  "Sonarr",
+  "Radarr",
+  "Overseerr",
+  "Grafana",
+  "Prometheus",
   "Vaultwarden",
   "Immich",
   "VS Code",
   "Gitea",
 ];
-
-const mediaBookmarks = ref<{ name: string; url: string }[]>([]);
 
 const nowLabel = computed(() => {
   const d = new Date();
@@ -417,32 +400,6 @@ const selectedHost = computed(
     hostStore.hosts[0] ??
     null,
 );
-
-const fetchMediaBookmarks = async () => {
-  if (!selectedHost.value?.id) {
-    mediaBookmarks.value = [];
-    return;
-  }
-  try {
-    const res = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/hosts/${selectedHost.value.id}/media`,
-    );
-    if (res.ok) {
-      const data = await res.json();
-      mediaBookmarks.value = data
-        .filter((c: any) => c.enabled)
-        .map((c: any) => ({
-          name: c.serviceType.charAt(0).toUpperCase() + c.serviceType.slice(1),
-          url: c.url,
-        }));
-    }
-  } catch (e) {
-    console.error("Failed to fetch media bookmarks", e);
-  }
-};
-
-watch(() => selectedHost.value?.id, fetchMediaBookmarks);
-
 const onlineHosts = computed(
   () => hostStore.hosts.filter((h) => h.online).length,
 );
@@ -461,7 +418,7 @@ const toPct = (val?: number) => `${clamp(val)}%`;
 const statusClass = (status?: Host["status"]) => {
   if (status === "online") return "ok";
   if (status === "offline") return "off";
-  if (status === "error" || status === "auth_failed") return "err";
+  if (status === "error") return "err";
   return "unknown";
 };
 
@@ -569,14 +526,6 @@ async function deleteHost(id: number) {
     BlinkMacSystemFont,
     sans-serif;
   color: #d4d9e6;
-}
-
-.home-page.embedded {
-  background: transparent;
-}
-
-.home-page.embedded .home-shell {
-  padding: 0;
 }
 
 /* ── Background ──────────────────────────────────────────────── */
@@ -741,10 +690,6 @@ async function deleteHost(id: number) {
 
 .panel-primary {
   grid-row: span 2;
-}
-
-.panel-activity {
-  grid-column: span 2;
 }
 
 .panel-head {
@@ -1046,17 +991,6 @@ async function deleteHost(id: number) {
   color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.12);
-}
-
-.bookmark-chip.media-bookmark {
-  color: #7fa1c3;
-  border-color: rgba(127, 161, 195, 0.2);
-  background: rgba(127, 161, 195, 0.05);
-}
-
-.bookmark-chip.media-bookmark:hover {
-  background: rgba(127, 161, 195, 0.1);
-  border-color: rgba(127, 161, 195, 0.3);
 }
 
 /* ── SSH list ────────────────────────────────────────────────── */

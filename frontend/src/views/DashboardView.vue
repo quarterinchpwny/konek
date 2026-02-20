@@ -18,7 +18,15 @@
       <!-- Right side with tabs and status -->
       <div class="header-right">
         <!-- Tab Switcher -->
-        <div class="tabs-container" v-if="serverStatus !== 'offline'">
+        <div class="tabs-container">
+          <button
+            @click="activeTab = 'home'"
+            :class="['tab', { 'tab-active': activeTab === 'home' }]"
+          >
+            <House :size="14" />
+            <span>Home</span>
+            <div v-if="activeTab === 'home'" class="tab-indicator"></div>
+          </button>
           <button
             @click="activeTab = 'terminal'"
             :class="['tab', { 'tab-active': activeTab === 'terminal' }]"
@@ -39,7 +47,16 @@
             @click="activeTab = 'docker'"
             :class="['tab', { 'tab-active': activeTab === 'docker' }]"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M20 7h-9"></path>
               <path d="M14 17H5"></path>
               <circle cx="17" cy="17" r="3"></circle>
@@ -71,24 +88,48 @@
         <ServerStatusBadge :status="serverStatus" />
       </div>
     </header>
-    
+
     <!-- Main content grid - this is the key fix -->
     <div class="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
-      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'terminal'">
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'home'"
+      >
+        <HomeView :embedded="true" />
+      </div>
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'terminal'"
+      >
         <template v-if="sessionId">
-          <SshTerminal :session-id="sessionId" :host-id="hostStore.selectedHost?.id" />
+          <SshTerminal
+            :session-id="sessionId"
+            :host-id="hostStore.selectedHost?.id"
+          />
         </template>
       </div>
-      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'files'">
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'files'"
+      >
         <FileManager :host-id="hostStore.selectedHost?.id" />
       </div>
-      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'docker'">
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'docker'"
+      >
         <DockerManager :host-id="hostStore.selectedHost?.id" />
       </div>
-      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'processes'">
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'processes'"
+      >
         <ProcessManager :host-id="hostStore.selectedHost?.id" />
       </div>
-      <div class="col-span-4 h-full overflow-hidden" v-show="activeTab === 'media'">
+      <div
+        class="col-span-4 h-full overflow-hidden"
+        v-show="activeTab === 'media'"
+      >
         <MediaManager :host-id="hostStore.selectedHost?.id" />
       </div>
       <div class="col-span-1 h-full overflow-hidden">
@@ -112,13 +153,19 @@ import DockerManager from "../components/DockerManager.vue";
 import ProcessManager from "../components/ProcessManager.vue";
 import MediaManager from "../components/MediaManager.vue";
 import QuickActions from "../components/QuickActions.vue";
+import HomeView from "./HomeView.vue";
 
-import { Terminal, ChevronRight, Folder, Activity, Play } from "lucide-vue-next";
+import {
+  Terminal,
+  ChevronRight,
+  Folder,
+  Activity,
+  Play,
+  House,
+} from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
 import { type Host, useHostStore } from "../stores/hostStore";
 import ServerStatusBadge from "../components/ServerStatusBadge.vue";
-
-
 
 const props = defineProps<{
   selectedHost: Host | null;
@@ -127,7 +174,7 @@ const props = defineProps<{
 const sshStore = useSshStore();
 const sessionId = ref<string | null>(null);
 const hostStore = useHostStore();
-const activeTab = ref("terminal");
+const activeTab = ref("home");
 const serverStatus = ref("offline");
 
 const handleConnect = async () => {
@@ -156,17 +203,20 @@ const handleConnect = async () => {
     }
 
     // Try to find if there's an existing session for this host on the backend
-    const sessionsRes = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/terminal/sessions`, {
-      params: { hostId: id }
-    });
-    
+    const sessionsRes = await axios.get(
+      `${import.meta.env.VITE_API_BASE_URL}/terminal/sessions`,
+      {
+        params: { hostId: id },
+      },
+    );
+
     if (sessionsRes.data.sessions && sessionsRes.data.sessions.length > 0) {
       const existingSessionId = sessionsRes.data.sessions[0].sessionId;
       sshStore.sessionId = existingSessionId;
-      localStorage.setItem('sessionId', existingSessionId);
+      localStorage.setItem("sessionId", existingSessionId);
       sshStore.isConnected = true;
       sessionId.value = existingSessionId;
-      
+
       await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -237,10 +287,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
 
 .main-page {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Outfit",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 /* Background */

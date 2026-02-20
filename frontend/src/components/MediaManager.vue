@@ -1,62 +1,53 @@
 <template>
   <div class="media-manager">
-    <!-- Background -->
     <div class="background-layer"></div>
-    <div class="noise-overlay"></div>
+    <div class="grid-overlay"></div>
 
-    <!-- No host -->
     <div v-if="!hostId" class="empty-state">
       <div class="empty-card">
         <Icon icon="mdi:television-play" class="empty-icon" />
-        <p class="empty-text">Select a host to view media services</p>
+        <p class="empty-title">No Host Selected</p>
+        <p class="empty-text">Select a host to view media services.</p>
       </div>
     </div>
 
-    <!-- Main content -->
     <div v-else class="main-content">
-      <!-- Header -->
-      <div class="page-header">
-        <div class="header-left">
-          <Icon icon="mdi:television-play" class="header-icon" />
-          <div>
-            <h1 class="page-title">Media Services</h1>
-            <p class="page-subtitle">Monitor your *arr stack and media server</p>
-          </div>
+      <header class="page-header">
+        <div>
+          <p class="kicker">all systems normal</p>
+          <h1 class="page-title">Consumer</h1>
+          <p class="page-subtitle">Quick access and media stack telemetry</p>
         </div>
         <button @click="showConfigModal = true" class="config-btn">
           <Icon icon="mdi:cog" />
           <span>Configure</span>
         </button>
-      </div>
+      </header>
 
-      <!-- Loading -->
       <div v-if="isLoadingConfigs" class="loading-container">
         <div class="loader"></div>
         <p>Loading services...</p>
       </div>
 
-      <!-- No services configured -->
       <div v-else-if="!hasAnyConfigured" class="empty-setup">
         <Icon icon="mdi:server-off" class="setup-icon" />
         <h3>No Services Configured</h3>
-        <p>Add your Sonarr, Radarr, Jellyfin, or Jellyseerr instances</p>
+        <p>Add Sonarr, Radarr, Jellyfin, or Jellyseerr to begin.</p>
         <button @click="showConfigModal = true" class="primary-btn">
           <Icon icon="mdi:plus" />
           Add Service
         </button>
       </div>
 
-      <!-- Widgets Grid -->
       <div v-else class="widgets-grid">
-        <!-- Sonarr Widget -->
-        <div v-if="getConfig('sonarr')?.enabled" class="widget sonarr-widget">
+        <section v-if="getConfig('sonarr')?.enabled" class="widget span-two sonarr-widget">
           <div class="widget-header">
             <div class="widget-title-group">
               <Icon icon="simple-icons:sonarr" class="widget-icon" />
               <div>
                 <h3 class="widget-title">Sonarr</h3>
-                <span class="widget-status" :class="statusMap.sonarr">
-                  {{ statusMap.sonarr === 'online' ? 'Connected' : 'Offline' }}
+                <span class="widget-status" :class="statusClass('sonarr')">
+                  {{ statusText('sonarr') }}
                 </span>
               </div>
             </div>
@@ -65,61 +56,48 @@
             </a>
           </div>
 
-          <div class="widget-content">
-            <div class="widget-stats">
-              <div class="stat-box">
-                <span class="stat-label">Series</span>
-                <span class="stat-value">{{ libraryCounts.sonarr || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Episodes</span>
-                <span class="stat-value">{{ sonarrEpisodes || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Missing</span>
-                <span class="stat-value warning">{{ sonarrMissing || 0 }}</span>
-              </div>
+          <div class="widget-stats">
+            <div class="stat-box">
+              <span class="stat-label">Series</span>
+              <span class="stat-value">{{ libraryCounts.sonarr || 0 }}</span>
             </div>
+            <div class="stat-box">
+              <span class="stat-label">Episodes</span>
+              <span class="stat-value">{{ sonarrEpisodes || 0 }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Missing</span>
+              <span class="stat-value warning">{{ sonarrMissing || 0 }}</span>
+            </div>
+          </div>
 
-            <div v-if="sonarrQueue.length" class="widget-section">
-              <h4 class="section-title">Queue ({{ sonarrQueue.length }})</h4>
-              <div class="queue-items">
-                <div v-for="item in sonarrQueue.slice(0, 3)" :key="item.id" class="queue-item">
-                  <div class="queue-info">
-                    <span class="queue-title">{{ item.title }}</span>
-                    <span class="queue-status">{{ item.status }}</span>
-                  </div>
-                  <div class="queue-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill sonarr" :style="{ width: item.progress + '%' }"></div>
-                    </div>
-                    <span class="progress-text">{{ item.progress }}%</span>
-                  </div>
+          <div v-if="sonarrQueue.length" class="widget-section">
+            <h4 class="section-title">Queue</h4>
+            <div class="queue-items">
+              <div v-for="item in sonarrQueue.slice(0, 4)" :key="item.id" class="queue-item">
+                <div class="queue-info">
+                  <span class="queue-title">{{ item.title }}</span>
+                  <span class="queue-status-text">{{ item.status }}</span>
                 </div>
-              </div>
-            </div>
-
-            <div v-if="sonarrUpcoming.length" class="widget-section">
-              <h4 class="section-title">Upcoming</h4>
-              <div class="upcoming-items">
-                <div v-for="item in sonarrUpcoming.slice(0, 3)" :key="item.id" class="upcoming-item">
-                  <span class="upcoming-title">{{ item.title }}</span>
-                  <span class="upcoming-date">{{ item.date }}</span>
+                <div class="queue-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill sonarr" :style="{ width: `${item.progress}%` }"></div>
+                  </div>
+                  <span class="progress-text">{{ item.progress }}%</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Radarr Widget -->
-        <div v-if="getConfig('radarr')?.enabled" class="widget radarr-widget">
+        <section v-if="getConfig('radarr')?.enabled" class="widget radarr-widget">
           <div class="widget-header">
             <div class="widget-title-group">
               <Icon icon="simple-icons:radarr" class="widget-icon" />
               <div>
                 <h3 class="widget-title">Radarr</h3>
-                <span class="widget-status" :class="statusMap.radarr">
-                  {{ statusMap.radarr === 'online' ? 'Connected' : 'Offline' }}
+                <span class="widget-status" :class="statusClass('radarr')">
+                  {{ statusText('radarr') }}
                 </span>
               </div>
             </div>
@@ -128,61 +106,82 @@
             </a>
           </div>
 
-          <div class="widget-content">
-            <div class="widget-stats">
-              <div class="stat-box">
-                <span class="stat-label">Movies</span>
-                <span class="stat-value">{{ libraryCounts.radarr || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Available</span>
-                <span class="stat-value">{{ radarrAvailable || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Missing</span>
-                <span class="stat-value warning">{{ radarrMissing || 0 }}</span>
-              </div>
+          <div class="widget-stats">
+            <div class="stat-box">
+              <span class="stat-label">Movies</span>
+              <span class="stat-value">{{ libraryCounts.radarr || 0 }}</span>
             </div>
-
-            <div v-if="radarrQueue.length" class="widget-section">
-              <h4 class="section-title">Queue ({{ radarrQueue.length }})</h4>
-              <div class="queue-items">
-                <div v-for="item in radarrQueue.slice(0, 3)" :key="item.id" class="queue-item">
-                  <div class="queue-info">
-                    <span class="queue-title">{{ item.title }}</span>
-                    <span class="queue-status">{{ item.status }}</span>
-                  </div>
-                  <div class="queue-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill radarr" :style="{ width: item.progress + '%' }"></div>
-                    </div>
-                    <span class="progress-text">{{ item.progress }}%</span>
-                  </div>
-                </div>
-              </div>
+            <div class="stat-box">
+              <span class="stat-label">Available</span>
+              <span class="stat-value success">{{ radarrAvailable || 0 }}</span>
             </div>
+            <div class="stat-box">
+              <span class="stat-label">Missing</span>
+              <span class="stat-value warning">{{ radarrMissing || 0 }}</span>
+            </div>
+          </div>
 
-            <div v-if="radarrUpcoming.length" class="widget-section">
-              <h4 class="section-title">Coming Soon</h4>
-              <div class="upcoming-items">
-                <div v-for="item in radarrUpcoming.slice(0, 3)" :key="item.id" class="upcoming-item">
-                  <span class="upcoming-title">{{ item.title }}</span>
-                  <span class="upcoming-date">{{ item.date }}</span>
-                </div>
+          <div v-if="radarrUpcoming.length" class="widget-section">
+            <h4 class="section-title">Coming Soon</h4>
+            <div class="upcoming-items">
+              <div v-for="item in radarrUpcoming.slice(0, 5)" :key="item.id" class="upcoming-item">
+                <span class="upcoming-title">{{ item.title }}</span>
+                <span class="upcoming-date">{{ item.date }}</span>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Jellyfin Widget -->
-        <div v-if="getConfig('jellyfin')?.enabled" class="widget jellyfin-widget">
+        <section v-if="getConfig('jellyseerr')?.enabled" class="widget jellyseerr-widget">
+          <div class="widget-header">
+            <div class="widget-title-group">
+              <Icon icon="simple-icons:jellyseerr" class="widget-icon" />
+              <div>
+                <h3 class="widget-title">Jellyseerr</h3>
+                <span class="widget-status" :class="statusClass('jellyseerr')">
+                  {{ statusText('jellyseerr') }}
+                </span>
+              </div>
+            </div>
+            <a v-if="getConfig('jellyseerr')?.url" :href="getConfig('jellyseerr').url" target="_blank" class="widget-link">
+              <Icon icon="mdi:open-in-new" />
+            </a>
+          </div>
+
+          <div class="widget-stats">
+            <div class="stat-box">
+              <span class="stat-label">Pending</span>
+              <span class="stat-value warning">{{ jellyseerrPending || 0 }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Approved</span>
+              <span class="stat-value">{{ jellyseerrApproved || 0 }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Available</span>
+              <span class="stat-value success">{{ jellyseerrAvailable || 0 }}</span>
+            </div>
+          </div>
+
+          <div v-if="jellyseerrRequests.length" class="widget-section">
+            <h4 class="section-title">Recent Requests</h4>
+            <div class="request-items">
+              <div v-for="item in jellyseerrRequests.slice(0, 5)" :key="item.id" class="request-item">
+                <span class="request-title">{{ item.title }}</span>
+                <span class="request-status" :class="item.status.toLowerCase()">{{ item.status }}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="getConfig('jellyfin')?.enabled" class="widget span-two jellyfin-widget">
           <div class="widget-header">
             <div class="widget-title-group">
               <Icon icon="simple-icons:jellyfin" class="widget-icon" />
               <div>
                 <h3 class="widget-title">Jellyfin</h3>
-                <span class="widget-status" :class="statusMap.jellyfin">
-                  {{ statusMap.jellyfin === 'online' ? 'Connected' : 'Offline' }}
+                <span class="widget-status" :class="statusClass('jellyfin')">
+                  {{ statusText('jellyfin') }}
                 </span>
               </div>
             </div>
@@ -191,86 +190,37 @@
             </a>
           </div>
 
-          <div class="widget-content">
-            <div class="widget-stats">
-              <div class="stat-box">
-                <span class="stat-label">Version</span>
-                <span class="stat-value small">{{ jellyfinVersion || '-' }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Users</span>
-                <span class="stat-value">{{ jellyfinUsers || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Active</span>
-                <span class="stat-value success">{{ jellyfinActive || 0 }}</span>
-              </div>
+          <div class="widget-stats">
+            <div class="stat-box">
+              <span class="stat-label">Version</span>
+              <span class="stat-value small">{{ jellyfinVersion || '-' }}</span>
             </div>
+            <div class="stat-box">
+              <span class="stat-label">Users</span>
+              <span class="stat-value">{{ jellyfinUsers || 0 }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Now Playing</span>
+              <span class="stat-value success">{{ jellyfinActive || 0 }}</span>
+            </div>
+          </div>
 
-            <div v-if="jellyfinNowPlaying.length" class="widget-section">
-              <h4 class="section-title">Now Playing</h4>
-              <div class="now-playing-items">
-                <div v-for="item in jellyfinNowPlaying" :key="item.id" class="now-playing-item">
-                  <Icon icon="mdi:play-circle" class="play-icon" />
-                  <div class="play-info">
-                    <span class="play-title">{{ item.title }}</span>
-                    <span class="play-user">{{ item.user }}</span>
-                  </div>
+          <div v-if="jellyfinNowPlaying.length" class="widget-section">
+            <h4 class="section-title">Now Playing</h4>
+            <div class="now-playing-items">
+              <div v-for="item in jellyfinNowPlaying" :key="item.id" class="now-playing-item">
+                <Icon icon="mdi:play-circle" class="play-icon" />
+                <div class="play-info">
+                  <span class="play-title">{{ item.title }}</span>
+                  <span class="play-user">{{ item.user }}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Jellyseerr Widget -->
-        <div v-if="getConfig('jellyseerr')?.enabled" class="widget jellyseerr-widget">
-          <div class="widget-header">
-            <div class="widget-title-group">
-              <Icon icon="simple-icons:jellyseerr" class="widget-icon" />
-              <div>
-                <h3 class="widget-title">Jellyseerr</h3>
-                <span class="widget-status" :class="statusMap.jellyseerr">
-                  {{ statusMap.jellyseerr === 'online' ? 'Connected' : 'Offline' }}
-                </span>
-              </div>
-            </div>
-            <a v-if="getConfig('jellyseerr')?.url" :href="getConfig('jellyseerr').url" target="_blank"
-              class="widget-link">
-              <Icon icon="mdi:open-in-new" />
-            </a>
-          </div>
-
-          <div class="widget-content">
-            <div class="widget-stats">
-              <div class="stat-box">
-                <span class="stat-label">Pending</span>
-                <span class="stat-value warning">{{ jellyseerrPending || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Approved</span>
-                <span class="stat-value">{{ jellyseerrApproved || 0 }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Available</span>
-                <span class="stat-value success">{{ jellyseerrAvailable || 0 }}</span>
-              </div>
-            </div>
-
-            <div v-if="jellyseerrRequests.length" class="widget-section">
-              <h4 class="section-title">Recent Requests</h4>
-              <div class="request-items">
-                <div v-for="item in jellyseerrRequests.slice(0, 4)" :key="item.id" class="request-item">
-                  <span class="request-title">{{ item.title }}</span>
-                  <span class="request-status" :class="item.status.toLowerCase()">{{ item.status }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
 
-    <!-- Config Modal -->
     <Teleport to="body">
       <div v-if="showConfigModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-content">
@@ -289,8 +239,7 @@
                     <Icon :icon="service.icon" class="service-icon-small" :class="service.type" />
                     <span class="service-name">{{ service.name }}</span>
                   </div>
-                  <button @click="editService(service.type)" class="edit-btn"
-                    :class="{ configured: getConfig(service.type) }">
+                  <button @click="editService(service.type)" class="edit-btn" :class="{ configured: getConfig(service.type) }">
                     {{ getConfig(service.type) ? 'Edit' : 'Setup' }}
                   </button>
                 </div>
@@ -300,7 +249,6 @@
         </div>
       </div>
 
-      <!-- Service Edit Modal -->
       <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
         <div class="modal-content">
           <div class="modal-header">
@@ -369,26 +317,22 @@ const isSaving = ref(false);
 const isTestingConnection = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
 
-// Sonarr data
 const libraryCounts = ref<Record<string, number>>({ sonarr: 0, radarr: 0 });
 const sonarrEpisodes = ref(0);
 const sonarrMissing = ref(0);
 const sonarrQueue = ref<any[]>([]);
 const sonarrUpcoming = ref<any[]>([]);
 
-// Radarr data
 const radarrAvailable = ref(0);
 const radarrMissing = ref(0);
 const radarrQueue = ref<any[]>([]);
 const radarrUpcoming = ref<any[]>([]);
 
-// Jellyfin data
 const jellyfinVersion = ref('');
 const jellyfinUsers = ref(0);
 const jellyfinActive = ref(0);
 const jellyfinNowPlaying = ref<any[]>([]);
 
-// Jellyseerr data
 const jellyseerrPending = ref(0);
 const jellyseerrApproved = ref(0);
 const jellyseerrAvailable = ref(0);
@@ -401,6 +345,8 @@ const configForm = ref({ serviceType: '', url: '', apiKey: '', enabled: true });
 
 const hasAnyConfigured = computed(() => configs.value.length > 0);
 const getConfig = (type: string) => configs.value.find(c => c.serviceType === type);
+const statusText = (type: string) => (statusMap.value[type] === 'online' ? 'Online' : 'Offline');
+const statusClass = (type: string) => (statusMap.value[type] === 'online' ? 'online' : 'offline');
 
 const fetchConfigs = async () => {
   if (!props.hostId) return;
@@ -460,7 +406,6 @@ const fetchSonarrData = async () => {
   if (!config?.enabled) return;
 
   try {
-    // Series count
     const seriesRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/sonarr/api/v3/series`);
     if (seriesRes.ok) {
       const series = await seriesRes.json();
@@ -468,14 +413,12 @@ const fetchSonarrData = async () => {
       sonarrEpisodes.value = series.reduce((sum: number, s: any) => sum + (s.statistics?.episodeFileCount || 0), 0);
     }
 
-    // Missing count
     const missingRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/sonarr/api/v3/wanted/missing?pageSize=1`);
     if (missingRes.ok) {
       const missing = await missingRes.json();
       sonarrMissing.value = missing.totalRecords || 0;
     }
 
-    // Queue
     const queueRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/sonarr/api/v3/queue`);
     if (queueRes.ok) {
       const queue = await queueRes.json();
@@ -487,7 +430,6 @@ const fetchSonarrData = async () => {
       }));
     }
 
-    // Upcoming
     const start = new Date();
     const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     const calendarRes = await fetch(
@@ -511,7 +453,6 @@ const fetchRadarrData = async () => {
   if (!config?.enabled) return;
 
   try {
-    // Movies
     const moviesRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/radarr/api/v3/movie`);
     if (moviesRes.ok) {
       const movies = await moviesRes.json();
@@ -520,7 +461,6 @@ const fetchRadarrData = async () => {
       radarrMissing.value = movies.filter((m: any) => !m.hasFile && m.monitored).length;
     }
 
-    // Queue
     const queueRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/radarr/api/v3/queue`);
     if (queueRes.ok) {
       const queue = await queueRes.json();
@@ -532,7 +472,6 @@ const fetchRadarrData = async () => {
       }));
     }
 
-    // Upcoming
     const start = new Date();
     const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
     const calendarRes = await fetch(
@@ -556,14 +495,12 @@ const fetchJellyfinData = async () => {
   if (!config?.enabled) return;
 
   try {
-    // System info
     const infoRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/jellyfin/System/Info`);
     if (infoRes.ok) {
       const info = await infoRes.json();
       jellyfinVersion.value = info.Version || '';
     }
 
-    // Sessions (active users)
     const sessionsRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/hosts/${props.hostId}/media/proxy/jellyfin/Sessions`);
     if (sessionsRes.ok) {
       const sessions = await sessionsRes.json();
@@ -707,280 +644,137 @@ watch(() => props.hostId, (newId) => {
   position: relative;
   width: 100%;
   height: 100%;
+  color: #d1d8e6;
   font-family: 'Inter', sans-serif;
-  color: #e5e7eb;
   overflow: hidden;
 }
 
 .background-layer {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, #0f1419 0%, #1a1f26 100%);
-  z-index: 0;
+  background: linear-gradient(180deg, #0f141c 0%, #111827 100%);
 }
 
-.noise-overlay {
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 1;
-}
-
-.empty-state {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.empty-card {
-  text-align: center;
-  padding: 3rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.empty-icon {
-  font-size: 64px;
-  color: rgba(255, 255, 255, 0.2);
-  margin-bottom: 1rem;
-}
-
-.empty-text {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.95rem;
+.grid-overlay {
+  display: none;
 }
 
 .main-content {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   height: 100%;
-  padding: 2rem;
   overflow-y: auto;
+  padding: 0.95rem;
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 25, 33, 0.92);
+  padding: 0.8rem;
+  border-radius: 10px;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-icon {
-  font-size: 28px;
-  color: #3b82f6;
+.kicker {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
 }
 
 .page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
-  color: #f9fafb;
+  margin: 0.2rem 0;
+  color: #f3f4f6;
+  font-size: 1.3rem;
 }
 
 .page-subtitle {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0.25rem 0 0 0;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: rgba(229, 231, 235, 0.65);
 }
 
-.config-btn {
-  display: flex;
+.config-btn,
+.primary-btn,
+.secondary-btn,
+.edit-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(31, 41, 55, 0.88);
   color: #e5e7eb;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.config-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-/* Loading */
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 50vh;
-  gap: 1rem;
-}
-
-.loader {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Empty Setup */
-.empty-setup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 50vh;
-  text-align: center;
-  gap: 1rem;
-}
-
-.setup-icon {
-  font-size: 64px;
-  color: rgba(255, 255, 255, 0.2);
-}
-
-.empty-setup h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-  color: #f9fafb;
-}
-
-.empty-setup p {
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
-
-/* Buttons */
-.primary-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #3b82f6;
-  border: none;
-  border-radius: 8px;
-  color: white;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
   font-weight: 600;
-  font-size: 0.875rem;
+  padding: 0.48rem 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 1rem;
-}
-
-.primary-btn:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-.secondary-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: #e5e7eb;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.secondary-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+.config-btn:hover,
+.primary-btn:hover,
+.secondary-btn:hover,
+.edit-btn:hover {
+  border-color: rgba(96, 165, 250, 0.7);
 }
 
-.secondary-btn:disabled,
-.primary-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Widgets Grid */
 .widgets-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-/* Widget Card */
 .widget {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(17, 24, 39, 0.9);
+  padding: 0.75rem;
+  min-height: 210px;
   border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.2s;
 }
 
-.widget:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+.widget.span-two {
+  grid-column: span 2;
 }
 
 .widget-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
 }
 
 .widget-title-group {
   display: flex;
-  gap: 0.75rem;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .widget-icon {
-  font-size: 24px;
-  margin-top: 0.25rem;
-}
-
-.sonarr-widget .widget-icon {
-  color: #00bcd4;
-}
-
-.radarr-widget .widget-icon {
-  color: #ffc107;
-}
-
-.jellyfin-widget .widget-icon {
-  color: #00a4d9;
-}
-
-.jellyseerr-widget .widget-icon {
-  color: #e11d48;
+  font-size: 20px;
+  margin-top: 0.1rem;
 }
 
 .widget-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem 0;
-  color: #f9fafb;
+  margin: 0;
+  color: #f3f4f6;
+  letter-spacing: 0.02em;
+  font-size: 0.82rem;
 }
 
 .widget-status {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-family: 'Inter', sans-serif;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  font-size: 0.62rem;
 }
 
 .widget-status.online {
@@ -992,48 +786,41 @@ watch(() => props.hostId, (newId) => {
 }
 
 .widget-link {
-  color: rgba(255, 255, 255, 0.4);
-  transition: color 0.2s;
+  color: #94a3b8;
 }
 
-.widget-link:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* Widget Stats */
 .widget-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .stat-box {
-  text-align: center;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.66);
+  padding: 0.45rem;
   border-radius: 8px;
 }
 
 .stat-label {
   display: block;
-  font-size: 0.7rem;
+  color: #94a3b8;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.58rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 0.5rem;
-  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .stat-value {
   display: block;
-  font-size: 1.5rem;
+  color: #f3f4f6;
   font-weight: 700;
-  color: #f9fafb;
+  font-size: 1.2rem;
 }
 
 .stat-value.small {
-  font-size: 1rem;
+  font-size: 0.85rem;
 }
 
 .stat-value.warning {
@@ -1044,405 +831,342 @@ watch(() => props.hostId, (newId) => {
   color: #10b981;
 }
 
-/* Widget Sections */
 .widget-section {
-  margin-bottom: 1.5rem;
-}
-
-.widget-section:last-child {
-  margin-bottom: 0;
+  margin-top: 0.7rem;
 }
 
 .section-title {
-  font-size: 0.75rem;
-  font-weight: 700;
+  margin: 0 0 0.45rem;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 0.75rem 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
 }
 
-/* Queue Items */
-.queue-items {
+.queue-items,
+.upcoming-items,
+.request-items,
+.now-playing-items {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.35rem;
 }
 
-.queue-item {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 0.75rem;
+.queue-item,
+.upcoming-item,
+.request-item,
+.now-playing-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.66);
+  padding: 0.42rem 0.5rem;
   border-radius: 8px;
 }
 
-.queue-info {
+.queue-info,
+.upcoming-item,
+.request-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  gap: 0.5rem;
 }
 
-.queue-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #f9fafb;
+.queue-title,
+.upcoming-title,
+.request-title,
+.play-title {
+  color: #e5e7eb;
+  font-size: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
 }
 
-.queue-status {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-left: 1rem;
+.queue-status-text,
+.upcoming-date,
+.play-user {
+  color: #9ca3af;
+  font-size: 0.63rem;
+  white-space: nowrap;
 }
 
 .queue-progress {
+  margin-top: 0.3rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.4rem;
 }
 
 .progress-bar {
   flex: 1;
   height: 4px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s;
 }
 
 .progress-fill.sonarr {
-  background: #00bcd4;
-}
-
-.progress-fill.radarr {
-  background: #ffc107;
+  background: linear-gradient(90deg, #06b6d4, #10b981);
 }
 
 .progress-text {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  min-width: 35px;
-  text-align: right;
-}
-
-/* Upcoming Items */
-.upcoming-items,
-.request-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.upcoming-item,
-.request-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-}
-
-.upcoming-title,
-.request-title {
-  font-size: 0.875rem;
-  color: #f9fafb;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-
-.upcoming-date {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-left: 1rem;
-}
-
-.request-status {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.request-status.pending {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-}
-
-.request-status.approved {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-}
-
-.request-status.available {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-}
-
-/* Now Playing */
-.now-playing-items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.now-playing-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
+  font-size: 0.58rem;
+  color: #9ca3af;
 }
 
 .play-icon {
-  font-size: 20px;
+  font-size: 18px;
   color: #10b981;
 }
 
 .play-info {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  gap: 0.15rem;
 }
 
-.play-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #f9fafb;
+.request-status {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
+  padding: 0.1rem 0.35rem;
 }
 
-.play-user {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+.request-status.pending {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 2rem;
+.request-status.approved {
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.4);
 }
 
-.modal-content {
-  background: #1a1f26;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+.request-status.available {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.sonarr-widget .widget-icon {
+  color: #06b6d4;
 }
 
-.modal-header h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin: 0;
-  color: #f9fafb;
+.radarr-widget .widget-icon {
+  color: #60a5fa;
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.modal-body {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Service List */
-.service-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.service-config-item {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.service-config-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.service-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.service-icon-small {
-  font-size: 20px;
-}
-
-.service-icon-small.sonarr {
-  color: #00bcd4;
-}
-
-.service-icon-small.radarr {
-  color: #ffc107;
-}
-
-.service-icon-small.jellyfin {
-  color: #00a4d9;
-}
-
-.service-icon-small.jellyseerr {
-  color: #e11d48;
-}
-
-.service-name {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #f9fafb;
-}
-
-.edit-btn {
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: #e5e7eb;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.edit-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.edit-btn.configured {
-  border-color: #3b82f6;
+.jellyfin-widget .widget-icon {
   color: #3b82f6;
 }
 
-/* Form */
-.form-group {
-  margin-bottom: 1.25rem;
+.jellyseerr-widget .widget-icon {
+  color: #10b981;
 }
 
-.form-group label {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 0.5rem;
+.loading-container,
+.empty-setup,
+.empty-state {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: calc(100% - 88px);
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.empty-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(17, 24, 39, 0.9);
+  padding: 1.4rem;
+  border-radius: 12px;
+}
+
+.empty-icon,
+.setup-icon {
+  font-size: 54px;
+  color: #60a5fa;
+}
+
+.empty-title {
+  margin: 0.3rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.empty-text {
+  margin: 0;
+  color: #9ca3af;
+}
+
+.loader {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 7, 17, 0.82);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: min(560px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111827;
+  border-radius: 12px;
+}
+
+.modal-header,
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer {
+  border-bottom: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: flex-end;
+}
+
+.modal-header h3 {
+  margin: 0;
+  letter-spacing: 0.02em;
+  font-size: 0.82rem;
+}
+
+.modal-body {
+  padding: 0.85rem;
+  overflow-y: auto;
+}
+
+.close-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(31, 41, 55, 0.88);
+  color: #e5e7eb;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.service-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.service-config-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.66);
+  padding: 0.6rem;
+  border-radius: 8px;
+}
+
+.service-config-header,
+.service-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.service-icon-small {
+  font-size: 18px;
+}
+
+.service-icon-small.sonarr { color: #47f5da; }
+.service-icon-small.radarr { color: #60a5fa; }
+.service-icon-small.jellyfin { color: #3b82f6; }
+.service-icon-small.jellyseerr { color: #10b981; }
+
+.service-name {
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+}
+
+.edit-btn.configured {
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #60a5fa;
+}
+
+.form-group {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+}
+
+.form-group label,
+.form-checkbox-group label {
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  letter-spacing: 0.02em;
 }
 
 .form-input {
   width: 100%;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #f9fafb;
-  font-size: 0.9375rem;
-  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(30, 41, 59, 0.85);
+  color: #f1f5f9;
+  padding: 0.5rem 0.6rem;
   outline: none;
-  transition: all 0.2s;
+  border-radius: 8px;
 }
 
 .form-input:focus {
-  border-color: #3b82f6;
-  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(96, 165, 250, 0.7);
 }
 
 .form-checkbox-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-}
-
-.form-checkbox-group input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.form-checkbox-group label {
-  font-size: 0.9375rem;
-  color: #e5e7eb;
-  cursor: pointer;
-  user-select: none;
+  gap: 0.45rem;
 }
 
 .test-result {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 8px;
+  margin-top: 0.6rem;
+  padding: 0.5rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
+  gap: 0.35rem;
+  border: 1px solid;
+  font-size: 0.7rem;
 }
 
 .test-result.success {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.5);
   color: #10b981;
 }
 
 .test-result.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.5);
   color: #ef4444;
 }
 
@@ -1450,46 +1174,28 @@ watch(() => props.hostId, (newId) => {
   animation: spin 1s linear infinite;
 }
 
-/* Scrollbar */
 .main-content::-webkit-scrollbar,
 .modal-body::-webkit-scrollbar {
   width: 8px;
 }
 
-.main-content::-webkit-scrollbar-track,
-.modal-body::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
 .main-content::-webkit-scrollbar-thumb,
 .modal-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.45);
 }
 
-.main-content::-webkit-scrollbar-thumb:hover,
-.modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
+@media (max-width: 980px) {
+  .widgets-grid {
+    grid-template-columns: 1fr;
+  }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .main-content {
-    padding: 1rem;
+  .widget.span-two {
+    grid-column: span 1;
   }
 
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .widgets-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .widget-stats {
-    grid-template-columns: 1fr;
   }
 }
 </style>
