@@ -1,12 +1,8 @@
 <template>
   <main class="flex-1 flex flex-col relative min-w-0 overflow-hidden main-page">
-    <!-- Background -->
     <div class="main-bg"></div>
     <div class="main-noise"></div>
-
-    <!-- Top Header -->
     <header class="main-header blur-layer">
-      <!-- Row 1: Breadcrumb + Status -->
       <div class="header-top">
         <div class="breadcrumb">
           <span class="breadcrumb-item hidden sm:inline">Connections</span>
@@ -18,21 +14,7 @@
             {{ hostStore.selectedHost?.alias || "No connection selected" }}
           </span>
         </div>
-
-        <div class="header-actions">
-          <ServerStatusBadge :status="serverStatus" />
-          <!-- Mobile stats toggle -->
-          <button
-            class="stats-toggle lg:hidden"
-            @click="showMobileStats = !showMobileStats"
-            :aria-label="showMobileStats ? 'Hide stats' : 'Show stats'"
-          >
-            <BarChart2 :size="16" />
-          </button>
-        </div>
       </div>
-
-      <!-- Row 2: Tabs -->
       <div class="tabs-row">
         <div class="tabs-container" role="tablist">
           <button
@@ -55,20 +37,31 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               v-html="tab.svg"
-            />
+            ></svg>
             <span>{{ tab.label }}</span>
             <div v-if="activeTab === tab.id" class="tab-indicator"></div>
           </button>
         </div>
+        <div class="tabs-meta">
+          <ServerStatusBadge :status="serverStatus" />
+          <button
+            class="stats-toggle md:hidden"
+            @click="showMobileStats = !showMobileStats"
+            :aria-label="showMobileStats ? 'Hide stats' : 'Show stats'"
+          >
+            <BarChart2 :size="16" />
+          </button>
+        </div>
       </div>
     </header>
-
-    <!-- Main content grid -->
     <div class="content-wrapper">
-      <!-- Tab panels -->
       <div class="content-main" role="tabpanel">
-        <div v-show="activeTab === 'home'" class="panel-full">
-          <HomeView :embedded="true" />
+        <div v-show="activeTab === 'overview'" class="panel-full">
+          <OverviewPanel
+            :host-id="hostStore.selectedHost?.id ?? null"
+            :session-id="sessionId"
+            :server-status="serverStatus"
+          />
         </div>
         <div v-show="activeTab === 'terminal'" class="panel-full">
           <template v-if="sessionId">
@@ -95,18 +88,14 @@
           <MediaManager :host-id="hostStore.selectedHost?.id" />
         </div>
       </div>
-
-      <!-- Desktop sidebar -->
       <aside class="sidebar-desktop" aria-label="Server stats">
         <ServerStats
-          v-if="hostStore.selectedHost?.id != null && sessionId"
+          v-if="activeTab !== 'overview' && hostStore.selectedHost?.id != null && sessionId"
           :host-id="hostStore.selectedHost.id"
         />
-        <QuickActions class="mt-4" />
+        <QuickActions v-if="activeTab !== 'overview'" class="mt-4" />
       </aside>
     </div>
-
-    <!-- Mobile stats drawer -->
     <Transition name="drawer">
       <div
         v-if="showMobileStats"
@@ -118,15 +107,13 @@
         </div>
         <div class="stats-drawer-content">
           <ServerStats
-            v-if="hostStore.selectedHost?.id != null && sessionId"
+            v-if="activeTab !== 'overview' && hostStore.selectedHost?.id != null && sessionId"
             :host-id="hostStore.selectedHost.id"
           />
-          <QuickActions class="mt-4" />
+          <QuickActions v-if="activeTab !== 'overview'" class="mt-4" />
         </div>
       </div>
     </Transition>
-
-    <!-- Mobile stats backdrop -->
     <Transition name="fade">
       <div
         v-if="showMobileStats"
@@ -138,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, computed } from "vue";
+import { ref, watch } from "vue";
 import axios from "axios";
 import SshTerminal from "../components/SshTerminal.vue";
 import ServerStats from "../components/ServerStats.vue";
@@ -147,15 +134,15 @@ import DockerManager from "../components/DockerManager.vue";
 import ProcessManager from "../components/ProcessManager.vue";
 import MediaManager from "../components/MediaManager.vue";
 import QuickActions from "../components/QuickActions.vue";
-import HomeView from "./HomeView.vue";
+import OverviewPanel from "../components/dashboard/OverviewPanel.vue";
 
 import {
+  LayoutGrid,
   Terminal,
   ChevronRight,
   Folder,
   Activity,
   Play,
-  House,
   BarChart2,
 } from "lucide-vue-next";
 import { useSshStore } from "../stores/SSHStore";
@@ -169,13 +156,11 @@ const props = defineProps<{
 const sshStore = useSshStore();
 const sessionId = ref<string | null>(null);
 const hostStore = useHostStore();
-const activeTab = ref("home");
+const activeTab = ref("overview");
 const serverStatus = ref("offline");
 const showMobileStats = ref(false);
-
-// Tab definitions — centralised so the template is DRY
 const tabs = [
-  { id: "home", label: "Home", icon: House },
+  { id: "overview", label: "Overview", icon: LayoutGrid },
   { id: "terminal", label: "Terminal", icon: Terminal },
   { id: "files", label: "Files", icon: Folder },
   {
@@ -187,8 +172,6 @@ const tabs = [
   { id: "processes", label: "Proc", icon: Activity },
   { id: "media", label: "Media", icon: Play },
 ];
-
-// ── Connection logic (unchanged) ──────────────────────────────────────────────
 
 const handleConnect = async () => {
   if (!hostStore.selectedHost) {
@@ -289,16 +272,10 @@ watch(
   },
   { immediate: true },
 );
-
-onUnmounted(() => {
-  // State persisted intentionally — no disconnect on unmount
-});
 </script>
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
-
-/* ── Base ───────────────────────────────────────────────────────────────────── */
 
 .main-page {
   font-family:
@@ -323,8 +300,6 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────────── */
-
 .main-header {
   position: relative;
   z-index: 10;
@@ -338,7 +313,6 @@ onUnmounted(() => {
   gap: 0.375rem;
 }
 
-/* On md+ screens the header is a single tighter row */
 @media (min-width: 768px) {
   .main-header {
     padding: 0 1.5rem;
@@ -349,8 +323,6 @@ onUnmounted(() => {
   }
 }
 
-/* ── Header top row (breadcrumb + actions) ───────────────────────────────────*/
-
 .header-top {
   display: flex;
   align-items: center;
@@ -360,26 +332,17 @@ onUnmounted(() => {
 
 @media (min-width: 768px) {
   .header-top {
-    /* On desktop the breadcrumb sits in its own column */
     flex: 0 0 auto;
     justify-content: flex-start;
   }
 }
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ── Breadcrumb ──────────────────────────────────────────────────────────────*/
 
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  min-width: 0; /* allow text truncation */
+  min-width: 0;
 }
 
 .breadcrumb-item {
@@ -409,8 +372,6 @@ onUnmounted(() => {
   }
 }
 
-/* ── Mobile stats toggle ─────────────────────────────────────────────────────*/
-
 .stats-toggle {
   display: flex;
   align-items: center;
@@ -430,14 +391,15 @@ onUnmounted(() => {
   background: rgba(127, 161, 195, 0.18);
 }
 
-/* ── Tabs row ────────────────────────────────────────────────────────────────*/
-
 .tabs-row {
-  /* Horizontally scrollable on small screens */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  /* Hide scrollbar */
+  padding-right: 0.125rem;
   scrollbar-width: none;
 }
 
@@ -447,10 +409,24 @@ onUnmounted(() => {
 
 @media (min-width: 768px) {
   .tabs-row {
-    /* On desktop, sit inline with breadcrumb */
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
     flex: 1 1 auto;
+    margin-left: auto;
     overflow: visible;
   }
+
+  .tabs-container {
+    margin-left: auto;
+  }
+}
+
+.tabs-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .tabs-container {
@@ -461,7 +437,7 @@ onUnmounted(() => {
   background: rgba(30, 35, 42, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  min-width: max-content; /* never wrap; let parent scroll */
+  min-width: max-content;
 }
 
 .tab {
@@ -469,7 +445,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  /* Slightly smaller on mobile */
+
   padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
@@ -482,7 +458,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
   white-space: nowrap;
-  /* Ensure tap targets are large enough on mobile */
+
   min-height: 36px;
   touch-action: manipulation;
 }
@@ -530,8 +506,6 @@ onUnmounted(() => {
   }
 }
 
-/* ── Content wrapper ─────────────────────────────────────────────────────────*/
-
 .content-wrapper {
   position: relative;
   z-index: 2;
@@ -540,8 +514,6 @@ onUnmounted(() => {
   min-height: 0;
   overflow: hidden;
 }
-
-/* ── Main panel area ─────────────────────────────────────────────────────────*/
 
 .content-main {
   flex: 1 1 0;
@@ -557,7 +529,6 @@ onUnmounted(() => {
   overflow: auto;
 }
 
-/* Empty state for unready panels */
 .panel-empty {
   height: 100%;
   display: flex;
@@ -572,8 +543,6 @@ onUnmounted(() => {
 .panel-empty-icon {
   opacity: 0.4;
 }
-
-/* ── Desktop sidebar ─────────────────────────────────────────────────────────*/
 
 .sidebar-desktop {
   display: none;
@@ -591,8 +560,6 @@ onUnmounted(() => {
     padding-bottom: 1rem;
   }
 }
-
-/* ── Mobile stats drawer ─────────────────────────────────────────────────────*/
 
 .stats-backdrop {
   position: fixed;
@@ -635,8 +602,6 @@ onUnmounted(() => {
   flex: 1;
   padding: 0 1rem 1.5rem;
 }
-
-/* ── Drawer / backdrop transitions ───────────────────────────────────────────*/
 
 .drawer-enter-active,
 .drawer-leave-active {
