@@ -103,7 +103,7 @@ wss.on("connection", (ws, req) => {
           stream.write(data as Buffer);
         });
 
-        stream.on("data", (d: Buffer) => ws.send(d));
+        stream.on("data", (d: Buffer) => ws.send(d.toString()));
         stream.on("close", () => ws.close());
         ws.on("close", () => stream.end());
       }
@@ -137,7 +137,7 @@ wss.on("connection", (ws, req) => {
         stream.write(data as Buffer);
       });
 
-      stream.on("data", (d: Buffer) => ws.send(d));
+      stream.on("data", (d: Buffer) => ws.send(d.toString()));
       stream.on("close", () => ws.close());
       ws.on("close", () => stream.end());
     });

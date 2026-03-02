@@ -151,189 +151,240 @@
       @close="contextMenu.show = false"
     />
 
-    <!-- Editor Modal (Monaco) -->
-    <Transition name="modal-fade">
-      <div v-if="showEditor" class="fm-modal-overlay" @click="closeEditor">
-        <div class="fm-modal fm-modal-large" @click.stop>
-          <div class="fm-modal-header">
-            <span class="fm-modal-title truncate max-w-xs">{{
-              currentFileName
-            }}</span>
-            <div class="flex items-center gap-2 shrink-0">
-              <button
-                @click="copyToClipboard"
-                class="fm-modal-btn"
-                title="Copy to clipboard"
-              >
-                <ClipboardIcon class="w-4 h-4" />
-                <span class="hidden sm:inline">Copy</span>
-              </button>
-              <button
-                v-if="!isReadOnly"
-                @click="saveFile"
-                class="fm-modal-btn fm-modal-btn-primary"
-                title="Save"
-              >
-                <Check :size="16" />
-                <span class="hidden sm:inline">Save</span>
-              </button>
-              <button @click="closeEditor" class="fm-modal-close">
-                <X :size="20" />
-              </button>
-            </div>
-          </div>
-          <div class="fm-monaco-container" ref="editorContainer"></div>
+    <!-- Toast notification -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['fm-toast', `fm-toast-${toast.type}`]">
+          <svg
+            v-if="toast.type === 'success'"
+            class="fm-toast-icon"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <svg
+            v-else
+            class="fm-toast-icon"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <span>{{ toast.message }}</span>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
+
+    <!-- ── Teleported Modals ── All rendered directly under <body> to escape
+         the parent stacking context created by .content-wrapper z-index: 2 -->
+
+    <!-- Editor Modal (Monaco) -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="showEditor" class="fm-modal-overlay" @click="closeEditor">
+          <div class="fm-modal fm-modal-large" @click.stop>
+            <div class="fm-modal-header">
+              <span class="fm-modal-title truncate max-w-xs">{{
+                currentFileName
+              }}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  @click="copyToClipboard"
+                  class="fm-modal-btn"
+                  title="Copy to clipboard"
+                >
+                  <ClipboardIcon class="w-4 h-4" />
+                  <span class="hidden sm:inline">Copy</span>
+                </button>
+                <button
+                  v-if="!isReadOnly"
+                  @click="saveFile"
+                  class="fm-modal-btn fm-modal-btn-primary"
+                  title="Save"
+                >
+                  <Check :size="16" />
+                  <span class="hidden sm:inline">Save</span>
+                </button>
+                <button @click="closeEditor" class="fm-modal-close">
+                  <X :size="20" />
+                </button>
+              </div>
+            </div>
+            <div class="fm-monaco-container" ref="editorContainer"></div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Media Viewer Modal -->
-    <Transition name="modal-fade">
-      <div
-        v-if="showMediaViewer"
-        class="fm-modal-overlay"
-        @click="showMediaViewer = false"
-      >
-        <div class="fm-modal fm-modal-media" @click.stop>
-          <div class="fm-modal-header">
-            <span class="fm-modal-title truncate max-w-[60vw]">{{
-              currentMediaName
-            }}</span>
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-xs text-white/40">
-                {{ currentMediaIndex + 1 }} / {{ mediaFiles.length }}
-              </span>
-              <button @click="showMediaViewer = false" class="fm-modal-close">
-                <X :size="20" />
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showMediaViewer"
+          class="fm-modal-overlay"
+          @click="showMediaViewer = false"
+        >
+          <div class="fm-modal fm-modal-media" @click.stop>
+            <div class="fm-modal-header">
+              <span class="fm-modal-title truncate max-w-[60vw]">{{
+                currentMediaName
+              }}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-xs text-white/40">
+                  {{ currentMediaIndex + 1 }} / {{ mediaFiles.length }}
+                </span>
+                <button @click="showMediaViewer = false" class="fm-modal-close">
+                  <X :size="20" />
+                </button>
+              </div>
+            </div>
+            <div class="fm-media-container group">
+              <button
+                v-if="mediaFiles.length > 1"
+                @click="prevMedia"
+                class="fm-media-nav fm-media-nav-prev"
+              >
+                <ChevronLeft :size="28" />
+              </button>
+              <img
+                v-if="mediaViewerType === 'image'"
+                :src="mediaViewerSrc"
+                class="fm-media zoom-in"
+                :class="{ 'fm-media-zoomed': isZoomed }"
+                @click="toggleZoom"
+              />
+              <video
+                v-if="mediaViewerType === 'video'"
+                :src="mediaViewerSrc"
+                controls
+                autoplay
+                class="fm-media"
+              />
+              <audio
+                v-if="mediaViewerType === 'audio'"
+                :src="mediaViewerSrc"
+                controls
+                autoplay
+                class="fm-audio"
+              />
+              <button
+                v-if="mediaFiles.length > 1"
+                @click="nextMedia"
+                class="fm-media-nav fm-media-nav-next"
+              >
+                <ChevronRight :size="28" />
               </button>
             </div>
-          </div>
-          <div class="fm-media-container group">
-            <button
-              v-if="mediaFiles.length > 1"
-              @click="prevMedia"
-              class="fm-media-nav fm-media-nav-prev"
-            >
-              <ChevronLeft :size="28" />
-            </button>
-            <img
-              v-if="mediaViewerType === 'image'"
-              :src="mediaViewerSrc"
-              class="fm-media zoom-in"
-              :class="{ 'fm-media-zoomed': isZoomed }"
-              @click="toggleZoom"
-            />
-            <video
-              v-if="mediaViewerType === 'video'"
-              :src="mediaViewerSrc"
-              controls
-              autoplay
-              class="fm-media"
-            />
-            <audio
-              v-if="mediaViewerType === 'audio'"
-              :src="mediaViewerSrc"
-              controls
-              autoplay
-              class="fm-audio"
-            />
-            <button
-              v-if="mediaFiles.length > 1"
-              @click="nextMedia"
-              class="fm-media-nav fm-media-nav-next"
-            >
-              <ChevronRight :size="28" />
-            </button>
-          </div>
-          <div class="fm-media-footer">
-            <button
-              v-if="mediaViewerType === 'image'"
-              @click="toggleZoom"
-              class="fm-btn-icon"
-            >
-              <MagnifyingGlassIcon v-if="!isZoomed" class="w-5 h-5" />
-              <MinusIcon v-else class="w-5 h-5" />
-            </button>
-            <a
-              :href="mediaViewerSrc"
-              target="_blank"
-              download
-              class="fm-btn-icon"
-            >
-              <ArrowDownTrayIcon class="w-5 h-5" />
-            </a>
+            <div class="fm-media-footer">
+              <button
+                v-if="mediaViewerType === 'image'"
+                @click="toggleZoom"
+                class="fm-btn-icon"
+              >
+                <MagnifyingGlassIcon v-if="!isZoomed" class="w-5 h-5" />
+                <MinusIcon v-else class="w-5 h-5" />
+              </button>
+              <a
+                :href="mediaViewerSrc"
+                target="_blank"
+                download
+                class="fm-btn-icon"
+              >
+                <ArrowDownTrayIcon class="w-5 h-5" />
+              </a>
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
 
     <!-- Generic Input Modal (Rename/Archive) -->
-    <Transition name="modal-fade">
-      <div
-        v-if="showInputModal"
-        class="fm-modal-overlay"
-        @click="showInputModal = false"
-      >
-        <div class="fm-modal fm-modal-small" @click.stop>
-          <div class="fm-modal-header">
-            <span class="fm-modal-title">{{ inputModalTitle }}</span>
-          </div>
-          <div class="p-4 sm:p-6">
-            <input
-              v-model="inputValue"
-              class="fm-input w-full"
-              :placeholder="inputModalPlaceholder"
-              @keyup.enter="handleInputConfirm"
-              ref="modalInput"
-            />
-            <div class="flex justify-end gap-3 mt-5">
-              <button
-                @click="showInputModal = false"
-                class="fm-btn px-4 w-auto h-9"
-              >
-                Cancel
-              </button>
-              <button
-                @click="handleInputConfirm"
-                class="fm-modal-btn fm-modal-btn-primary px-4"
-              >
-                Confirm
-              </button>
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="showInputModal"
+          class="fm-modal-overlay"
+          @click="closeInputModal"
+        >
+          <div class="fm-modal fm-modal-small" @click.stop>
+            <div class="fm-modal-header">
+              <span class="fm-modal-title">{{ inputModalTitle }}</span>
+            </div>
+            <div class="p-4 sm:p-6">
+              <input
+                v-model="inputValue"
+                class="fm-input w-full"
+                :placeholder="inputModalPlaceholder"
+                @keyup.enter="handleInputConfirm"
+                ref="modalInput"
+              />
+              <div class="flex justify-end gap-3 mt-5">
+                <button @click="closeInputModal" class="fm-btn px-4 w-auto h-9">
+                  Cancel
+                </button>
+                <button
+                  @click="handleInputConfirm"
+                  class="fm-modal-btn fm-modal-btn-primary px-4"
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
 
     <!-- Delete Confirmation -->
-    <ConfirmationDialog
-      :show="showConfirmation"
-      :title="confirmationTitle"
-      :message="confirmationMessage"
-      :confirm-text="confirmationText"
-      :confirm-button-class="confirmationButtonClass"
-      @confirm="handleConfirm"
-      @cancel="handleCancel"
-    />
+    <Teleport to="body">
+      <ConfirmationDialog
+        :show="showConfirmation"
+        :title="confirmationTitle"
+        :message="confirmationMessage"
+        :confirm-text="confirmationText"
+        :confirm-button-class="confirmationButtonClass"
+        @confirm="handleConfirm"
+        @cancel="handleCancel"
+      />
+    </Teleport>
 
     <!-- Upload Modals -->
-    <UploadModal
-      :show="showUploadModal"
-      @close="showUploadModal = false"
-      @start-upload="startUpload"
-    />
-    <UploadProgressDialog
-      :show="showProgressDialog"
-      :files="filesToUpload"
-      :progress="uploadProgress"
-      :error="uploadError"
-      @close="closeProgressDialog"
-    />
+    <Teleport to="body">
+      <UploadModal
+        :show="showUploadModal"
+        @close="closeUploadModal"
+        @start-upload="startUpload"
+      />
+      <UploadProgressDialog
+        :show="showProgressDialog"
+        :files="filesToUpload"
+        :progress="uploadProgress"
+        :error="uploadError"
+        @close="closeProgressDialog"
+      />
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, reactive } from "vue";
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  reactive,
+  watch,
+} from "vue";
 import { useSshStore } from "../stores/SSHStore";
 import ConfirmationDialog from "./ConfirmationDialog.vue";
 import ContextMenu from "./ContextMenu.vue";
@@ -366,6 +417,21 @@ const selectedFiles = ref<any[]>([]);
 const showEditor = ref(false);
 const editorContainer = ref<HTMLElement | null>(null);
 let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+
+// --- Toast ---
+const toast = reactive({
+  show: false,
+  message: "",
+  type: "success" as "success" | "error",
+});
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+const showToast = (message: string, type: "success" | "error" = "success") => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.message = message;
+  toast.type = type;
+  toast.show = true;
+  toastTimer = setTimeout(() => (toast.show = false), 2500);
+};
 
 // --- Context Menu ---
 const contextMenu = reactive({ show: false, x: 0, y: 0, target: null as any });
@@ -406,9 +472,45 @@ const uploadError = ref<string | undefined>(undefined);
 
 // --- Computed ---
 const filteredFiles = computed(() => {
-  if (!searchQuery.value) return sshStore.files;
-  const q = searchQuery.value.toLowerCase();
-  return sshStore.files.filter((f: any) => f.name.toLowerCase().includes(q));
+  if (!searchQuery.value.trim()) return sshStore.files;
+  const q = searchQuery.value.toLowerCase().trim();
+
+  return sshStore.files
+    .filter((f: any) => {
+      const name = f.name.toLowerCase();
+      // Direct name match
+      if (name.includes(q)) return true;
+      // Extension-only search (e.g. ".js", "js", "png")
+      const ext = name.includes(".") ? name.split(".").pop() : "";
+      if (ext && (q === ext || q === `.${ext}`)) return true;
+      // Fuzzy: all query chars appear in order in the name
+      let i = 0;
+      for (const ch of name) {
+        if (ch === q[i]) i++;
+        if (i === q.length) return true;
+      }
+      return false;
+    })
+    .sort((a: any, b: any) => {
+      const q2 = q;
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      // Exact match first
+      if (aName === q2) return -1;
+      if (bName === q2) return 1;
+      // Starts with query next
+      if (aName.startsWith(q2) && !bName.startsWith(q2)) return -1;
+      if (bName.startsWith(q2) && !aName.startsWith(q2)) return 1;
+      // Contains query next
+      const aContains = aName.includes(q2);
+      const bContains = bName.includes(q2);
+      if (aContains && !bContains) return -1;
+      if (bContains && !aContains) return 1;
+      // Directories before files
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (b.isDirectory && !a.isDirectory) return 1;
+      return aName.localeCompare(bName);
+    });
 });
 
 const mediaFiles = computed(() =>
@@ -475,6 +577,7 @@ onMounted(() => window.addEventListener("keydown", handleGlobalKeydown));
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   if (editor) editor.dispose();
+  document.body.style.overflow = "";
 });
 
 // --- Methods ---
@@ -489,6 +592,7 @@ const handleNavigate = async (file: any) => {
   if (file.isDirectory) {
     await sshStore.listFiles(file.path);
     selectedFiles.value = [];
+    searchQuery.value = ""; // clear search when entering a folder
   } else {
     const mediaInfo = isMediaFile(file.name);
     if (mediaInfo.isMedia) openMediaViewer(file);
@@ -525,8 +629,10 @@ const saveFile = async () => {
   if (!editor) return;
   try {
     await sshStore.writeFile(currentFilePath.value, editor.getValue());
+    showToast(`Saved ${currentFileName.value}`);
   } catch (e) {
     console.error("Failed to save file", e);
+    showToast("Failed to save file", "error");
   }
 };
 
@@ -599,7 +705,7 @@ const downloadFile = (file: any) => {
 const handleInputConfirm = () => {
   if (inputValue.value && inputModalAction.value) {
     inputModalAction.value(inputValue.value);
-    showInputModal.value = false;
+    closeInputModal();
   }
 };
 
@@ -645,6 +751,7 @@ const goUp = async () => {
   parts.pop();
   await sshStore.listFiles("/" + parts.join("/"));
   selectedFiles.value = [];
+  searchQuery.value = "";
 };
 
 const refreshAndClearSelection = async () => {
@@ -694,7 +801,14 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     if (e.key === "ArrowLeft") prevMedia();
     if (e.key === "Escape") showMediaViewer.value = false;
   }
-  if (showEditor.value && e.key === "Escape") closeEditor();
+  if (showInputModal.value && e.key === "Escape") closeInputModal();
+  if (showEditor.value) {
+    if (e.key === "Escape") closeEditor();
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      saveFile();
+    }
+  }
 };
 
 const copyToClipboard = () => {
@@ -702,9 +816,21 @@ const copyToClipboard = () => {
 };
 
 const openUploadModal = () => (showUploadModal.value = true);
+const closeUploadModal = () => {
+  showUploadModal.value = false;
+};
+
+const closeInputModal = () => {
+  showInputModal.value = false;
+  inputValue.value = "";
+  inputModalAction.value = null;
+};
+
 const startUpload = async (files: File[]) => {
   showUploadModal.value = false;
   filesToUpload.value = files;
+  uploadProgress.value = 0;
+  uploadError.value = undefined;
   showProgressDialog.value = true;
   try {
     await sshStore.uploadFiles(sshStore.currentPath, files, (p: any) => {
@@ -714,10 +840,28 @@ const startUpload = async (files: File[]) => {
     uploadError.value = e.message;
   }
 };
+
 const closeProgressDialog = () => {
   showProgressDialog.value = false;
+  filesToUpload.value = [];
+  uploadProgress.value = 0;
+  uploadError.value = undefined;
   refreshAndClearSelection();
 };
+
+const hasOpenModal = computed(
+  () =>
+    showEditor.value ||
+    showMediaViewer.value ||
+    showInputModal.value ||
+    showConfirmation.value ||
+    showUploadModal.value ||
+    showProgressDialog.value,
+);
+
+watch(hasOpenModal, (isOpen) => {
+  document.body.style.overflow = isOpen ? "hidden" : "";
+});
 </script>
 
 <style scoped>
@@ -817,7 +961,6 @@ const closeProgressDialog = () => {
   background: rgba(10, 14, 18, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  /* Full width on its own row */
   width: 100%;
   transition: border-color 0.2s;
 }
@@ -891,7 +1034,7 @@ const closeProgressDialog = () => {
 /* ── List header ─────────────────────────────────────────────────────────────*/
 
 .fm-list-header {
-  display: none; /* hidden on mobile */
+  display: none;
 }
 
 @media (min-width: 640px) {
@@ -929,7 +1072,7 @@ const closeProgressDialog = () => {
   overflow-y: auto;
   background: rgba(20, 25, 32, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px; /* full radius on mobile (no header) */
+  border-radius: 8px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -956,7 +1099,6 @@ const closeProgressDialog = () => {
 
 /* ── File rows ───────────────────────────────────────────────────────────────*/
 
-/* Mobile: just name column (checkbox hidden visually but still works) */
 .fm-row {
   display: grid;
   grid-template-columns: 1fr;
@@ -967,7 +1109,6 @@ const closeProgressDialog = () => {
   transition: background 0.15s ease;
 }
 
-/* On mobile, hide the checkbox column and the detail columns */
 .fm-row .fm-col-checkbox {
   display: none;
 }
@@ -978,7 +1119,6 @@ const closeProgressDialog = () => {
   display: none;
 }
 
-/* Show the inline meta line on mobile */
 .fm-row-meta {
   font-size: 0.6875rem;
   color: rgba(255, 255, 255, 0.3);
@@ -999,7 +1139,6 @@ const closeProgressDialog = () => {
   .fm-row .fm-col-size {
     display: block;
   }
-  /* Hide inline meta on sm+ since we have columns */
   .fm-row-meta {
     display: none;
   }
@@ -1120,7 +1259,6 @@ const closeProgressDialog = () => {
   background: rgba(248, 113, 113, 0.15);
 }
 
-/* Status bar animation */
 .status-bar-enter-active,
 .status-bar-leave-active {
   transition: all 0.2s ease;
@@ -1131,14 +1269,18 @@ const closeProgressDialog = () => {
   transform: translateY(4px);
 }
 
-/* ── Modals ──────────────────────────────────────────────────────────────────*/
+/* ── Modals ──────────────────────────────────────────────────────────────────
+   NOTE: These are teleported to <body>, so they are NOT scoped to .file-manager.
+   The z-index: 9999 ensures they always render above the sidebar (z-index: 2)
+   and the mobile stats drawer (z-index: 50) in MainPage.vue.
+*/
 
 .fm-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 9999;
   display: flex;
-  align-items: flex-end; /* bottom sheet on mobile */
+  align-items: flex-end;
   justify-content: center;
   padding: 0;
   background: rgba(0, 0, 0, 0.8);
@@ -1161,7 +1303,6 @@ const closeProgressDialog = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Full-width bottom sheet on mobile */
   border-radius: 16px 16px 0 0;
   max-height: 92vh;
 }
@@ -1183,10 +1324,6 @@ const closeProgressDialog = () => {
     max-width: 90vw;
     height: 85vh;
   }
-}
-
-.fm-modal-small {
-  /* on mobile: sheet that auto-sizes */
 }
 
 @media (min-width: 640px) {
@@ -1351,7 +1488,6 @@ const closeProgressDialog = () => {
   z-index: 10;
 }
 
-/* Always visible on touch devices */
 @media (hover: none) {
   .fm-media-nav {
     opacity: 1;
@@ -1396,14 +1532,60 @@ const closeProgressDialog = () => {
   transform: scale(1.15);
 }
 
-/* ── Modal transition ────────────────────────────────────────────────────────*/
+/* ── Toast ───────────────────────────────────────────────────────────────────*/
+
+.fm-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: "Outfit", sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.fm-toast-success {
+  background: rgba(22, 163, 74, 0.15);
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  color: #4ade80;
+}
+
+.fm-toast-error {
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #f87171;
+}
+
+.fm-toast-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px) scale(0.95);
+}
 
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: all 0.25s ease;
 }
 
-/* Bottom-sheet slide on mobile */
 .modal-fade-enter-from .fm-modal,
 .modal-fade-leave-to .fm-modal {
   transform: translateY(100%);

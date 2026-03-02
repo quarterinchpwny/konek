@@ -35,9 +35,13 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const hostStore = useHostStore();
-  
+
+  if (to.meta.requiresHost && !hostStore.selectedHost) {
+    await hostStore.fetchHosts();
+  }
+
   if (to.meta.requiresHost && !hostStore.selectedHost) {
     next({ name: "home" });
   } else if (to.name === "home" && hostStore.selectedHost && from.name === undefined) {

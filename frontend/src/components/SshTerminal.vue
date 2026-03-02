@@ -42,6 +42,10 @@ let term: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let socket: WebSocket | null = null;
 let resizeObserver: ResizeObserver | null = null;
+let resizeFrameId: number | null = null;
+let lastCols = 0;
+let lastRows = 0;
+const textDecoder = new TextDecoder();
 
 const logActivity = async (actionType: string, details: string) => {
   if (props.hostId == null) {
@@ -72,7 +76,11 @@ const initTerminal = () => {
   term = new Terminal({
     cursorBlink: true,
     fontSize: isMobile ? 12 : 14,
-    fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
+    lineHeight: 1,
+    letterSpacing: 0,
+    rescaleOverlappingGlyphs: true,
+    // Prefer Nerd/Powerline fonts so agnoster prompt glyphs render correctly.
+    fontFamily: '"MesloLGS NF", "Meslo LG S DZ for Powerline", "CaskaydiaCove Nerd Font", "JetBrainsMono Nerd Font", "SauceCodePro Nerd Font", "JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
     theme: {
       background: "#0a0e12",
       foreground: "#e8e8e8",
@@ -100,8 +108,18 @@ const initTerminal = () => {
   fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
   term.open(terminalContainer.value);
+  // Ensure wraparound mode is enabled (some prompts/apps can toggle it off).
+  term.write("\x1b[?7h");
 
   fitAddon.fit();
+  handleResize();
+
+  // Refit once fonts are fully available; late font loading can break wrap/cursor math.
+  if ("fonts" in document) {
+    (document as Document & { fonts?: FontFaceSet }).fonts?.ready
+      .then(() => handleResize())
+      .catch(() => undefined);
+  }
 
   let command_buffer = "";
   term.onData((data) => {
@@ -136,10 +154,14 @@ const connectWebSocket = () => {
   const rows = dims?.rows || 24;
 
   socket = new WebSocket(`${wsUrl.value}&cols=${cols}&rows=${rows}`);
+  socket.binaryType = "arraybuffer";
 
   socket.onopen = () => {
     isConnected.value = true;
     statusMessage.value = "Connected";
+    lastCols = 0;
+    lastRows = 0;
+    handleResize();
     term?.focus();
     socket?.send("neofetch\n");
   };
@@ -147,10 +169,11 @@ const connectWebSocket = () => {
   socket.onmessage = (event) => {
     if (typeof event.data === "string") {
       term?.write(event.data);
-    } else {
-      const reader = new FileReader();
-      reader.onload = () => term?.write(reader.result as string);
-      reader.readAsText(event.data);
+      return;
+    }
+
+    if (event.data instanceof ArrayBuffer) {
+      term?.write(textDecoder.decode(event.data));
     }
   };
 
@@ -167,7 +190,26 @@ const connectWebSocket = () => {
 };
 
 const handleResize = () => {
-  fitAddon?.fit();
+  if (!term || !fitAddon) return;
+
+  if (resizeFrameId !== null) {
+    window.cancelAnimationFrame(resizeFrameId);
+  }
+
+  resizeFrameId = window.requestAnimationFrame(() => {
+    fitAddon?.fit();
+    const cols = term?.cols ?? 0;
+    const rows = term?.rows ?? 0;
+    if (!cols || !rows) return;
+    if (cols === lastCols && rows === lastRows) return;
+
+    lastCols = cols;
+    lastRows = rows;
+
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "resize", cols, rows }));
+    }
+  });
 };
 
 onMounted(() => {
@@ -184,6 +226,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (resizeFrameId !== null) {
+    window.cancelAnimationFrame(resizeFrameId);
+  }
   socket?.close();
   term?.dispose();
   resizeObserver?.disconnect();
@@ -328,6 +373,8 @@ onBeforeUnmount(() => {
 :deep(.xterm) {
   height: 100%;
   padding: 0;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
 }
 
 :deep(.xterm-viewport) {
@@ -352,27 +399,6 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.15);
 }
 
-:deep(.xterm-screen) {
-  padding: 0.5rem;
-}
-
-:deep(.xterm-cursor-layer) {
-  animation: blink 1.2s step-end infinite;
-}
-
-@keyframes blink {
-
-  0%,
-  49% {
-    opacity: 1;
-  }
-
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
 /* Selection styling */
 :deep(.xterm-selection) {
   background: rgba(127, 161, 195, 0.3) !important;
@@ -382,14 +408,6 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow: hidden;
   position: relative;
-}
-
-/* To this: */
-.terminal-modal-body {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
   min-height: 0;
-  /* ← ADD THIS LINE - Critical for flexbox child sizing */
 }
 </style>

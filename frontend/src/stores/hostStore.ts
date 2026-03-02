@@ -60,6 +60,29 @@ export const useHostStore = defineStore("hosts", {
   },
 
   actions: {
+    syncSelectedHost() {
+      const selectableHosts = this.hosts.filter((h) => h.sshEnabled && h.id != null);
+      const selectedId = this.selectedHost?.id;
+
+      let nextSelected: Host | null = null;
+
+      if (selectedId != null) {
+        nextSelected = selectableHosts.find((h) => h.id === selectedId) ?? null;
+      }
+
+      if (!nextSelected) {
+        nextSelected = selectableHosts[0] ?? null;
+      }
+
+      this.selectedHost = nextSelected;
+
+      if (nextSelected) {
+        localStorage.setItem("selectedHost", JSON.stringify(nextSelected));
+      } else {
+        localStorage.removeItem("selectedHost");
+      }
+    },
+
     async setSelectedHost(host: Host | null){
       this.selectedHost = host;
       if (host) {
@@ -85,6 +108,8 @@ export const useHostStore = defineStore("hosts", {
           status: h.status,
           lastChecked: h.lastChecked,
         }));
+
+        this.syncSelectedHost();
       } catch (e: any) {
         this.error = e.response?.data?.error || e.message;
         console.error("Error fetching hosts:", e);
@@ -113,6 +138,7 @@ export const useHostStore = defineStore("hosts", {
       try {
         const { data } = await axios.post(`${API_URL}/hosts`, hostData);
         this.hosts.push(data);
+        this.syncSelectedHost();
         return data;
       } catch (e: any) {
         this.error = e.response?.data?.error || e.message;
@@ -138,6 +164,7 @@ export const useHostStore = defineStore("hosts", {
           };
         }
 
+        this.syncSelectedHost();
         return data;
       } catch (e: any) {
         this.error = e.response?.data?.error || e.message;
@@ -155,6 +182,7 @@ export const useHostStore = defineStore("hosts", {
       try {
         await axios.delete(`${API_URL}/hosts/${id}`);
         this.hosts = this.hosts.filter((h) => h.id !== id);
+        this.syncSelectedHost();
       } catch (e: any) {
         this.error = e.response?.data?.error || e.message;
         console.error("Error deleting host:", e);
