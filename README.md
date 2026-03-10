@@ -68,6 +68,14 @@ Konek is a web-based remote server management tool. It provides a simple and int
     npm install
     ```
 
+4.  **Set required environment variables:**
+    Create a root `.env` file with at least:
+    ```bash
+    KONEK_AUTH_PASSWORD=choose-a-strong-password
+    KONEK_SECRET_KEY=choose-a-separate-secret
+    VITE_API_BASE_URL=http://localhost:3000/api
+    ```
+
 ### Running the Application
 
 1.  **Start the backend server:**

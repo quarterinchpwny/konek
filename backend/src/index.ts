@@ -1,9 +1,16 @@
+import "dotenv/config";
+
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { WebSocketServer } from "ws";
+import { IncomingMessage, Server as HttpServer } from "node:http";
+import { RawData, WebSocketServer } from "ws";
 
+import { getAuthSession } from "./services/auth";
+import { requireAuth } from "./middleware/auth";
+import { assertDockerIdentifier, assertTmuxSessionName } from "./lib/shell";
 import { sessions } from "./services/session";
+import authRoute from "./routes/auth";
 import hostsRoute from "./routes/hosts";
 import filesRoute from "./routes/files";
 import terminalRoute from "./routes/terminal";
@@ -11,7 +18,6 @@ import statsRoute from "./routes/stats";
 import dockerRoute from "./routes/docker";
 import activityRoute from "./routes/activity";
 import networkRoute from "./routes/network";
-import { Server as HttpServer } from "node:http";
 
 const app = new Hono();
 
@@ -19,10 +25,12 @@ app.use(
   "*",
   cors({
     origin: "*",
+    allowHeaders: ["Authorization", "Content-Type"],
   })
 );
 
-
+app.use("/api/*", requireAuth);
+app.route("/api/auth", authRoute);
 
 app.route("/api/hosts", hostsRoute);
 app.route("/api/files", filesRoute);
@@ -40,20 +48,51 @@ const server = serve({
   hostname: '0.0.0.0'
 }) as HttpServer;
 
-const wss = new WebSocketServer({ server });
+const extractWebSocketToken = (request: IncomingMessage) => {
+  const protocols = request.headers["sec-websocket-protocol"];
+  if (!protocols) {
+    return null;
+  }
+
+  const value = Array.isArray(protocols) ? protocols[0] : protocols;
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .find(Boolean) || null;
+};
+
+const wss = new WebSocketServer({
+  server,
+  handleProtocols(protocols) {
+    const [first] = Array.from(protocols);
+    return first || false;
+  },
+});
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
+  const authToken = extractWebSocketToken(req);
   const sid = url.searchParams.get("sessionId");
   const dockerId = url.searchParams.get("dockerId");
   const tmuxSessionName = url.searchParams.get("tmuxSessionName");
   const cols = url.searchParams.get("cols");
   const rows = url.searchParams.get("rows");
 
+  if (!authToken) return ws.close();
+  const authSession = getAuthSession(authToken);
+  if (!authSession) return ws.close();
+
   if (!sid || !sessions.has(sid)) return ws.close();
   const session = sessions.get(sid)!;
+  if (session.ownerId !== authSession.id) return ws.close();
 
   if (dockerId) {
+    try {
+      assertDockerIdentifier(dockerId);
+    } catch {
+      return ws.close();
+    }
+
     // ------------------ Docker logs stream ------------------
     session.client.exec(
       `docker logs -f --tail 50 ${dockerId}`,
@@ -67,6 +106,12 @@ wss.on("connection", (ws, req) => {
       }
     );
   } else if (tmuxSessionName) {
+    try {
+      assertTmuxSessionName(tmuxSessionName);
+    } catch {
+      return ws.close();
+    }
+
     // ------------------ Tmux attach stream ------------------
 
     const execOptions: any = {
@@ -89,7 +134,7 @@ wss.on("connection", (ws, req) => {
           return ws.close();
         }
 
-        ws.on("message", (data) => {
+        ws.on("message", (data: RawData) => {
           // Handle resize messages from frontend
           try {
             const msg = JSON.parse(data.toString());
@@ -123,7 +168,7 @@ wss.on("connection", (ws, req) => {
     session.client.shell(shellOptions, (err: Error | undefined, stream: any) => {
       if (err) return ws.close();
 
-      ws.on("message", (data) => {
+      ws.on("message", (data: RawData) => {
         // Handle resize messages
         try {
           const msg = JSON.parse(data.toString());

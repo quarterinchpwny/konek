@@ -1,5 +1,7 @@
 import { Hono } from "hono";
-import { sessions } from "../services/session";
+import { getRequestAuthSessionId } from "../middleware/auth";
+import { assertArchiveName, shellEscape } from "../lib/shell";
+import { getOwnedSession } from "../services/session";
 import path from "path";
 
 const getMimeType = (filePath: string): string => {
@@ -25,18 +27,18 @@ const filesRoute = new Hono();
  * GET /api/files/list
  */
 filesRoute.get("/list", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const sessionId = c.req.query("sessionId");
-  const path = c.req.query("path") || "/";
+  const requestedPath = c.req.query("path") || "/";
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
-    const cmd = `ls -la --time-style=long-iso "${path}"`;
+    const cmd = `ls -la --time-style=long-iso ${shellEscape(requestedPath)}`;
 
     session.client.exec(cmd, (err, stream) => {
       if (err) {
@@ -69,12 +71,12 @@ filesRoute.get("/list", async (c) => {
               permissions,
               isDirectory: permissions.startsWith("d"),
               size: parts[4],
-              path: path === "/" ? `/${name}` : `${path}/${name}`,
+              path: requestedPath === "/" ? `/${name}` : `${requestedPath}/${name}`,
             };
           })
           .filter((f) => f.name !== "." && f.name !== "..");
 
-        resolve(c.json({ path, files }));
+        resolve(c.json({ path: requestedPath, files }));
       });
     });
   });
@@ -84,10 +86,11 @@ filesRoute.get("/list", async (c) => {
  * GET /api/files/read
  */
 filesRoute.get("/read", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const sessionId = c.req.query("sessionId");
   const filePath = c.req.query("path");
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "No session" }, 401);
   }
 
@@ -95,7 +98,7 @@ filesRoute.get("/read", async (c) => {
     return c.json({ error: "Path is required" }, 400);
   }
 
-  const session = sessions.get(sessionId)!;
+  const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {
@@ -127,15 +130,16 @@ filesRoute.get("/read", async (c) => {
  * POST /api/files/write
  */
 filesRoute.post("/write", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { sessionId, path, content } = await c.req.json();
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "No session" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
+  const session = getOwnedSession(sessionId, ownerId);
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {
       if (err || !sftp) return resolve(c.json({ error: "SFTP error" }, 500));
       const stream = sftp.createWriteStream(path);
@@ -156,16 +160,16 @@ filesRoute.post("/write", async (c) => {
  * POST /api/files/upload
  */
 filesRoute.post("/upload", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const formData = await c.req.formData();
   const sessionId = formData.get("sessionId") as string;
   const destinationPath = (formData.get("path") as string) || "/";
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
 
   const files = formData.getAll("files") as unknown as File[];
   if (!files || files.length === 0) {
@@ -212,12 +216,13 @@ filesRoute.post("/upload", async (c) => {
  * POST /api/files/delete
  */
 filesRoute.post("/delete", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { sessionId, items } = await c.req.json<{
     sessionId: string;
     items: { path: string; type: "file" | "directory" }[];
   }>();
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
@@ -225,8 +230,7 @@ filesRoute.post("/delete", async (c) => {
     return c.json({ error: "No items to delete provided" }, 400);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
     session.client.sftp(async (err, sftp) => {
@@ -283,14 +287,14 @@ filesRoute.post("/delete", async (c) => {
  * POST /api/files/rename
  */
 filesRoute.post("/rename", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { sessionId, oldPath, newPath } = await c.req.json();
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {
@@ -308,24 +312,26 @@ filesRoute.post("/rename", async (c) => {
  * POST /api/files/archive
  */
 filesRoute.post("/archive", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { sessionId, items, archiveName, format } = await c.req.json();
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "No session" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
+  const session = getOwnedSession(sessionId, ownerId);
   const parentDir = path.posix.dirname(items[0]);
-  const itemNames = items.map((i: string) => `"${path.posix.basename(i)}"`).join(" ");
+  const itemNames = items.map((item: string) => shellEscape(path.posix.basename(item))).join(" ");
+  const safeArchiveName = assertArchiveName(archiveName);
   
   let cmd = "";
   if (format === "zip") {
-    cmd = `cd "${parentDir}" && zip -r "${archiveName}.zip" ${itemNames}`;
+    cmd = `cd ${shellEscape(parentDir)} && zip -r ${shellEscape(`${safeArchiveName}.zip`)} ${itemNames}`;
   } else {
-    cmd = `cd "${parentDir}" && tar -czf "${archiveName}.tar.gz" ${itemNames}`;
+    cmd = `cd ${shellEscape(parentDir)} && tar -czf ${shellEscape(`${safeArchiveName}.tar.gz`)} ${itemNames}`;
   }
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.exec(cmd, (err, stream) => {
       if (err) return resolve(c.json({ error: err.message }, 500));
       stream.on("close", (code: number) => {
@@ -340,24 +346,25 @@ filesRoute.post("/archive", async (c) => {
  * POST /api/files/unarchive
  */
 filesRoute.post("/unarchive", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { sessionId, archivePath } = await c.req.json();
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "No session" }, 401);
   }
 
-  const session = sessions.get(sessionId)!;
+  const session = getOwnedSession(sessionId, ownerId);
   const dir = path.posix.dirname(archivePath);
   const fileName = path.posix.basename(archivePath);
   
   let cmd = "";
   if (fileName.endsWith(".zip")) {
-    cmd = `cd "${dir}" && unzip "${fileName}"`;
+    cmd = `cd ${shellEscape(dir)} && unzip ${shellEscape(fileName)}`;
   } else if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) {
-    cmd = `cd "${dir}" && tar -xzf "${fileName}"`;
+    cmd = `cd ${shellEscape(dir)} && tar -xzf ${shellEscape(fileName)}`;
   }
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     session.client.exec(cmd, (err, stream) => {
       if (err) return resolve(c.json({ error: err.message }, 500));
       stream.on("close", (code: number) => {
@@ -372,10 +379,11 @@ filesRoute.post("/unarchive", async (c) => {
  * GET /api/files/view
  */
 filesRoute.get("/view", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const sessionId = c.req.query("sessionId");
   const filePath = c.req.query("path");
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ error: "Session not found or disconnected" }, 401);
   }
 
@@ -383,8 +391,7 @@ filesRoute.get("/view", async (c) => {
     return c.json({ error: "Path is required" }, 400);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
     session.client.sftp((err, sftp) => {

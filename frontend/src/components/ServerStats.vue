@@ -1,34 +1,26 @@
 <template>
-  <aside class="server-stats">
-    <!-- Background -->
-    <div class="stats-bg"></div>
-    <div class="stats-noise"></div>
-
-    <!-- Content -->
+  <aside class="server-stats" :class="{ compact }">
+    <div v-if="!compact" class="stats-bg"></div>
+    <div v-if="!compact" class="stats-noise"></div>
     <div class="stats-content">
-      <h2 class="stats-header">System Status</h2>
+      <h2 v-if="showHeader" class="stats-header">System Status</h2>
 
-      <!-- OFFLINE -->
       <div v-if="status === 'offline'" class="status-card status-offline">
         <div class="status-icon">⚠</div>
         <p class="status-text">OFFLINE</p>
       </div>
 
-      <!-- AUTH FAILED -->
       <div v-else-if="status === 'auth_failed'" class="status-card status-auth-failed">
         <div class="status-icon">🔒</div>
         <p class="status-text">Authentication Failed</p>
       </div>
 
-      <!-- LOADING -->
       <div v-else-if="!stats" class="status-card status-loading">
         <div class="loader"></div>
         <p class="status-text">Loading stats...</p>
       </div>
 
-      <!-- STATS -->
       <template v-else>
-        <!-- CPU Widget -->
         <div class="stat-widget">
           <div class="widget-header">
             <div class="widget-title-group">
@@ -64,7 +56,6 @@
           </div>
         </div>
 
-        <!-- Memory Widget -->
         <div class="stat-widget">
           <div class="widget-header">
             <div class="widget-title-group">
@@ -100,8 +91,7 @@
           </div>
         </div>
 
-        <!-- Docker Widget -->
-        <div v-if="stats.docker" class="stat-widget">
+        <div v-if="showDocker && stats.docker" class="stat-widget">
           <div class="widget-header">
             <div class="widget-title-group">
               <div class="widget-icon docker">
@@ -126,7 +116,6 @@
           </div>
         </div>
 
-        <!-- Disk Widget -->
         <div class="stat-widget">
           <div v-for="disk in stats.disk" :key="disk.mount" class="disk-section">
             <div class="widget-header">
@@ -158,107 +147,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { toRef } from "vue";
 import { Cpu, Activity, HardDrive } from "lucide-vue-next";
 import { Icon } from '@iconify/vue';
+import { useServerStats } from "../composables/useServerStats";
 
-const props = defineProps<{ hostId: number }>();
-
-const stats = ref<any>(null);
-const status = ref("loading");
-
-const HISTORY_SIZE = 30;
-const cpuHistory = ref<number[]>([]);
-const memoryHistory = ref<number[]>([]);
-
-let intervalId: number | null = null;
-const iconCache = ref<Record<string, string>>({});
-
-const fetchStats = async () => {
-  if (!props.hostId) return;
-
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`);
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      status.value = errorData.status || "offline";
-      stats.value = null;
-      return;
-    }
-
-    const data = await res.json();
-    stats.value = data;
-    status.value = "online";
-
-    // CPU History
-    const cpuPercent = Math.min(100, Math.max(0, data.cpu.usagePercent));
-    cpuHistory.value.push(cpuPercent);
-    if (cpuHistory.value.length > HISTORY_SIZE) {
-      cpuHistory.value.shift();
-    }
-
-    // Memory History
-    const memPercent = Math.min(100, Math.max(0, data.memory.percent));
-    memoryHistory.value.push(memPercent);
-    if (memoryHistory.value.length > HISTORY_SIZE) {
-      memoryHistory.value.shift();
-    }
-  } catch (err) {
-    console.error("Failed to fetch stats:", err);
-    status.value = "offline";
-    stats.value = null;
-  }
-};
-
-const formatBytes = (bytes: number) => {
-  if (!bytes || bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const formattedValue = (bytes / Math.pow(k, i)).toFixed(2);
-  return `${formattedValue} ${sizes[i]}`;
-};
-
-const getStatusClass = (status: string) => {
-  if (status.startsWith('Up')) return 'status-up';
-  if (status.startsWith('Exited')) return 'status-exited';
-  return 'status-other';
-};
-
-const getIcon = (containerData: Record<string, any>) => {
-  if (!containerData) return 'mdi:docker';
-  const containerName = containerData.labels?.['com.docker.compose.project'] || containerData.image || 'docker';
-  const baseName = containerName.split(':')[0].split('/').pop()?.toLowerCase() || 'docker';
-  return `simple-icons:${baseName}`;
-};
-
-const getIconCached = (container: Record<string, any>) => {
-  const id = container.id;
-  if (iconCache.value[id]) return iconCache.value[id];
-  const icon = getIcon(container);
-  iconCache.value[id] = icon;
-  return icon;
-};
-
-onMounted(() => {
-  fetchStats();
-  intervalId = setInterval(fetchStats, 5000);
+const props = withDefaults(defineProps<{
+  hostId: number;
+  compact?: boolean;
+  showHeader?: boolean;
+  showDocker?: boolean;
+}>(), {
+  compact: false,
+  showHeader: true,
+  showDocker: true,
 });
 
-onUnmounted(() => {
-  if (intervalId) clearInterval(intervalId);
-});
-
-watch(() => props.hostId, () => {
-  stats.value = null;
-  status.value = "loading";
-  cpuHistory.value = [];
-  memoryHistory.value = [];
-  if (intervalId) clearInterval(intervalId);
-  fetchStats();
-  intervalId = setInterval(fetchStats, 5000);
-});
+const { stats, status, cpuHistory, memoryHistory, formatBytes, getStatusClass, getIconCached } = useServerStats(
+  toRef(props, "hostId"),
+);
 </script>
 
 <style scoped>
@@ -647,5 +554,60 @@ watch(() => props.hostId, () => {
 
 .history-slide-leave-to {
   opacity: 0;
+}
+
+.server-stats.compact {
+  height: auto;
+  overflow: visible;
+  font-family: inherit;
+}
+
+.server-stats.compact .stats-content {
+  padding: 0;
+  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.server-stats.compact .status-card {
+  grid-column: 1 / -1;
+  padding: 1.25rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.server-stats.compact .stat-widget {
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+  backdrop-filter: none;
+}
+
+.server-stats.compact .stat-widget:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.server-stats.compact .widget-header {
+  margin-bottom: 0.7rem;
+}
+
+.server-stats.compact .history-chart {
+  height: 58px;
+  margin-bottom: 0.65rem;
+  padding: 0.45rem;
+}
+
+.server-stats.compact .widget-title {
+  font-size: 0.78rem;
+}
+
+.server-stats.compact .widget-value {
+  font-size: 0.8rem;
+}
+
+.server-stats.compact .widget-details {
+  font-size: 0.68rem;
 }
 </style>

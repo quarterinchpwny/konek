@@ -5,6 +5,8 @@ export interface SSHSession {
   isConnected: boolean;
   lastActive: number;
   host: string;
+  hostId: number;
+  ownerId: string;
 }
 
 export interface ServerMetrics {

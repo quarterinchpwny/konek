@@ -45,6 +45,7 @@
         <div class="tabs-meta">
           <ServerStatusBadge :status="serverStatus" />
           <button
+            v-if="activeTab !== 'overview'"
             class="stats-toggle md:hidden"
             @click="showMobileStats = !showMobileStats"
             :aria-label="showMobileStats ? 'Hide stats' : 'Show stats'"
@@ -61,6 +62,7 @@
             :host-id="hostStore.selectedHost?.id ?? null"
             :session-id="sessionId"
             :server-status="serverStatus"
+            @open-tab="activeTab = $event"
           />
         </div>
         <div v-show="activeTab === 'terminal'" class="panel-full">
@@ -88,12 +90,16 @@
           <MediaManager :host-id="hostStore.selectedHost?.id" />
         </div>
       </div>
-      <aside class="sidebar-desktop" aria-label="Server stats">
+      <aside
+        v-if="activeTab !== 'overview'"
+        class="sidebar-desktop"
+        aria-label="Server stats"
+      >
         <ServerStats
-          v-if="activeTab !== 'overview' && hostStore.selectedHost?.id != null && sessionId"
+          v-if="hostStore.selectedHost?.id != null && sessionId"
           :host-id="hostStore.selectedHost.id"
         />
-        <QuickActions v-if="activeTab !== 'overview'" class="mt-4" />
+        <QuickActions class="mt-4" />
       </aside>
     </div>
     <Transition name="drawer">
@@ -107,7 +113,11 @@
         </div>
         <div class="stats-drawer-content">
           <ServerStats
-            v-if="activeTab !== 'overview' && hostStore.selectedHost?.id != null && sessionId"
+            v-if="
+              activeTab !== 'overview' &&
+              hostStore.selectedHost?.id != null &&
+              sessionId
+            "
             :host-id="hostStore.selectedHost.id"
           />
           <QuickActions v-if="activeTab !== 'overview'" class="mt-4" />
@@ -272,6 +282,12 @@ watch(
   },
   { immediate: true },
 );
+
+watch(activeTab, (tab) => {
+  if (tab === "overview") {
+    showMobileStats.value = false;
+  }
+});
 </script>
 
 <style scoped>
@@ -522,11 +538,15 @@ watch(
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .panel-full {
-  height: 100%;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .panel-empty {

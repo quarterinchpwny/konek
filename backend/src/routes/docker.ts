@@ -1,24 +1,20 @@
 import { Hono } from "hono";
-import { sessions } from "../services/session";
+import { HTTPException } from "hono/http-exception";
+import { getRequestAuthSessionId } from "../middleware/auth";
+import { assertDockerIdentifier } from "../lib/shell";
+import { getOwnedSession } from "../services/session";
 import { exec } from "../lib/ssh-utils";
 
 const dockerRoute = new Hono();
 
 const dockerAction = async (
+  ownerId: string,
   sessionId: string,
   containerId: string,
   action: "start" | "stop" | "restart"
 ) => {
-  if (!sessionId || !sessions.has(sessionId)) {
-    throw new Error("Session not found or disconnected");
-  }
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
-
-  // Basic validation for container ID (alphanumeric, dashes, underscores)
-  if (!/^[a-zA-Z0-9_-]+$/.test(containerId)) {
-    throw new Error("Invalid container ID format");
-  }
+  const session = getOwnedSession(sessionId, ownerId);
+  assertDockerIdentifier(containerId);
 
   const cmd = `docker ${action} ${containerId}`;
   return await exec(session.client, cmd);
@@ -27,42 +23,48 @@ const dockerAction = async (
 dockerRoute.post("/:containerId/start", async (c) => {
   const sessionId = c.req.query("sessionId");
   const { containerId } = c.req.param();
+  const ownerId = getRequestAuthSessionId(c);
 
   if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
   try {
-    const output = await dockerAction(sessionId, containerId, "start");
+    const output = await dockerAction(ownerId, sessionId, containerId, "start");
     return c.json({ message: "Container started successfully", output });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    const status = e instanceof HTTPException ? e.status : 500;
+    return c.json({ error: e.message }, status);
   }
 });
 
 dockerRoute.post("/:containerId/stop", async (c) => {
   const sessionId = c.req.query("sessionId");
   const { containerId } = c.req.param();
+  const ownerId = getRequestAuthSessionId(c);
 
   if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
   try {
-    const output = await dockerAction(sessionId, containerId, "stop");
+    const output = await dockerAction(ownerId, sessionId, containerId, "stop");
     return c.json({ message: "Container stopped successfully", output });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    const status = e instanceof HTTPException ? e.status : 500;
+    return c.json({ error: e.message }, status);
   }
 });
 
 dockerRoute.post("/:containerId/restart", async (c) => {
   const sessionId = c.req.query("sessionId");
   const { containerId } = c.req.param();
+  const ownerId = getRequestAuthSessionId(c);
 
   if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
 
   try {
-    const output = await dockerAction(sessionId, containerId, "restart");
+    const output = await dockerAction(ownerId, sessionId, containerId, "restart");
     return c.json({ message: "Container restarted successfully", output });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    const status = e instanceof HTTPException ? e.status : 500;
+    return c.json({ error: e.message }, status);
   }
 });
 
@@ -70,19 +72,15 @@ dockerRoute.get("/:containerId/logs", async (c) => {
   const sessionId = c.req.query("sessionId");
   const { containerId } = c.req.param();
   const tail = c.req.query("tail") || "100";
+  const ownerId = getRequestAuthSessionId(c);
 
   if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
-  if (!sessions.has(sessionId)) {
-    return c.json({ error: "Session not found or disconnected" }, 401);
-  }
-
-  // Basic validation
-  if (!/^[a-zA-Z0-9_-]+$/.test(containerId) || !/^\d+$/.test(tail)) {
+  if (!/^\d+$/.test(tail)) {
     return c.json({ error: "Invalid parameter format" }, 400);
   }
 
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
+  assertDockerIdentifier(containerId);
 
   try {
     const cmd = `docker logs --tail ${tail} ${containerId}`;
@@ -96,16 +94,11 @@ dockerRoute.get("/:containerId/logs", async (c) => {
 dockerRoute.get("/:containerId/logs/stream", async (c) => {
   const sessionId = c.req.query("sessionId");
   const { containerId } = c.req.param();
+  const ownerId = getRequestAuthSessionId(c);
 
   if (!sessionId) return c.text("sessionId is required", 400);
-  if (!sessions.has(sessionId)) return c.text("Session not found", 401);
-
-  if (!/^[a-zA-Z0-9_-]+$/.test(containerId)) {
-    return c.text("Invalid container ID", 400);
-  }
-
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, ownerId);
+  assertDockerIdentifier(containerId);
 
   const encoder = new TextEncoder();
 
@@ -138,7 +131,7 @@ dockerRoute.get("/:containerId/logs/stream", async (c) => {
         );
 
         c.req.raw.signal.addEventListener("abort", () => {
-          proc?.close?.();
+          proc?.end?.();
           controller.close();
         });
       } catch (e: any) {

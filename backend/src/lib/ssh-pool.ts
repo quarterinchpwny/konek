@@ -2,6 +2,7 @@ import { Client as SSHClient, ConnectConfig } from "ssh2";
 import { db } from "../db";
 import { serverHosts } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { decryptSecret } from "./crypto";
 
 interface PooledConnection {
   client: SSHClient;
@@ -127,7 +128,7 @@ export async function getSSHService(hostId: string): Promise<SSHClient> {
     host: hostData.hostname,
     port: hostData.port || 22,
     username: hostData.username,
-    password: hostData.password || undefined, // Use password if available
+    password: decryptSecret(hostData.password) || undefined,
 
     readyTimeout: 20000, // 20 seconds
   };

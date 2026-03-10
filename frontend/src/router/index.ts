@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import DashboardLayout from "../layouts/DashboardLayout.vue";
+import { useAuthStore } from "../stores/authStore";
 import { useHostStore } from "../stores/hostStore";
 
 const routes = [
@@ -36,7 +37,17 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore();
   const hostStore = useHostStore();
+
+  if (!authStore.isReady) {
+    await authStore.initialize();
+  }
+
+  if (!authStore.isAuthenticated) {
+    next();
+    return;
+  }
 
   if (to.meta.requiresHost && !hostStore.selectedHost) {
     await hostStore.fetchHosts();

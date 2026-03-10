@@ -1,10 +1,5 @@
 <template>
   <div class="docker-manager">
-    <!-- Background layers -->
-    <div class="background-layer"></div>
-    <div class="noise-overlay"></div>
-    
-    <!-- No host -->
     <div v-if="!hostId" class="empty-state">
       <div class="empty-card">
         <div class="empty-icon">
@@ -247,249 +242,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useSshStore } from '../stores/SSHStore';
-import { useDockerStore } from '../stores/dockerStore';
+import { toRef } from "vue";
 import DockerLogsViewer from './DockerLogsViewer.vue';
 import { Icon } from '@iconify/vue';
-
-interface Container {
-  id: string;
-  name: string;
-  image: string;
-  status: string;
-  health: string;
-  restartPolicy: string;
-  compose?: {
-    project: string;
-    service: string;
-  };
-  stats?: {
-    cpu: number;
-    memUsed: number;
-    memLimit: number;
-  };
-  group?: string;
-  labels?: Record<string, string>;
-}
+import { useDockerManager } from "../composables/useDockerManager";
 
 const props = defineProps<{ hostId?: number }>();
 
-const sshStore = useSshStore();
-const dockerStore = useDockerStore();
-
-const stats = ref<any>(null);
-const isLoading = ref(false);
-
-const showLogsModal = ref(false);
-const selectedContainerId = ref<string | undefined>(undefined);
-
-const search = ref('');
-const showOnlyRunning = ref(false);
-const collapsed = ref<Record<string, boolean>>({});
-
-let intervalId: number | null = null;
-const iconCache = ref<Record<string, string>>({});
-const historyCache = ref<Record<string, { cpu: number[], mem: number[] }>>({});
-const HISTORY_LENGTH = 20;
-
-const dockerInfo = computed(() => stats.value?.docker);
-
-const runningCount = computed(() => {
-  return (dockerInfo.value?.containers || []).filter((c: Container) => c.status.startsWith('Up')).length;
-});
-
-const fetchStats = async () => {
-  if (!props.hostId) return;
-  
-  if (!stats.value) {
-    isLoading.value = true;
-  }
-
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stats/${props.hostId}`);
-    if (!res.ok) return;
-
-    const newStats = await res.json();
-
-    if (stats.value?.docker?.containers) {
-      const oldMap = new Map(stats.value.docker.containers.map((c: Container) => [c.id, c]));
-      const newMap = new Map(newStats.docker.containers.map((c: Container) => [c.id, c]));
-      
-      oldMap.forEach((oldContainer, id) => {
-        const newContainer = newMap.get(id) as Container;
-        if (newContainer) {
-          Object.keys(newContainer).forEach(key => {
-            (oldContainer as any)[key] = (newContainer as any)[key];
-          });
-          
-          if (newContainer.stats) {
-            if (!historyCache.value[id]) {
-              historyCache.value[id] = { cpu: [], mem: [] };
-            }
-            const history = historyCache.value[id];
-            history.cpu.push(newContainer.stats.cpu);
-            history.mem.push(memPercent(newContainer as Container));
-            
-            if (history.cpu.length > HISTORY_LENGTH) history.cpu.shift();
-            if (history.mem.length > HISTORY_LENGTH) history.mem.shift();
-          }
-        }
-      });
-      
-      newMap.forEach((newContainer: Container, id: string) => {
-        if (!oldMap.has(id)) {
-          stats.value.docker.containers.push(newContainer);
-          if (newContainer.stats) {
-            historyCache.value[id] = {
-              cpu: [newContainer.stats.cpu],
-              mem: [memPercent(newContainer as Container)]
-            };
-          }
-        }
-      });
-      
-      stats.value.docker.containers = stats.value.docker.containers.filter(
-        (c: Container) => newMap.has(c.id)
-      );
-      
-      Object.keys(historyCache.value).forEach((idString: string) => {
-        if (!newMap.has(idString)) {
-          delete historyCache.value[idString];
-        }
-      });
-    } else {
-      stats.value = newStats;
-      if (newStats.docker?.containers) {
-        newStats.docker.containers.forEach((c: Container) => {
-          if (c.stats) {
-            historyCache.value[c.id] = {
-              cpu: [c.stats.cpu],
-              mem: [memPercent(c)]
-            };
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.error(e);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const groupedContainers = computed(() => {
-  const q = search.value.toLowerCase();
-  const filtered = (dockerInfo.value?.containers || []).filter((c: Container) => {
-    if (showOnlyRunning.value && !c.status.startsWith('Up')) return false;
-    if (!q) return true;
-    return c.name.toLowerCase().includes(q) ||
-           c.image.toLowerCase().includes(q) ||
-           c.group?.toLowerCase().includes(q) ||
-           c.compose?.project?.toLowerCase().includes(q) ||
-           c.compose?.service?.toLowerCase().includes(q);
-  });
-
-  const groups: Record<string, Container[]> = {};
-  filtered.forEach((c: Container) => {
-    const key = c.group || 'other';
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(c);
-  });
-  return groups;
-});
-
-const stackTotals = computed(() => {
-  const totals: Record<string, any> = {};
-  (dockerInfo.value?.containers || []).forEach((c: Container) => {
-    const g = c.group;
-    if (!g || !c.stats) return;
-    if (!totals[g]) totals[g] = { cpu: 0, memUsed: 0, memLimit: 0 };
-    totals[g].cpu += c.stats.cpu;
-    totals[g].memUsed += c.stats.memUsed;
-    totals[g].memLimit += c.stats.memLimit;
-  });
-  return totals;
-});
-
-const handleAction = async (id: string, action: 'start' | 'stop' | 'restart') => {
-  await dockerStore.performAction(id, action);
-  fetchStats();
-};
-
-const openLogs = (id: string) => {
-  selectedContainerId.value = id;
-  showLogsModal.value = true;
-};
-
-const getStatusClass = (status: string) => {
-  if (status.startsWith('Up')) return 'status-up';
-  if (status.startsWith('Exited')) return 'status-exited';
-  return 'status-other';
-};
-
-const formatBytes = (b: number) => {
-  if (!b) return '0B';
-  const u = ['B','KB','MB','GB','TB'];
-  let i = 0;
-  while (b >= 1024 && i < u.length-1) { b /= 1024; i++; }
-  return `${b.toFixed(1)}${u[i]}`;
-};
-
-const memPercent = (c: Container) => {
-  if (!c.stats?.memUsed || !c.stats?.memLimit) return 0;
-  return Math.min(100, (c.stats.memUsed / c.stats.memLimit) * 100);
-};
-
-const getIcon = (containerData: Container) => {
-  if (!containerData) return 'mdi:docker';
-  const containerName = containerData.labels?.['com.docker.compose.project'] || containerData.image || 'docker';
-  const baseName = (containerName?.split(':')[0]?.split('/').pop() || 'docker').toLowerCase();
-  return `simple-icons:${baseName}`;
-};
-
-const getIconCached = (container: Container) => {
-  const id = container.id;
-  if (iconCache.value[id]) return iconCache.value[id];
-  const icon = getIcon(container);
-  iconCache.value[id] = icon;
-  return icon;
-};
-
-const getCpuHistory = (container: Container) => {
-  const history = historyCache.value[container.id]?.cpu || [];
-  const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
-  return padded;
-};
-
-const getMemHistory = (container: Container) => {
-  const history = historyCache.value[container.id]?.mem || [];
-  const padded = [...Array(HISTORY_LENGTH - history.length).fill(0), ...history];
-  return padded;
-};
-
-onMounted(() => {
-  if (!props.hostId) return;
-  sshStore.connect(props.hostId).then(() => {
-    fetchStats();
-    intervalId = setInterval(fetchStats, 5000) as unknown as number;
-  });
-});
-
-onUnmounted(() => {
-  if (intervalId) clearInterval(intervalId);
-});
-
-watch(() => props.hostId, (newHostId) => {
-  if (intervalId) clearInterval(intervalId);
-  stats.value = null;
-  historyCache.value = {};
-  if (!newHostId) return;
-  sshStore.connect(newHostId).then(() => {
-    fetchStats();
-    intervalId = setInterval(fetchStats, 5000) as unknown as number;
-  });
-});
+const {
+  HISTORY_LENGTH,
+  dockerInfo,
+  isLoading,
+  showLogsModal,
+  selectedContainerId,
+  search,
+  showOnlyRunning,
+  collapsed,
+  runningCount,
+  groupedContainers,
+  stackTotals,
+  handleAction,
+  openLogs,
+  getStatusClass,
+  formatBytes,
+  getIconCached,
+  getCpuHistory,
+  getMemHistory,
+} = useDockerManager(toRef(props, "hostId"));
 </script>
 
 <style scoped>
@@ -500,27 +279,9 @@ watch(() => props.hostId, (newHostId) => {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #e8e8e8;
-}
-
-/* Background layers */
-.background-layer {
-  position: absolute;
-  inset: 0;
-  background: 
-    radial-gradient(ellipse at top, rgba(16, 24, 32, 0.9) 0%, rgba(8, 12, 16, 0.95) 100%),
-    linear-gradient(135deg, #0a0e12 0%, #121820 50%, #0f1419 100%);
-  z-index: 0;
-}
-
-.noise-overlay {
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* Empty state */
@@ -584,18 +345,18 @@ watch(() => props.hostId, (newHostId) => {
 /* Main content */
 .main-content {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 2rem 2.5rem;
+  padding: 1rem 1.25rem;
   overflow: hidden;
 }
 
 /* Header */
 .header {
   flex-shrink: 0;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .header-title {
@@ -611,7 +372,7 @@ watch(() => props.hostId, (newHostId) => {
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 0.25rem 0;
@@ -620,7 +381,7 @@ watch(() => props.hostId, (newHostId) => {
 }
 
 .subtitle {
-  font-size: 0.9375rem;
+  font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.45);
   margin: 0;
   letter-spacing: -0.01em;
@@ -632,15 +393,15 @@ watch(() => props.hostId, (newHostId) => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
 }
 
 .search-wrapper {
   position: relative;
   flex: 1;
-  min-width: 320px;
-  max-width: 480px;
+  min-width: 220px;
+  max-width: 420px;
 }
 
 .search-icon {
@@ -655,7 +416,7 @@ watch(() => props.hostId, (newHostId) => {
 
 .search-input {
   width: 100%;
-  padding: 0.875rem 1rem 0.875rem 3rem;
+  padding: 0.65rem 0.8rem 0.65rem 2.4rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -680,7 +441,7 @@ watch(() => props.hostId, (newHostId) => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.65rem 0.9rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -722,7 +483,7 @@ watch(() => props.hostId, (newHostId) => {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.65rem 0.9rem;
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -773,7 +534,7 @@ watch(() => props.hostId, (newHostId) => {
 }
 
 .group {
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
 }
 
 /* Group header */
@@ -784,8 +545,8 @@ watch(() => props.hostId, (newHostId) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 0.5rem;
-  margin: 0 -0.5rem 1.5rem -0.5rem;
+  padding: 0.65rem 0.5rem;
+  margin: 0 -0.5rem 0.9rem -0.5rem;
   background: rgba(10, 14, 18, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -887,11 +648,11 @@ watch(() => props.hostId, (newHostId) => {
 .container-card {
   background: rgba(20, 25, 32, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 1.5rem;
+  border-radius: 10px;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.8rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
 }
@@ -1146,7 +907,7 @@ watch(() => props.hostId, (newHostId) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 1rem;
+  padding-top: 0.6rem;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 

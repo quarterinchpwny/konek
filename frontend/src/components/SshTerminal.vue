@@ -27,6 +27,10 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import axios from 'axios';
+import {
+  buildBackendWebSocketUrl,
+  createAuthenticatedWebSocket,
+} from "../services/api";
 
 const props = defineProps({
   sessionId: String,
@@ -60,12 +64,13 @@ const logActivity = async (actionType: string, details: string) => {
 };
 
 const wsUrl = computed(() => {
-  const host = window.location.hostname;
-  let url = `ws://${host}:3000?sessionId=${props.sessionId}`;
+  const params: Record<string, string> = {
+    sessionId: props.sessionId || "",
+  };
   if (props.tmuxSessionName) {
-    url += `&tmuxSessionName=${props.tmuxSessionName}`;
+    params.tmuxSessionName = props.tmuxSessionName;
   }
-  return url;
+  return buildBackendWebSocketUrl(params);
 });
 
 const initTerminal = () => {
@@ -153,7 +158,10 @@ const connectWebSocket = () => {
   const cols = dims?.cols || 80;
   const rows = dims?.rows || 24;
 
-  socket = new WebSocket(`${wsUrl.value}&cols=${cols}&rows=${rows}`);
+  const url = new URL(wsUrl.value);
+  url.searchParams.set("cols", String(cols));
+  url.searchParams.set("rows", String(rows));
+  socket = createAuthenticatedWebSocket(url.toString());
   socket.binaryType = "arraybuffer";
 
   socket.onopen = () => {

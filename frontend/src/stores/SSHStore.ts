@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
+import { fetchAuthorizedBlob } from '../services/api';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -19,14 +20,6 @@ export const useSshStore = defineStore('ssh', {
   getters: {
     hasSession: (state) => !!state.sessionId,
     fileCount: (state) => state.files.length,
-    fileURL: (state) => {
-      return (path: string) => {
-        if (!state.sessionId) return '';
-        return `${API_URL}/files/view?sessionId=${state.sessionId}&path=${encodeURIComponent(
-          path
-        )}`;
-      };
-    },
   },
 
   actions: {
@@ -100,6 +93,16 @@ export const useSshStore = defineStore('ssh', {
       });
 
       return res.data.content;
+    },
+
+    async fetchFileBlob(path: string) {
+      if (!this.sessionId) {
+        throw new Error('No session');
+      }
+
+      return await fetchAuthorizedBlob(
+        `${API_URL}/files/view?sessionId=${this.sessionId}&path=${encodeURIComponent(path)}`
+      );
     },
 
     async writeFile(path: string, content: string) {

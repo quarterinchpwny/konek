@@ -1,0 +1,28 @@
+ Ledger Snapshot: Goal was to check this repo for Huntarr-like auth bypass and secret exposure issues. Now: the backend has no application-level authentication at
+  all. Next: treat the API as unsafe on any shared network and add a real auth boundary before exposing it beyond localhost.
+
+  Findings
+
+  - Critical: the backend exposes all API routes without any auth middleware, binds to 0.0.0.0, and allows any origin via CORS. An unauthenticated network client
+    can call the full API surface directly. See backend/src/index.ts:16 and backend/src/index.ts:37.
+  - Critical: unauthenticated callers can open SSH sessions to stored hosts and get a reusable sessionId, or directly execute arbitrary commands on those hosts via
+    POST /api/terminal/execute. That is remote command execution against managed infrastructure with no login. See backend/src/routes/terminal.ts:15 and backend/
+    src/routes/terminal.ts:109.
+  - Critical: host SSH passwords are stored in plaintext in SQLite and are returned back in API responses on create, update, and delete because .returning() sends
+    the whole row. See backend/src/db/schema.ts:4, backend/src/routes/hosts.ts:65, backend/src/routes/hosts.ts:115, and backend/src/routes/hosts.ts:199.
+  - High: unauthenticated callers can rewrite infrastructure config and media config, similar to Huntarr’s unauthenticated settings write. Host records can be
+    created/modified/deleted, and media service endpoints can be added/updated/deleted without auth. See backend/src/routes/hosts.ts:54, backend/src/routes/
+    hosts.ts:89, backend/src/routes/hosts.ts:189, and backend/src/routes/media.ts:136.
+  - High: unauthenticated callers can use the server as an authenticated proxy into Sonarr/Radarr/Jellyfin/Jellyseerr/Prowlarr/qBittorrent using stored API keys or
+  - High: once an attacker gets or creates a sessionId, they can read, write, upload, delete, rename, archive, unarchive, and stream files on the remote host. That
+    is not a Huntarr-style local config leak; it is direct remote filesystem control. See backend/src/routes/files.ts:86, backend/src/routes/files.ts:129, and
+    backend/src/routes/files.ts:214.
+
+  Mapping To Huntarr
+
+  - Yes, it has the same core class of issue as Huntarr T1/T5: unauthenticated state-changing endpoints and authenticated downstream access without a login
+    boundary.
+  - It does not appear to have direct equivalents of Huntarr’s setup_mode, 2FA, recovery-key, or setup-clear issues, because this app has no setup/auth system to
+    bypass.
+  - I did not find a Huntarr-style ZIP upload extract-all bug in local server code. The archive handling here is different, but still dangerous because it shells
+    out with unsanitized input.

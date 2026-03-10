@@ -6,6 +6,9 @@ version: '3.8'
 
 services:
   konek-backend:
+    environment:
+      KONEK_AUTH_PASSWORD: ${KONEK_AUTH_PASSWORD}
+      KONEK_SECRET_KEY: ${KONEK_SECRET_KEY}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -19,6 +22,8 @@ services:
     # The command 'npm run dev' uses 'tsx watch' for automatic restarts on code change.
 
   konek-frontend:
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     build:
       context: .
       dockerfile: Dockerfile.frontend

@@ -447,6 +447,7 @@ const modalInput = ref<HTMLInputElement | null>(null);
 // --- Media ---
 const showMediaViewer = ref(false);
 const mediaViewerSrc = ref("");
+let mediaViewerObjectUrl: string | null = null;
 const mediaViewerType = ref<"image" | "video" | "audio" | null>(null);
 const currentMediaName = ref("");
 const currentMediaPath = ref("");
@@ -540,7 +541,7 @@ const contextMenuItems = computed(() => {
     items.push({
       label: "Download",
       icon: ArrowDownTrayIcon,
-      action: () => downloadFile(target),
+      action: () => void downloadFile(target),
     });
     if (target.name.endsWith(".zip") || target.name.endsWith(".tar.gz")) {
       items.push({
@@ -577,6 +578,10 @@ onMounted(() => window.addEventListener("keydown", handleGlobalKeydown));
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   if (editor) editor.dispose();
+  if (mediaViewerObjectUrl) {
+    URL.revokeObjectURL(mediaViewerObjectUrl);
+    mediaViewerObjectUrl = null;
+  }
   document.body.style.overflow = "";
 });
 
@@ -595,7 +600,7 @@ const handleNavigate = async (file: any) => {
     searchQuery.value = ""; // clear search when entering a folder
   } else {
     const mediaInfo = isMediaFile(file.name);
-    if (mediaInfo.isMedia) openMediaViewer(file);
+    if (mediaInfo.isMedia) void openMediaViewer(file);
     else openFile(file);
   }
 };
@@ -695,11 +700,23 @@ const unarchive = async (file: any) => {
   await refreshAndClearSelection();
 };
 
-const downloadFile = (file: any) => {
+const setMediaViewerBlob = async (filePath: string) => {
+  const blob = await sshStore.fetchFileBlob(filePath);
+  if (mediaViewerObjectUrl) {
+    URL.revokeObjectURL(mediaViewerObjectUrl);
+  }
+  mediaViewerObjectUrl = URL.createObjectURL(blob);
+  mediaViewerSrc.value = mediaViewerObjectUrl;
+};
+
+const downloadFile = async (file: any) => {
+  const blob = await sshStore.fetchFileBlob(file.path);
   const link = document.createElement("a");
-  link.href = sshStore.fileURL(file.path);
+  const objectUrl = URL.createObjectURL(blob);
+  link.href = objectUrl;
   link.download = file.name;
   link.click();
+  URL.revokeObjectURL(objectUrl);
 };
 
 const handleInputConfirm = () => {
@@ -720,9 +737,9 @@ const isMediaFile = (filePath: string) => {
   return { isMedia: false, mediaType: null };
 };
 
-const openMediaViewer = (file: any) => {
+const openMediaViewer = async (file: any) => {
   const info = isMediaFile(file.name);
-  mediaViewerSrc.value = sshStore.fileURL(file.path);
+  await setMediaViewerBlob(file.path);
   mediaViewerType.value = info.mediaType;
   currentMediaName.value = file.name;
   currentMediaPath.value = file.path;
@@ -730,16 +747,16 @@ const openMediaViewer = (file: any) => {
   isZoomed.value = false;
 };
 
-const nextMedia = () => {
+const nextMedia = async () => {
   const i = currentMediaIndex.value;
-  openMediaViewer(
+  await openMediaViewer(
     mediaFiles.value[i < mediaFiles.value.length - 1 ? i + 1 : 0],
   );
 };
 
-const prevMedia = () => {
+const prevMedia = async () => {
   const i = currentMediaIndex.value;
-  openMediaViewer(
+  await openMediaViewer(
     mediaFiles.value[i > 0 ? i - 1 : mediaFiles.value.length - 1],
   );
 };
@@ -797,8 +814,8 @@ const handleCancel = () => (showConfirmation.value = false);
 
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (showMediaViewer.value) {
-    if (e.key === "ArrowRight") nextMedia();
-    if (e.key === "ArrowLeft") prevMedia();
+    if (e.key === "ArrowRight") void nextMedia();
+    if (e.key === "ArrowLeft") void prevMedia();
     if (e.key === "Escape") showMediaViewer.value = false;
   }
   if (showInputModal.value && e.key === "Escape") closeInputModal();
@@ -861,6 +878,14 @@ const hasOpenModal = computed(
 
 watch(hasOpenModal, (isOpen) => {
   document.body.style.overflow = isOpen ? "hidden" : "";
+});
+
+watch(showMediaViewer, (isOpen) => {
+  if (!isOpen && mediaViewerObjectUrl) {
+    URL.revokeObjectURL(mediaViewerObjectUrl);
+    mediaViewerObjectUrl = null;
+    mediaViewerSrc.value = "";
+  }
 });
 </script>
 

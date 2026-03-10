@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getSSHService } from '../lib/ssh-pool';
 import { HTTPException } from 'hono/http-exception';
 import { exec } from '../lib/ssh-utils'; // Import the exec utility
+import { assertTmuxSessionName, shellEscape } from '../lib/shell';
 
 const tmux = new Hono();
 
@@ -70,17 +71,17 @@ tmux.post('/sessions', async (c) => {
 
   // Sanitize session name or generate a default one
   const safeSessionName = sessionName
-    ? sessionName.replace(/[^a-zA-Z0-9_-]/g, '_')
+    ? assertTmuxSessionName(sessionName)
     : `session-${Date.now()}`;
 
   try {
     // Check if session already exists
-    const hasSessionOutput = await exec(sshClient, `tmux has-session -t ${safeSessionName} 2>/dev/null || echo "no"`);
+    const hasSessionOutput = await exec(sshClient, `tmux has-session -t ${shellEscape(safeSessionName)} 2>/dev/null || echo "no"`);
     if (!hasSessionOutput.trim().includes("no")) {
       throw new HTTPException(409, { message: `Tmux session '${safeSessionName}' already exists.` });
     }
 
-    const tmuxCommand = `tmux new -d -s ${safeSessionName} "${command}"`;
+    const tmuxCommand = `tmux new-session -d -s ${shellEscape(safeSessionName)} ${shellEscape(command)}`;
     await exec(sshClient, tmuxCommand);
     return c.json({ sessionName: safeSessionName, status: 'created' }, 201);
   } catch (error: any) {
@@ -104,7 +105,7 @@ tmux.get('/sessions/:sessionName/logs', async (c) => {
 
   try {
     // Capture the entire pane content
-    const stdout = await exec(sshClient, `tmux capture-pane -p -t ${sessionName}`);
+    const stdout = await exec(sshClient, `tmux capture-pane -p -t ${shellEscape(assertTmuxSessionName(sessionName))}`);
     return c.json({ logs: stdout });
   } catch (error: any) {
     console.error(`Failed to get logs for tmux session ${sessionName} on host ${hostId}:`, error);
@@ -126,7 +127,7 @@ tmux.delete('/sessions/:sessionName', async (c) => {
   }
 
   try {
-    await exec(sshClient, `tmux kill-session -t ${sessionName}`);
+    await exec(sshClient, `tmux kill-session -t ${shellEscape(assertTmuxSessionName(sessionName))}`);
     return c.json({ sessionName, status: 'killed' });
   } catch (error: any) {
     console.error(`Failed to kill tmux session ${sessionName} on host ${hostId}:`, error);

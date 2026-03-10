@@ -69,6 +69,10 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount, nextTick, computed } from 'vue';
 import { useSshStore } from '../stores/SSHStore';
+import {
+  buildBackendWebSocketUrl,
+  createAuthenticatedWebSocket,
+} from '../services/api';
 
 const props = defineProps({
   show: Boolean,
@@ -86,7 +90,10 @@ const logBox = ref<HTMLElement | null>(null);
 let ws: WebSocket | null = null;
 
 const wsUrl = computed(() => {
-  return `ws://${window.location.hostname}:3000?sessionId=${sshStore.sessionId}&dockerId=${props.containerId}`;
+  return buildBackendWebSocketUrl({
+    sessionId: sshStore.sessionId || "",
+    dockerId: props.containerId || "",
+  });
 });
 
 const connect = () => {
@@ -94,7 +101,7 @@ const connect = () => {
 
   disconnect();
 
-  ws = new WebSocket(wsUrl.value);
+  ws = createAuthenticatedWebSocket(wsUrl.value);
 
   ws.onopen = () => {
     connected.value = true;

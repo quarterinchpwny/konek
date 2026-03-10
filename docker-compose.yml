@@ -5,6 +5,9 @@ services:
     image: konek/backend:latest
     container_name: konek-backend
     restart: unless-stopped
+    environment:
+      KONEK_AUTH_PASSWORD: ${KONEK_AUTH_PASSWORD}
+      KONEK_SECRET_KEY: ${KONEK_SECRET_KEY}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -24,6 +27,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     ports:
       - "6060:80"
     depends_on:

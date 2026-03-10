@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getSSHService, sshPool } from '../lib/ssh-pool';
 import { HTTPException } from 'hono/http-exception';
 import { exec } from '../lib/ssh-utils';
+import { assertPid, assertSignal } from '../lib/shell';
 
 const processes = new Hono();
 
@@ -51,7 +52,7 @@ processes.get('/', async (c) => {
 processes.delete('/:pid', async (c) => {
   const hostId = c.req.param('hostId');
   const pid = c.req.param('pid');
-  const signal = c.req.query('signal') || 'SIGTERM';
+  const signal = assertSignal(c.req.query('signal') || 'SIGTERM');
 
   let sshClient;
   try {
@@ -61,7 +62,7 @@ processes.delete('/:pid', async (c) => {
   }
 
   try {
-    await exec(sshClient, `kill -s ${signal} ${pid}`);
+    await exec(sshClient, `kill -s ${signal} ${assertPid(pid)}`);
     return c.json({ pid, status: 'killed' });
   } catch (error: any) {
     console.error(`Failed to kill process ${pid} on host ${hostId}:`, error);

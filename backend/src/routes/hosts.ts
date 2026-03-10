@@ -3,6 +3,7 @@ import { db } from "../db";
 import { serverHosts } from "../db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { tcpPing } from "../lib/network";
+import { encryptSecret } from "../lib/crypto";
 import {
   statusStore,
   pollingService,
@@ -18,6 +19,16 @@ const hostsRoute = new Hono();
 hostsRoute.route("/:hostId/tmux", tmuxRoute);
 hostsRoute.route("/:hostId/processes", processesRoute);
 hostsRoute.route("/:hostId/media", mediaRoute);
+
+const toSafeHost = (host: typeof serverHosts.$inferSelect) => ({
+  alias: host.alias,
+  hostname: host.hostname,
+  port: host.port,
+  id: host.id,
+  username: host.username,
+  macAddress: host.macAddress,
+  sshEnabled: host.sshEnabled,
+});
 /**
  * GET /api/hosts
  */
@@ -32,13 +43,7 @@ hostsRoute.get("/", async (c) => {
     }
 
     return {
-      alias: h.alias,
-      hostname: h.hostname,
-      port: h.port,
-      id: h.id,
-      username: h.username,
-      macAddress: h.macAddress,
-      sshEnabled: h.sshEnabled,
+      ...toSafeHost(h),
       status: liveStatus?.status || "checking...",
       lastChecked: liveStatus?.lastChecked
         ? new Date(liveStatus.lastChecked).toISOString()
@@ -69,13 +74,13 @@ hostsRoute.post("/", async (c) => {
         hostname,
         port: port || 22,
         username: sshEnabled ? username : 'none',
-        password,
+        password: encryptSecret(password),
         macAddress,
         sshEnabled: sshEnabled ? 1 : 0,
       })
       .returning();
 
-    return c.json(newHost[0], 201);
+    return c.json(toSafeHost(newHost[0]), 201);
   } catch (error: any) {
     if (error.message?.includes("UNIQUE")) {
       return c.json({ error: "Host with this hostname already exists." }, 409);
@@ -109,7 +114,7 @@ hostsRoute.put("/:id", async (c) => {
 
     // Only update password if it's not an empty string
     if (password) {
-      updatedData.password = password;
+      updatedData.password = encryptSecret(password);
     }
 
     const updatedHost = await db
@@ -122,7 +127,7 @@ hostsRoute.put("/:id", async (c) => {
       return c.json({ error: "Host not found" }, 404);
     }
 
-    return c.json(updatedHost[0]);
+    return c.json(toSafeHost(updatedHost[0]));
   } catch (error: any) {
     if (error.message?.includes("UNIQUE")) {
       return c.json({ error: "Host with this hostname already exists." }, 409);
@@ -205,7 +210,7 @@ hostsRoute.delete("/:id", async (c) => {
       return c.json({ error: "Host not found" }, 404);
     }
 
-    return c.json({ message: "Deleted", host: deletedHost[0] }, 200);
+    return c.json({ message: "Deleted", host: toSafeHost(deletedHost[0]) }, 200);
   } catch (error: any) {
     console.error("Delete error:", error);
     return c.json({ error: "Server error" }, 500);
@@ -298,4 +303,3 @@ hostsRoute.post("/check-online/bulk", async (c) => {
 });
 
 export default hostsRoute;
-

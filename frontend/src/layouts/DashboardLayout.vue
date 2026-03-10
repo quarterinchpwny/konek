@@ -8,15 +8,20 @@
         </div>
         <span class="brand-name">Konek</span>
       </div>
-      <button
-        class="mobile-menu-btn"
-        @click="isMobileMenuOpen = !isMobileMenuOpen"
-        :aria-label="isMobileMenuOpen ? 'Close menu' : 'Open menu'"
-        :aria-expanded="isMobileMenuOpen"
-      >
-        <X v-if="isMobileMenuOpen" :size="22" />
-        <Menu v-else :size="22" />
-      </button>
+      <div class="mobile-header-actions">
+        <button class="logout-btn" @click="logout" aria-label="Sign out">
+          <LogOut :size="18" />
+        </button>
+        <button
+          class="mobile-menu-btn"
+          @click="isMobileMenuOpen = !isMobileMenuOpen"
+          :aria-label="isMobileMenuOpen ? 'Close menu' : 'Open menu'"
+          :aria-expanded="isMobileMenuOpen"
+        >
+          <X v-if="isMobileMenuOpen" :size="22" />
+          <Menu v-else :size="22" />
+        </button>
+      </div>
     </header>
 
     <!-- Sidebar overlay (mobile backdrop) -->
@@ -43,6 +48,10 @@
 
     <!-- Main content -->
     <main class="main-content">
+      <button class="desktop-logout" @click="logout">
+        <LogOut :size="16" />
+        <span>Sign out</span>
+      </button>
       <router-view />
     </main>
   </div>
@@ -52,10 +61,19 @@
 import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import DashboardSideBar from "../components/navigation/DashboardSideBar.vue";
-import { Terminal, Menu, X } from "lucide-vue-next";
+import { Terminal, Menu, X, LogOut } from "lucide-vue-next";
+import { useAuthStore } from "../stores/authStore";
+import { useSshStore } from "../stores/SSHStore";
 
 const isMobileMenuOpen = ref(false);
 const route = useRoute();
+const authStore = useAuthStore();
+const sshStore = useSshStore();
+
+const logout = async () => {
+  sshStore.disconnect();
+  await authStore.logout();
+};
 
 watch(
   () => route.path,
@@ -113,6 +131,12 @@ watch(
   gap: 0.625rem;
 }
 
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .brand-icon {
   width: 32px;
   height: 32px;
@@ -145,6 +169,24 @@ watch(
   transition:
     background 0.15s,
     color 0.15s;
+}
+
+.logout-btn,
+.desktop-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.logout-btn {
+  width: 36px;
+  height: 36px;
 }
 
 .mobile-menu-btn:hover {
@@ -215,5 +257,20 @@ watch(
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.desktop-logout {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+  padding: 0.65rem 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .desktop-logout {
+    display: none;
+  }
 }
 </style>

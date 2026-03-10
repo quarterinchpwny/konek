@@ -2,10 +2,13 @@ import { Hono } from "hono";
 import { Client as SSHClient } from "ssh2";
 import { v4 as uuidv4 } from "uuid";
 import { eq } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 
 import { db } from "../db";
 import { serverHosts } from "../db/schema";
-import { sessions } from "../services/session";
+import { decryptSecret } from "../lib/crypto";
+import { getRequestAuthSessionId } from "../middleware/auth";
+import { getOwnedSession, sessions } from "../services/session";
 
 const terminalRoute = new Hono();
 
@@ -13,6 +16,7 @@ const terminalRoute = new Hono();
  * POST /api/terminal/connect
  */
 terminalRoute.post("/connect", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
   const { hostId } = await c.req.json();
 
   const [host] = await db
@@ -34,6 +38,8 @@ terminalRoute.post("/connect", async (c) => {
         isConnected: true,
         lastActive: Date.now(),
         host: host.hostname,
+        hostId: host.id,
+        ownerId,
       });
 
       resolve(
@@ -61,7 +67,7 @@ terminalRoute.post("/connect", async (c) => {
         host: host.hostname,
         port: host.port || 22,
         username: host.username,
-        password: host.password || undefined,
+        password: decryptSecret(host.password) || undefined,
       });
     } catch (e: any) {
       resolve(c.json({ error: e.message }, 500));
@@ -74,11 +80,10 @@ terminalRoute.post("/connect", async (c) => {
  */
 terminalRoute.get("/validate", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId || !sessions.has(sessionId)) {
+  if (!sessionId) {
     return c.json({ status: "error", message: "Invalid session" }, 401);
   }
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
+  const session = getOwnedSession(sessionId, getRequestAuthSessionId(c));
   return c.json({ status: "success", host: session.host });
 });
 
@@ -87,6 +92,7 @@ terminalRoute.get("/validate", async (c) => {
  */
 terminalRoute.get("/sessions", async (c) => {
   const hostId = c.req.query("hostId");
+  const ownerId = getRequestAuthSessionId(c);
   if (!hostId) return c.json({ sessions: [] });
 
   const [host] = await db
@@ -97,7 +103,7 @@ terminalRoute.get("/sessions", async (c) => {
   if (!host) return c.json({ sessions: [] });
 
   const activeSessions = Array.from(sessions.entries())
-    .filter(([_, s]) => s.host === host.hostname)
+    .filter(([_, s]) => s.host === host.hostname && s.ownerId === ownerId)
     .map(([id, s]) => ({ sessionId: id, host: s.host }));
 
   return c.json({ sessions: activeSessions });
@@ -107,7 +113,11 @@ terminalRoute.get("/sessions", async (c) => {
  * POST /api/terminal/execute
  */
 terminalRoute.post("/execute", async (c) => {
+  getRequestAuthSessionId(c);
   const { hostId, command } = await c.req.json();
+  if (typeof command !== "string" || command.trim().length === 0) {
+    throw new HTTPException(400, { message: "Command is required" });
+  }
 
   const [host] = await db
     .select()
@@ -168,7 +178,7 @@ terminalRoute.post("/execute", async (c) => {
         host: host.hostname,
         port: host.port || 22,
         username: host.username,
-        password: host.password || undefined,
+        password: decryptSecret(host.password) || undefined,
       });
     } catch (e: any) {
       resolve(c.json({ status: "error", message: `Failed to connect: ${e.message}` }, 500));
@@ -181,10 +191,11 @@ terminalRoute.post("/execute", async (c) => {
  */
 terminalRoute.post("/disconnect", async (c) => {
   const { sessionId } = await c.req.json();
+  const session = sessionId
+    ? sessions.get(sessionId)
+    : undefined;
 
-  const session = sessions.get(sessionId);
-
-  if (session) {
+  if (session && session.ownerId === getRequestAuthSessionId(c)) {
     session.client.end();
     sessions.delete(sessionId);
   }
