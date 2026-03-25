@@ -158,138 +158,75 @@ onBeforeUnmount(disconnect);
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@reference "../assets/css/main.css";
 
-/* Overlay */
 .logs-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
   background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  @apply fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-[8px];
 }
 
-/* Modal */
 .logs-modal {
-  position: relative;
-  width: 100%;
-  max-width: 1200px;
-  height: 80vh;
-  max-height: 800px;
-  border-radius: 20px;
-  overflow: hidden;
+  @apply relative h-[80vh] max-h-[800px] w-full max-w-[1200px] overflow-hidden rounded-[20px];
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
-/* Background */
 .logs-bg {
-  position: absolute;
-  inset: 0;
   background: linear-gradient(135deg, #0f1419 0%, #0a0e12 100%);
-  z-index: 0;
+  @apply absolute inset-0 z-0;
 }
 
 .logs-noise {
-  position: absolute;
-  inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   pointer-events: none;
-  z-index: 1;
+  @apply absolute inset-0 z-[1];
 }
 
-/* Content */
 .logs-content {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  @apply relative z-[2] flex h-full flex-col;
 }
 
-/* Header */
 .logs-header {
-  display: flex;
-  align-items: center; 
-  justify-content: space-between;
-  padding: 1.5rem 2rem;
   background: rgba(20, 25, 32, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
+  @apply flex shrink-0 items-center justify-between border-b border-white/6 px-8 py-6 backdrop-blur-[12px];
 }
 
 .header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  @apply flex items-center gap-4;
 }
 
 .header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
   background: rgba(127, 161, 195, 0.15);
-  border: 1px solid rgba(127, 161, 195, 0.2);
-  border-radius: 12px;
-  color: #7fa1c3;
-  flex-shrink: 0;
+  @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#7fa1c3]/20 text-[#7fa1c3];
 }
 
 .header-text {
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
 }
 
 .header-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 0.25rem 0;
-  letter-spacing: -0.02em;
+  @apply m-0 mb-1 text-lg font-bold tracking-[-0.02em] text-white;
 }
 
 .header-subtitle {
-  font-size: 0.75rem;
   font-family: 'JetBrains Mono', monospace;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-  font-weight: 600;
+  @apply m-0 text-xs font-semibold text-white/50;
 }
 
 .close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
   background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  @apply flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none text-white/50 transition-all duration-200;
 }
 
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
+  @apply text-white;
 }
 
-/* Logs viewer */
 .logs-viewer {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem;
   background: #0a0e12;
   font-family: 'JetBrains Mono', monospace;
+  @apply flex-1 overflow-y-auto p-6;
 }
 
 .logs-viewer::-webkit-scrollbar {
@@ -310,45 +247,26 @@ onBeforeUnmount(disconnect);
 }
 
 .logs-text {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.85);
   font-family: 'JetBrains Mono', monospace;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  @apply m-0 whitespace-pre-wrap break-words text-[0.8125rem] leading-[1.6] text-white/85;
 }
 
-/* Footer */
 .logs-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 2rem;
   background: rgba(20, 25, 32, 0.8);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
+  @apply flex shrink-0 items-center justify-between border-t border-white/6 px-8 py-4 backdrop-blur-[12px];
 }
 
 .footer-left {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
 }
 
 .status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-size: 0.8125rem;
+  @apply flex items-center gap-[0.625rem] text-[0.8125rem];
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
   background: #d68a8a;
-  flex-shrink: 0;
+  @apply h-2 w-2 shrink-0 rounded-full;
 }
 
 .status-dot-live {
@@ -363,15 +281,12 @@ onBeforeUnmount(disconnect);
 }
 
 .status-label {
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 600;
+  @apply font-semibold text-white/50;
 }
 
 .status-value {
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  @apply text-xs font-bold tracking-[0.05em];
 }
 
 .status-live {
@@ -383,38 +298,24 @@ onBeforeUnmount(disconnect);
 }
 
 .footer-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  @apply flex items-center gap-3;
 }
 
 .clear-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
   background: rgba(140, 140, 150, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.8125rem;
-  font-weight: 600;
   font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  @apply flex cursor-pointer items-center gap-2 rounded-lg border border-white/8 px-4 py-2.5 text-[0.8125rem] font-semibold text-white/80 transition-all duration-200;
 }
 
 .clear-btn:hover {
   background: rgba(140, 140, 150, 0.25);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  @apply border-white/12 text-white;
 }
 
 .clear-btn svg {
-  flex-shrink: 0;
+  @apply shrink-0;
 }
 
-/* Modal animations */
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;
@@ -436,7 +337,6 @@ onBeforeUnmount(disconnect);
   opacity: 0;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .logs-modal {
     max-width: 100%;
@@ -449,7 +349,7 @@ onBeforeUnmount(disconnect);
   }
 
   .logs-viewer {
-    padding: 1rem;
+    @apply p-4;
   }
 }
 </style>

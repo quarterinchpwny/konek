@@ -291,249 +291,158 @@ watch(
 </script>
 
 <style scoped>
+@reference "../../assets/css/main.css";
+
 .arr-schedule {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(20, 25, 32, 0.8);
-  border-radius: 12px;
-  padding: 0.75rem;
+  @apply rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-3;
 }
 
 .arr-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.65rem;
-  gap: 0.75rem;
+  @apply mb-[0.65rem] flex items-start justify-between gap-3;
 }
 
 .arr-title-wrap {
-  min-width: 0;
+  @apply min-w-0;
 }
 
 .arr-header h3 {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.82rem;
-  letter-spacing: -0.01em;
+  @apply text-[0.82rem] tracking-[-0.01em] text-white/90;
 }
 
 .arr-count {
-  display: block;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.64rem;
-  margin-top: 0.14rem;
+  @apply mt-0.5 block text-[0.64rem] text-white/40;
 }
 
 .arr-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+  @apply inline-flex items-center gap-1.5;
 }
 
 .arr-nav-btn {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.75);
-  border-radius: 6px;
-  font-size: 0.62rem;
-  padding: 0.16rem 0.42rem;
-  cursor: pointer;
+  @apply cursor-pointer rounded-md border border-white/10 bg-white/[0.02] px-[0.42rem] py-[0.16rem] text-[0.62rem] text-white/75 transition-colors;
 }
 
 .arr-nav-btn:not(:disabled):hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.92);
+  @apply border-white/20 text-white/90;
 }
 
 .arr-nav-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  @apply cursor-not-allowed opacity-50;
 }
 
 .arr-month {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.66rem;
-  white-space: nowrap;
+  @apply whitespace-nowrap text-[0.66rem] text-white/80;
+}
+
+.arr-weekdays,
+.arr-grid {
+  @apply grid grid-cols-7 gap-[0.35rem];
 }
 
 .arr-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.35rem;
-  margin-bottom: 0.35rem;
+  @apply mb-[0.35rem];
 }
 
 .arr-weekdays span {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.58rem;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.arr-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.35rem;
+  @apply text-center text-[0.58rem] uppercase tracking-[0.04em] text-white/40;
 }
 
 .arr-day-cell {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  min-height: 84px;
-  padding: 0.33rem;
+  @apply min-h-[84px] rounded-lg border border-white/6 bg-white/[0.02] p-[0.33rem];
 }
 
 .arr-day-cell.empty {
-  opacity: 0.28;
-  min-height: 44px;
+  @apply min-h-[44px] opacity-30;
 }
 
 .arr-day-cell.today {
-  border-color: rgba(127, 161, 195, 0.45);
+  @apply border-[#7fa1c373];
 }
 
 .arr-day-cell.has-events {
-  border-color: rgba(255, 255, 255, 0.12);
+  @apply border-white/12;
 }
 
 .arr-day-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.2rem;
+  @apply mb-[0.2rem] flex items-center justify-between;
 }
 
 .arr-day-number {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.62rem;
+  @apply text-[0.62rem] text-white/80;
 }
 
 .arr-day-count {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.56rem;
+  @apply text-[0.56rem] text-white/45;
 }
 
 .arr-day-events {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  @apply flex flex-col gap-[0.2rem];
 }
 
 .arr-event {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 6px;
-  padding: 0.15rem 0.22rem;
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
+  @apply flex items-center gap-[0.2rem] rounded-md border border-white/8 bg-black/12 px-[0.22rem] py-[0.15rem];
 }
 
 .arr-event .arr-source {
-  flex-shrink: 0;
+  @apply shrink-0;
 }
 
 .arr-event-title {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.54rem;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @apply truncate text-[0.54rem] leading-[1.2] text-white/80;
 }
 
 .arr-more {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.52rem;
+  @apply text-[0.52rem] text-white/45;
 }
 
 .arr-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  @apply flex flex-col gap-[0.35rem];
 }
 
 .arr-item {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  padding: 0.42rem 0.5rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  align-items: center;
+  @apply flex items-center justify-between gap-2 rounded-lg border border-white/6 bg-white/[0.02] px-2 py-[0.42rem];
 }
 
 .arr-info {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
+  @apply flex min-w-0 items-center gap-[0.4rem];
 }
 
 .arr-title {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.7rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @apply truncate text-[0.7rem] text-white/85;
 }
 
 .arr-source {
-  font-size: 0.55rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  padding: 0.08rem 0.28rem;
-  color: rgba(255, 255, 255, 0.6);
+  @apply rounded-full border border-white/14 px-[0.28rem] py-[0.08rem] text-[0.55rem] uppercase tracking-[0.06em] text-white/60;
 }
 
 .arr-source.sonarr {
-  color: #a3c4e8;
-  border-color: rgba(163, 196, 232, 0.35);
+  @apply border-[#a3c4e859] text-[#a3c4e8];
 }
 
 .arr-source.radarr {
-  color: #8bd5a8;
-  border-color: rgba(139, 213, 168, 0.35);
+  @apply border-[#8bd5a859] text-[#8bd5a8];
 }
 
 .arr-date {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 0.63rem;
-  white-space: nowrap;
+  @apply whitespace-nowrap text-[0.63rem] text-white/40;
 }
 
 .arr-empty {
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 0.6rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.66rem;
+  @apply rounded-lg border border-dashed border-white/20 p-[0.6rem] text-[0.66rem] text-white/45;
 }
 
 .arr-schedule.compact {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.06);
-  padding: 0.6rem;
+  @apply border-white/6 bg-white/[0.02] p-[0.6rem];
 }
 
 .arr-schedule.compact .arr-day-cell {
-  min-height: 64px;
+  @apply min-h-16;
 }
 
 .arr-unscheduled {
-  margin-top: 0.55rem;
+  @apply mt-[0.55rem];
 }
 
 .arr-unscheduled h4 {
-  margin: 0 0 0.35rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  @apply mb-[0.35rem] text-[0.6rem] uppercase tracking-[0.05em] text-white/45;
 }
 </style>

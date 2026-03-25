@@ -112,86 +112,57 @@ async function executeAction(action: "code_on" | "code_off" | "code_status") {
 </script>
 
 <style scoped>
+@reference "../assets/css/main.css";
+
 .quick-actions-card {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(16, 21, 28, 0.8);
-  padding: 0.9rem;
+  @apply rounded-xl border border-white/8 p-[0.9rem];
 }
 
 .qa-header {
-  margin-bottom: 0.75rem;
+  @apply mb-3;
 }
 
 .qa-title {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.58);
+  @apply m-0 text-[0.76rem] font-bold uppercase tracking-[0.08em] text-white/58;
 }
 
 .qa-subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.48);
-  line-height: 1.35;
+  @apply m-0 mt-[0.35rem] text-[0.72rem] leading-[1.35] text-white/48;
 }
 
 .qa-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+  @apply flex flex-col gap-[0.65rem];
 }
 
 .qa-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  @apply flex flex-col gap-[0.4rem];
 }
 
 .qa-label {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.62);
+  @apply text-[0.7rem] text-white/62;
 }
 
 .qa-select {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.78rem;
-  padding: 0.52rem 0.6rem;
+  @apply w-full rounded-lg border border-white/12 px-[0.6rem] py-[0.52rem] text-[0.78rem] text-white/90;
 }
 
 .qa-select:focus {
-  outline: none;
-  border-color: rgba(127, 161, 195, 0.75);
   box-shadow: 0 0 0 2px rgba(127, 161, 195, 0.18);
+  @apply border-[#7fa1c3]/75 outline-none;
 }
 
 .qa-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
+  @apply grid grid-cols-3 gap-[0.45rem];
 }
 
 .qa-btn {
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0.5rem 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  color: rgba(255, 255, 255, 0.92);
+  @apply cursor-pointer rounded-lg border border-transparent px-[0.4rem] py-2 text-[0.72rem] font-semibold text-white/92 transition-all duration-150;
 }
 
 .qa-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  @apply cursor-not-allowed opacity-50;
 }
 
 .qa-btn-start {
@@ -222,42 +193,26 @@ async function executeAction(action: "code_on" | "code_off" | "code_status") {
 }
 
 .qa-loading {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.72);
+  @apply text-[0.72rem] text-white/72;
 }
 
 .qa-output {
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.34);
-  padding: 0.6rem;
+  @apply rounded-lg border border-white/10 p-[0.6rem];
 }
 
 .qa-output-title {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 0.45rem;
+  @apply mb-[0.45rem] text-[0.68rem] uppercase tracking-[0.08em] text-white/50;
 }
 
 pre {
-  margin: 0;
-  max-height: 260px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.84);
+  @apply m-0 max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-[0.72rem] text-white/84;
 }
 
 .qa-error {
-  border-radius: 8px;
-  border: 1px solid rgba(225, 103, 103, 0.35);
   background: rgba(225, 103, 103, 0.12);
-  padding: 0.55rem 0.6rem;
-  font-size: 0.72rem;
+  @apply rounded-lg border border-[#e16767]/35 px-[0.6rem] py-[0.55rem] text-[0.72rem];
   color: #ffadad;
 }
 

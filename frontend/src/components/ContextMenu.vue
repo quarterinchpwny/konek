@@ -56,37 +56,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@reference "../assets/css/main.css";
+
 .context-menu {
-  position: fixed;
-  z-index: 1000;
-  min-width: 180px;
-  background: #1c2128;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  @apply fixed z-[1000] min-w-[180px] rounded-lg border border-white/10 bg-[#1c2128] p-2 font-['Inter',sans-serif];
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  padding: 0.5rem;
-  font-family: 'Inter', sans-serif;
 }
 
 .menu-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.8125rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  @apply flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-[0.8125rem] text-white/80 transition-all duration-150;
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
+  @apply bg-white/5 text-white;
 }
 
 .menu-item.danger {
-  color: #f87171;
+  @apply text-red-400;
 }
 
 .menu-item.danger:hover {
@@ -94,8 +80,6 @@ onUnmounted(() => {
 }
 
 .divider {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  margin-top: 0.25rem;
-  padding-top: 0.5rem;
+  @apply mt-1 border-t border-white/5 pt-2;
 }
 </style>

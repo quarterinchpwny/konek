@@ -30,34 +30,25 @@ const dotClass = computed(() =>
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@reference "../assets/css/main.css";
 
 .status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.625rem 1rem;
-  border-radius: 10px;
-  border: 1px solid;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  transition: all 0.2s ease;
+  @apply inline-flex items-center gap-[0.625rem] rounded-[10px] border px-4 py-2.5 transition-all duration-200;
 }
 
 .status-online {
   background: rgba(139, 196, 160, 0.12);
-  border-color: rgba(139, 196, 160, 0.25);
+  @apply border-[#8bc4a0]/25;
 }
 
 .status-offline {
   background: rgba(214, 138, 138, 0.12);
-  border-color: rgba(214, 138, 138, 0.25);
+  @apply border-[#d68a8a]/25;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  @apply h-2 w-2 shrink-0 rounded-full;
 }
 
 .dot-online {
@@ -82,17 +73,14 @@ const dotClass = computed(() =>
 }
 
 .status-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  @apply text-[0.6875rem] font-bold uppercase tracking-[0.1em];
 }
 
 .status-online .status-label {
-  color: #8bc4a0;
+  @apply text-[#8bc4a0];
 }
 
 .status-offline .status-label {
-  color: #d68a8a;
+  @apply text-[#d68a8a];
 }
 </style>

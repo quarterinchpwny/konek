@@ -164,96 +164,147 @@ onUnmounted(() => document.removeEventListener("keydown", handleEscape));
 </script>
 
 <style scoped>
+@reference "../../assets/css/main.css";
+
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(5, 8, 12, 0.72);
-  backdrop-filter: blur(10px);
+  @apply fixed inset-0 z-[60] grid place-items-center bg-[rgba(5,8,12,0.72)] p-4 backdrop-blur-md;
 }
 
 .modal-content {
+  @apply rounded-[14px] border border-white/8 bg-[#0f1419] shadow-[0_24px_80px_rgba(0,0,0,0.45)];
   width: min(var(--media-modal-width, 560px), 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: #0f1419;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
-.modal-header, .modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem 1.1rem;
+.modal-header,
+.modal-footer {
+  @apply flex items-center justify-between gap-3 px-[1.1rem] py-4;
 }
 
-.modal-header { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-.modal-footer { border-top: 1px solid rgba(255, 255, 255, 0.06); justify-content: flex-end; }
-.modal-subtitle, .service-url { margin: 0.25rem 0 0; color: rgba(255, 255, 255, 0.45); font-size: 0.72rem; }
-.modal-body { padding: 1rem 1.1rem; }
-.service-list { display: flex; flex-direction: column; gap: 0.6rem; }
-.service-row, .secondary-btn, .primary-btn, .danger-btn, .toggle-btn, .close-btn { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; }
+.modal-header {
+  @apply border-b border-white/6;
+}
+
+.modal-footer {
+  @apply justify-end border-t border-white/6;
+}
+
+.modal-subtitle,
+.service-url {
+  @apply mt-1 text-[0.72rem] text-white/45;
+}
+
+.modal-body {
+  @apply px-[1.1rem] py-4;
+}
+
+.service-list {
+  @apply flex flex-col gap-2.5;
+}
+
+.service-row,
+.secondary-btn,
+.primary-btn,
+.danger-btn,
+.toggle-btn,
+.close-btn {
+  @apply rounded-[10px] border border-white/8;
+}
+
 .service-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: 0.85rem 0.9rem;
-  background: rgba(255, 255, 255, 0.02);
-  color: inherit;
-  cursor: pointer;
+  @apply flex w-full items-center justify-between gap-4 bg-white/[0.02] px-[0.9rem] py-[0.85rem] text-inherit transition-colors;
 }
 
-.service-info { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
-.service-icon { font-size: 1.15rem; color: #a3c4e8; }
-.service-name { display: block; color: rgba(255, 255, 255, 0.92); font-weight: 600; }
-.service-action { color: #7fa1c3; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem; }
-.field-hint { margin: 0; color: rgba(255, 255, 255, 0.45); font-size: 0.68rem; }
+.service-info {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.service-icon {
+  @apply text-[1.15rem] text-[#a3c4e8];
+}
+
+.service-name {
+  @apply block font-semibold text-white/92;
+}
+
+.service-action {
+  @apply text-xs uppercase tracking-[0.08em] text-[#7fa1c3];
+}
+
+.form-group {
+  @apply mb-3.5 flex flex-col gap-1.5;
+}
+
+.field-hint {
+  @apply text-[0.68rem] text-white/45;
+}
+
 .form-input {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.9);
-  padding: 0.75rem 0.8rem;
+  @apply w-full rounded-[10px] border border-white/10 bg-white/[0.02] px-[0.8rem] py-3 text-white/90;
 }
 
-.api-key-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.55rem; }
-.checkbox-row { display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 0.25rem; }
+.api-key-row {
+  @apply grid grid-cols-[minmax(0,1fr)_auto] gap-[0.55rem];
+}
+
+.checkbox-row {
+  @apply mt-1 inline-flex items-center gap-[0.55rem];
+}
+
 .test-result {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding: 0.75rem 0.8rem;
-  border-radius: 10px;
+  @apply mt-4 flex items-center gap-2 rounded-[10px] px-[0.8rem] py-3;
 }
 
-.test-result.success { background: rgba(139, 213, 168, 0.08); color: #8bd5a8; }
-.test-result.error { background: rgba(242, 180, 180, 0.08); color: #f2b4b4; }
-.secondary-btn, .primary-btn, .danger-btn, .toggle-btn, .close-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  background: rgba(127, 161, 195, 0.12);
-  color: #7fa1c3;
-  padding: 0.6rem 0.85rem;
-  cursor: pointer;
+.test-result.success {
+  @apply bg-[#8bd5a814] text-[#8bd5a8];
 }
 
-.toggle-btn, .close-btn { width: 42px; height: 42px; padding: 0; }
-.primary-btn { background: rgba(139, 213, 168, 0.14); color: #8bd5a8; }
-.danger-btn { background: rgba(242, 180, 180, 0.14); color: #f2b4b4; }
-.secondary-btn:disabled, .primary-btn:disabled, .danger-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.service-row:hover, .secondary-btn:hover, .primary-btn:hover, .danger-btn:hover, .toggle-btn:hover, .close-btn:hover { border-color: rgba(127, 161, 195, 0.3); }
-.form-input:focus-visible, .service-row:focus-visible, .secondary-btn:focus-visible, .primary-btn:focus-visible, .danger-btn:focus-visible, .toggle-btn:focus-visible, .close-btn:focus-visible {
+.test-result.error {
+  @apply bg-[#f2b4b414] text-[#f2b4b4];
+}
+
+.secondary-btn,
+.primary-btn,
+.danger-btn,
+.toggle-btn,
+.close-btn {
+  @apply inline-flex cursor-pointer items-center justify-center gap-1.5 bg-[#7fa1c31f] px-[0.85rem] py-[0.6rem] text-[#7fa1c3] transition-colors;
+}
+
+.toggle-btn,
+.close-btn {
+  @apply h-[42px] w-[42px] p-0;
+}
+
+.primary-btn {
+  @apply bg-[#8bd5a824] text-[#8bd5a8];
+}
+
+.danger-btn {
+  @apply bg-[#f2b4b424] text-[#f2b4b4];
+}
+
+.secondary-btn:disabled,
+.primary-btn:disabled,
+.danger-btn:disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+.service-row:hover,
+.secondary-btn:hover,
+.primary-btn:hover,
+.danger-btn:hover,
+.toggle-btn:hover,
+.close-btn:hover {
+  @apply border-[#7fa1c34d];
+}
+
+.form-input:focus-visible,
+.service-row:focus-visible,
+.secondary-btn:focus-visible,
+.primary-btn:focus-visible,
+.danger-btn:focus-visible,
+.toggle-btn:focus-visible,
+.close-btn:focus-visible {
   outline: 2px solid rgba(127, 161, 195, 0.5);
   outline-offset: 2px;
 }

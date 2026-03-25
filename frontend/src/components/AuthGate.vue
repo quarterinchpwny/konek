@@ -38,76 +38,59 @@ const submit = async () => {
 </script>
 
 <style scoped>
+@reference "../assets/css/main.css";
+
 .auth-shell {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
   background:
     radial-gradient(circle at top, rgba(14, 44, 90, 0.18), transparent 35%),
     linear-gradient(160deg, #07111a 0%, #0e1d26 45%, #07111a 100%);
+  @apply grid place-items-center p-8;
 }
 
 .auth-panel {
-  width: min(28rem, 100%);
-  padding: 2rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 1.5rem;
   background: rgba(9, 16, 24, 0.92);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  @apply w-full max-w-[28rem] rounded-3xl border border-slate-400/18 p-8;
 }
 
 .auth-kicker {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #7dd3a7;
+  @apply text-[0.8rem] uppercase tracking-[0.18em] text-[#7dd3a7];
 }
 
 h1 {
-  margin: 0.75rem 0;
-  font-size: 2rem;
-  color: #f8fafc;
+  @apply my-3 text-[2rem] text-slate-50;
 }
 
 p {
-  margin: 0;
-  color: #94a3b8;
+  @apply m-0 text-slate-400;
 }
 
 .auth-form {
-  display: grid;
-  gap: 0.85rem;
-  margin-top: 1.5rem;
+  @apply mt-6 grid gap-[0.85rem];
 }
 
 input,
 button {
-  width: 100%;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: 0.9rem 1rem;
+  @apply w-full rounded-[0.9rem] border border-slate-400/18 px-4 py-[0.9rem];
   font: inherit;
 }
 
 input {
-  color: #f8fafc;
   background: rgba(15, 23, 42, 0.78);
+  @apply text-slate-50;
 }
 
 button {
-  color: #08130d;
   background: #86efac;
-  font-weight: 700;
+  @apply font-bold text-[#08130d];
 }
 
 button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+  @apply cursor-not-allowed opacity-60;
 }
 
 .auth-error {
-  margin-top: 1rem;
-  color: #fca5a5;
+  @apply mt-4 text-red-300;
 }
 </style>

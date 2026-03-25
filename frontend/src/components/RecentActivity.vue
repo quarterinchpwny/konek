@@ -209,86 +209,57 @@ watch(() => props.hostId, () => {
 </script>
 
 <style scoped>
+@reference "../assets/css/main.css";
+
 .recent-activity {
-  position: relative;
+  @apply relative;
 }
 
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  padding: 0 0.5rem;
+  @apply mb-4 flex items-center justify-between px-2;
 }
 
 .section-title {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  @apply text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-white/40;
 }
 
 .activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @apply flex flex-col gap-3;
 }
 
 .activity-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
   background: rgba(20, 25, 32, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  padding: 0.8rem;
+  @apply flex w-full cursor-pointer items-center gap-4 rounded-xl border border-white/6 p-[0.8rem] text-left transition-all duration-200;
 }
 
 .activity-item:hover {
   background: rgba(127, 161, 195, 0.08);
-  border-color: rgba(127, 161, 195, 0.15);
+  @apply border-[#7fa1c3]/15;
   transform: translateX(2px);
 }
 
 .activity-item:hover .activity-arrow {
-  opacity: 1;
+  @apply opacity-100;
   transform: translateX(2px);
 }
 
 .activity-icon-wrapper {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgba(127, 161, 195, 0.1);
-  border: 1px solid rgba(127, 161, 195, 0.15);
-  border-radius: 8px;
+  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#7fa1c3]/15;
 }
 
 .activity-icon {
-  width: 14px;
-  height: 14px;
   color: #7fa1c3;
   stroke-width: 2;
+  @apply h-[14px] w-[14px];
 }
 
 .activity-content {
-  flex: 1;
-  min-width: 0;
+  @apply min-w-0 flex-1;
 }
 
 .activity-details {
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 0.25rem 0;
-  line-height: 1.4;
+  @apply m-0 mb-1 text-[0.8125rem] leading-[1.4] text-white/80;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -298,10 +269,7 @@ watch(() => props.hostId, () => {
 
 .activity-details :deep(code) {
   background: rgba(10, 14, 18, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e8c368;
-  padding: 0.0625rem 0.375rem;
-  border-radius: 4px;
+  @apply rounded border border-white/5 px-1.5 py-[0.0625rem] text-[#e8c368];
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.6875rem;
 }
@@ -312,181 +280,107 @@ watch(() => props.hostId, () => {
 }
 
 .activity-time {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.4);
   font-family: 'JetBrains Mono', monospace;
+  @apply text-[0.6875rem] text-white/40;
 }
 
 .activity-arrow {
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.3);
-  opacity: 0;
-  transition: all 0.2s ease;
+  @apply shrink-0 text-white/30 opacity-0 transition-all duration-200;
 }
 
 .empty-state {
-  text-align: center;
-  padding: 1.5rem 0;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.875rem;
+  @apply px-0 py-6 text-center text-sm text-white/40;
 }
 
-/* Modal Styles */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
   background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(12px);
+  @apply fixed inset-0 z-[9999] flex items-center justify-center p-6 backdrop-blur-[12px];
 }
 
 .modal-content {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
   background: linear-gradient(180deg, #16161a 0%, #0f1419 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  @apply relative z-[10000] w-full max-w-[480px] overflow-hidden rounded-[20px] border border-white/8;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  z-index: 10000;
 }
 
 .modal-header {
-  padding: 2rem 2rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  @apply border-b border-white/6 px-8 pb-6 pt-8;
 }
 
 .modal-header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  @apply mb-4 flex items-center justify-between;
 }
 
 .modal-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
   background: rgba(127, 161, 195, 0.15);
-  border: 1px solid rgba(127, 161, 195, 0.2);
-  border-radius: 12px;
+  @apply flex h-12 w-12 items-center justify-center rounded-xl border border-[#7fa1c3]/20;
 }
 
 .modal-icon {
-  width: 20px;
-  height: 20px;
   color: #7fa1c3;
   stroke-width: 2;
+  @apply h-5 w-5;
 }
 
 .modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
   background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  @apply flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-none text-white/50 transition-all duration-200;
 }
 
 .modal-close:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
+  @apply text-white;
 }
 
 .modal-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 0.5rem 0;
-  letter-spacing: -0.02em;
+  @apply m-0 mb-2 text-xl font-bold tracking-[-0.02em] text-white;
 }
 
 .modal-time {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.5);
   font-family: 'JetBrains Mono', monospace;
-  margin: 0;
+  @apply m-0 text-sm text-white/50;
 }
 
 .modal-body {
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  @apply flex flex-col gap-6 p-8;
 }
 
 .detail-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  @apply flex flex-col gap-2;
 }
 
 .detail-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  @apply text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-white/50;
 }
 
 .detail-value {
-  font-size: 0.9375rem;
-  color: rgba(255, 255, 255, 0.9);
+  @apply text-[0.9375rem] text-white/90;
 }
 
 .detail-value-host {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #b19dd4;
+  @apply flex items-center gap-2 text-[#b19dd4];
 }
 
 .detail-value-code {
   background: rgba(10, 14, 18, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 1rem;
+  @apply rounded-lg border border-white/6 p-4;
 }
 
 .detail-value-code code {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875rem;
-  color: #e8c368;
-  word-break: break-all;
-  white-space: pre-wrap;
+  @apply whitespace-pre-wrap break-all text-sm text-[#e8c368];
 }
 
 .detail-value-mono {
   font-family: 'JetBrains Mono', monospace;
-  color: rgba(255, 255, 255, 0.6);
+  @apply text-white/60;
 }
 
 .action-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.375rem 0.75rem;
   background: rgba(127, 161, 195, 0.15);
-  border: 1px solid rgba(127, 161, 195, 0.2);
-  border-radius: 8px;
-  color: #7fa1c3;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: capitalize;
+  @apply inline-flex items-center rounded-lg border border-[#7fa1c3]/20 px-3 py-1.5 text-[0.8125rem] font-semibold capitalize text-[#7fa1c3];
 }
 
-/* Modal animations */
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;

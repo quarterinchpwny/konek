@@ -194,52 +194,44 @@ const {
 </script>
 
 <style scoped>
+@reference "../../assets/css/main.css";
+
 .overview-panel {
   background: rgba(20, 25, 32, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  @apply border border-white/6 backdrop-blur-[8px];
 }
 
 .overview-card {
-  border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
+  @apply border border-white/6;
 }
 
 .stats-embed {
-  margin-top: 0.1rem;
+  @apply mt-[0.1rem];
 }
 
 .service-link-btn {
-  border: 1px solid rgba(125, 196, 228, 0.35);
   background: rgba(125, 196, 228, 0.1);
-  color: #9ad4ee;
-  border-radius: 999px;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.67rem;
-  line-height: 1;
+  @apply rounded-full border border-[#7dc4e4]/35 px-2 py-[0.15rem] text-[0.67rem] leading-none text-[#9ad4ee];
 }
 
 .service-link-btn:hover {
   background: rgba(125, 196, 228, 0.16);
-  border-color: rgba(125, 196, 228, 0.5);
+  @apply border-[#7dc4e4]/50;
 }
 
 .status-online {
-  color: #8bd5a8;
-  border-color: rgba(139, 213, 168, 0.35);
   background: rgba(139, 213, 168, 0.08);
+  @apply border-[#8bd5a8]/35 text-[#8bd5a8];
 }
 
 .status-offline {
-  color: #f2b4b4;
-  border-color: rgba(242, 180, 180, 0.35);
   background: rgba(242, 180, 180, 0.08);
+  @apply border-[#f2b4b4]/35 text-[#f2b4b4];
 }
 
 .status-unknown {
-  color: rgba(255, 255, 255, 0.4);
-  border-color: rgba(255, 255, 255, 0.12);
+  @apply border-white/12 text-white/40;
   background: transparent;
 }
 </style>

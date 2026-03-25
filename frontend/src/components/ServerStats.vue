@@ -169,16 +169,11 @@ const { stats, status, cpuHistory, memoryHistory, formatBytes, getStatusClass, g
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap');
+@reference "../assets/css/main.css";
 
 .server-stats {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  @apply relative h-full w-full overflow-x-hidden overflow-y-auto text-[#e8e8e8];
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #e8e8e8;
 }
 
 .server-stats::-webkit-scrollbar {
@@ -198,87 +193,52 @@ const { stats, status, cpuHistory, memoryHistory, formatBytes, getStatusClass, g
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* Background */
 .stats-bg {
-  position: fixed;
-  inset: 0;
+  @apply fixed inset-0 z-0;
   background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
-  z-index: 0;
 }
 
 .stats-noise {
-  position: fixed;
-  inset: 0;
+  @apply pointer-events-none fixed inset-0 z-[1];
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 1;
 }
 
-/* Content */
 .stats-content {
-  position: relative;
-  z-index: 2;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  @apply relative z-[2] flex flex-col gap-5 p-6;
 }
 
 .stats-header {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 0 0 0.5rem 0;
+  @apply mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-white/40;
 }
 
-/* Status cards */
 .status-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-  background: rgba(20, 25, 32, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  text-align: center;
+  @apply flex flex-col items-center justify-center rounded-[14px] border border-white/6 bg-[rgba(20,25,32,0.6)] px-4 py-8 text-center;
   backdrop-filter: blur(8px);
 }
 
 .status-icon {
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
+  @apply mb-3 text-[2rem];
 }
 
 .status-text {
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: 0.02em;
+  @apply text-sm font-semibold tracking-[0.02em];
 }
 
 .status-offline .status-text {
-  color: #d68a8a;
+  @apply text-[#d68a8a];
 }
 
 .status-auth-failed .status-text {
-  color: #e8c368;
+  @apply text-[#e8c368];
 }
 
 .status-loading .status-text {
-  color: rgba(255, 255, 255, 0.5);
+  @apply text-white/50;
 }
 
-/* Loader */
 .loader {
-  width: 32px;
-  height: 32px;
-  margin-bottom: 1rem;
-  border: 3px solid rgba(127, 161, 195, 0.2);
+  @apply mb-4 h-8 w-8 rounded-full border-[3px] border-[#7fa1c333] border-t-[#7fa1c3];
   border-top-color: #7fa1c3;
-  border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
@@ -286,259 +246,170 @@ const { stats, status, cpuHistory, memoryHistory, formatBytes, getStatusClass, g
   to { transform: rotate(360deg); }
 }
 
-/* Stat widget */
 .stat-widget {
-  background: rgba(20, 25, 32, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 1.25rem;
+  @apply rounded-[14px] border border-white/6 bg-[rgba(20,25,32,0.6)] p-5 transition-all;
   backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
 }
 
 .stat-widget:hover {
-  background: rgba(25, 30, 38, 0.7);
-  border-color: rgba(255, 255, 255, 0.12);
+  @apply border-white/12 bg-[rgba(25,30,38,0.7)];
 }
 
 .disk-section + .disk-section {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  @apply mt-6 border-t border-white/6 pt-6;
 }
 
-/* Widget header */
 .widget-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  @apply mb-4 flex items-center justify-between;
 }
 
 .widget-title-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply flex items-center gap-2;
 }
 
 .widget-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  flex-shrink: 0;
+  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg;
 }
 
 .widget-icon.cpu {
-  background: rgba(127, 161, 195, 0.15);
-  color: #7fa1c3;
+  @apply bg-[#7fa1c326] text-[#7fa1c3];
 }
 
 .widget-icon.mem {
-  background: rgba(168, 85, 247, 0.15);
-  color: #b19dd4;
+  @apply bg-[#a855f726] text-[#b19dd4];
 }
 
 .widget-icon.docker {
-  background: rgba(56, 189, 248, 0.15);
-  color: #7dc4e4;
+  @apply bg-[#38bdf826] text-[#7dc4e4];
 }
 
 .widget-icon.disk {
-  background: rgba(16, 185, 129, 0.15);
-  color: #8bc4a0;
+  @apply bg-[#10b98126] text-[#8bc4a0];
 }
 
 .widget-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  letter-spacing: -0.01em;
+  @apply text-sm font-semibold tracking-[-0.01em] text-white/85;
 }
 
 .widget-subtitle {
-  font-size: 0.6875rem;
+  @apply ml-1 text-[0.6875rem] text-white/40;
   font-family: 'JetBrains Mono', monospace;
-  color: rgba(255, 255, 255, 0.4);
-  margin-left: 0.25rem;
 }
 
 .widget-value {
-  font-size: 0.875rem;
-  font-weight: 700;
+  @apply text-sm font-bold;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .widget-value.cpu {
-  color: #7fa1c3;
+  @apply text-[#7fa1c3];
 }
 
 .widget-value.mem {
-  color: #b19dd4;
+  @apply text-[#b19dd4];
 }
 
 .widget-value.disk {
-  color: #8bc4a0;
+  @apply text-[#8bc4a0];
 }
 
-/* History Chart */
 .history-chart {
-  height: 80px;
-  margin-bottom: 0.875rem;
-  background: rgba(10, 14, 18, 0.4);
-  border-radius: 10px;
-  padding: 0.625rem;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  @apply mb-3.5 h-20 rounded-[10px] border border-white/4 bg-[rgba(10,14,18,0.4)] p-2.5;
 }
 
 .history-bars {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  height: 100%;
-  gap: 2px;
+  @apply flex h-full items-end justify-between gap-0.5;
 }
 
 .history-bar-container {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
+  @apply flex h-full min-w-[2px] flex-1 items-end;
   min-width: 2px;
 }
 
 .history-bar {
-  width: 100%;
-  min-height: 2px;
-  border-radius: 2px 2px 0 0;
+  @apply min-h-[2px] w-full rounded-t-[2px];
   transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cpu-history {
-  background: #7fa1c3;
-  opacity: 0.5;
+  @apply bg-[#7fa1c3] opacity-50;
 }
 
 .mem-history {
-  background: #b19dd4;
-  opacity: 0.5;
+  @apply bg-[#b19dd4] opacity-50;
 }
 
 .history-bar-latest {
   opacity: 1 !important;
 }
 
-/* Progress bar */
 .progress-bar-container {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background: rgba(30, 35, 42, 0.4);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 0.875rem;
+  @apply relative mb-3.5 h-2 w-full overflow-hidden rounded bg-[rgba(30,35,42,0.4)];
 }
 
 .progress-bar {
-  height: 100%;
-  border-radius: 4px;
+  @apply h-full rounded;
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .disk-bar {
-  background: #8bc4a0;
+  @apply bg-[#8bc4a0];
 }
 
-/* Widget details */
 .widget-details {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.75rem;
+  @apply flex items-center justify-between text-xs;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .detail-label {
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  @apply uppercase tracking-[0.02em] text-white/40;
 }
 
 .detail-value {
-  color: rgba(255, 255, 255, 0.6);
+  @apply text-white/60;
 }
 
 .detail-value strong {
-  color: #ffffff;
-  font-weight: 600;
+  @apply font-semibold text-white;
 }
 
-/* Docker list */
 .docker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @apply flex flex-col gap-3;
 }
 
 .docker-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  background: rgba(30, 35, 42, 0.4);
-  border-radius: 10px;
-  transition: background 0.2s ease;
+  @apply flex items-center gap-3 rounded-[10px] bg-[rgba(30,35,42,0.4)] px-3.5 py-2.5 transition-colors;
 }
 
 .docker-item:hover {
-  background: rgba(35, 40, 48, 0.6);
+  @apply bg-[rgba(35,40,48,0.6)];
 }
 
 .docker-icon {
-  flex-shrink: 0;
-  font-size: 20px;
-  color: #7dc4e4;
+  @apply shrink-0 text-[20px] text-[#7dc4e4];
 }
 
 .docker-name {
-  flex: 1;
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @apply flex-1 truncate text-[0.8125rem] text-white/80;
 }
 
 .docker-status {
-  flex-shrink: 0;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  border-radius: 6px;
+  @apply shrink-0 rounded-md px-2.5 py-1 text-[0.6875rem] font-semibold;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .docker-status.status-up {
-  background: rgba(107, 158, 125, 0.15);
-  color: #8bc4a0;
-  border: 1px solid rgba(107, 158, 125, 0.25);
+  @apply border border-[#6b9e7d40] bg-[#6b9e7d26] text-[#8bc4a0];
 }
 
 .docker-status.status-exited {
-  background: rgba(214, 93, 93, 0.15);
-  color: #d68a8a;
-  border: 1px solid rgba(214, 93, 93, 0.25);
+  @apply border border-[#d65d5d40] bg-[#d65d5d26] text-[#d68a8a];
 }
 
 .docker-status.status-other {
-  background: rgba(140, 140, 150, 0.15);
-  color: #a8a8b4;
-  border: 1px solid rgba(140, 140, 150, 0.25);
+  @apply border border-[#8c8c9640] bg-[#8c8c9626] text-[#a8a8b4];
 }
 
-/* Animations */
 .history-slide-enter-active {
   transition: all 0.6s ease-out;
 }
@@ -557,57 +428,45 @@ const { stats, status, cpuHistory, memoryHistory, formatBytes, getStatusClass, g
 }
 
 .server-stats.compact {
-  height: auto;
-  overflow: visible;
+  @apply h-auto overflow-visible;
   font-family: inherit;
 }
 
 .server-stats.compact .stats-content {
-  padding: 0;
-  gap: 0.75rem;
-  display: grid;
+  @apply grid gap-3 p-0;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .server-stats.compact .status-card {
-  grid-column: 1 / -1;
-  padding: 1.25rem 0.75rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  @apply col-[1/-1] rounded-[10px] bg-white/[0.02] px-3 py-5;
 }
 
 .server-stats.compact .stat-widget {
-  border-radius: 10px;
-  padding: 0.85rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.06);
+  @apply rounded-[10px] border-white/6 bg-white/[0.02] p-[0.85rem];
   backdrop-filter: none;
 }
 
 .server-stats.compact .stat-widget:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.09);
+  @apply border-white/10 bg-white/[0.04];
 }
 
 .server-stats.compact .widget-header {
-  margin-bottom: 0.7rem;
+  @apply mb-[0.7rem];
 }
 
 .server-stats.compact .history-chart {
-  height: 58px;
-  margin-bottom: 0.65rem;
-  padding: 0.45rem;
+  @apply mb-[0.65rem] h-[58px] p-[0.45rem];
 }
 
 .server-stats.compact .widget-title {
-  font-size: 0.78rem;
+  @apply text-[0.78rem];
 }
 
 .server-stats.compact .widget-value {
-  font-size: 0.8rem;
+  @apply text-[0.8rem];
 }
 
 .server-stats.compact .widget-details {
-  font-size: 0.68rem;
+  @apply text-[0.68rem];
 }
 </style>

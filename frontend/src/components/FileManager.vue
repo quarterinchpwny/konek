@@ -890,194 +890,82 @@ watch(showMediaViewer, (isOpen) => {
 </script>
 
 <style scoped>
-/* ── Base ───────────────────────────────────────────────────────────────────── */
+@reference "../assets/css/main.css";
 
 .file-manager {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  @apply relative flex h-full w-full flex-col overflow-hidden;
   font-family: "Outfit", sans-serif;
 }
 
 .fm-bg {
-  position: absolute;
-  inset: 0;
+  @apply absolute inset-0 z-0;
   background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
-  z-index: 0;
 }
 
 .fm-noise {
-  position: absolute;
-  inset: 0;
+  @apply pointer-events-none absolute inset-0 z-[1];
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 1;
 }
-
-/* ── Header ─────────────────────────────────────────────────────────────────── */
 
 .fm-header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(20, 25, 32, 0.6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-@media (min-width: 640px) {
-  .fm-header {
-    padding: 0.875rem 1.25rem;
-  }
+  @apply relative z-[2] flex shrink-0 flex-col gap-2 border-b border-white/6 bg-[rgba(20,25,32,0.6)] px-4 py-3 sm:px-5 sm:py-3.5;
 }
 
 .fm-header-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply flex items-center gap-2;
 }
-
-/* ── Path bar ────────────────────────────────────────────────────────────────*/
 
 .fm-path {
-  flex: 1;
-  min-width: 0;
-  padding: 0.5rem 0.75rem;
-  background: rgba(10, 14, 18, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.75rem;
+  @apply flex-1 truncate rounded-lg border border-white/6 bg-[rgba(10,14,18,0.6)] px-3 py-2 text-xs text-white/70 sm:px-4 sm:py-2.5 sm:text-[0.8125rem];
   font-family: "JetBrains Mono", monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-
-@media (min-width: 640px) {
-  .fm-path {
-    font-size: 0.8125rem;
-    padding: 0.625rem 1rem;
-  }
-}
-
-/* ── Actions ─────────────────────────────────────────────────────────────────*/
 
 .fm-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex-shrink: 0;
+  @apply flex shrink-0 items-center gap-1.5;
 }
 
-/* ── Search ──────────────────────────────────────────────────────────────────*/
-
 .fm-search {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0 0.875rem;
-  background: rgba(10, 14, 18, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  width: 100%;
-  transition: border-color 0.2s;
+  @apply flex w-full items-center gap-2.5 rounded-lg border border-white/6 bg-[rgba(10,14,18,0.4)] px-3.5 transition-colors;
 }
 
 .fm-search:focus-within {
-  border-color: rgba(127, 161, 195, 0.3);
+  @apply border-[#7fa1c34d];
 }
 
 .fm-search input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 0.8125rem;
-  padding: 0.5rem 0;
-  outline: none;
+  @apply flex-1 border-0 bg-transparent py-2 text-[0.8125rem] text-white outline-none;
   font-family: inherit;
 }
 
 .fm-search input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  @apply text-white/30;
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────────*/
-
 .fm-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(30, 35, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  @apply flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/6 bg-[rgba(30,35,42,0.6)] text-white/60 transition-all;
 }
 
 .fm-btn:hover {
-  background: rgba(40, 45, 52, 0.8);
-  color: white;
+  @apply bg-[rgba(40,45,52,0.8)] text-white;
   transform: translateY(-1px);
 }
 
 .fm-btn-danger {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  border-color: rgba(248, 113, 113, 0.2);
+  @apply border-red-400/20 bg-red-400/10 text-red-400;
 }
-
-/* ── Content area ────────────────────────────────────────────────────────────*/
 
 .fm-content {
-  position: relative;
-  z-index: 2;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0.75rem 1rem;
+  @apply relative z-[2] flex flex-1 flex-col overflow-hidden px-4 py-3 sm:px-5 sm:py-4;
 }
-
-@media (min-width: 640px) {
-  .fm-content {
-    padding: 1rem 1.25rem;
-  }
-}
-
-/* ── List header ─────────────────────────────────────────────────────────────*/
 
 .fm-list-header {
-  display: none;
+  @apply hidden shrink-0;
 }
 
 @media (min-width: 640px) {
   .fm-list-header {
-    display: grid;
+    @apply grid items-center gap-3 rounded-t-lg border border-white/6 bg-[rgba(20,25,32,0.4)] px-4 py-2.5 text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-white/40;
     grid-template-columns: 40px 1fr 90px 120px;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.625rem 1rem;
-    background: rgba(20, 25, 32, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px 8px 0 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    flex-shrink: 0;
   }
 }
 
@@ -1085,87 +973,58 @@ watch(showMediaViewer, (isOpen) => {
   .fm-list-header {
     grid-template-columns: 40px 1fr 90px;
   }
+
   .fm-list-header .fm-col-permissions {
-    display: none;
+    @apply hidden;
   }
 }
 
-/* ── File list ───────────────────────────────────────────────────────────────*/
-
 .fm-list {
-  flex: 1;
-  overflow-y: auto;
-  background: rgba(20, 25, 32, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  @apply flex-1 overflow-y-auto rounded-lg border border-white/6 bg-[rgba(20,25,32,0.3)];
   -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 640px) {
   .fm-list {
-    border-top: none;
-    border-radius: 0 0 8px 8px;
+    @apply rounded-b-lg rounded-t-none border-t-0;
   }
 }
 
-/* ── Empty state ─────────────────────────────────────────────────────────────*/
-
 .fm-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 160px;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 0.875rem;
-  gap: 0.25rem;
+  @apply flex h-full min-h-40 flex-col items-center justify-center gap-1 text-sm text-white/30;
 }
-
-/* ── File rows ───────────────────────────────────────────────────────────────*/
 
 .fm-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  cursor: pointer;
-  transition: background 0.15s ease;
+  @apply grid cursor-pointer grid-cols-1 items-center border-b border-white/[0.03] px-4 py-3 transition-colors;
 }
 
-.fm-row .fm-col-checkbox {
-  display: none;
-}
-.fm-row .fm-col-size {
-  display: none;
-}
+.fm-row .fm-col-checkbox,
+.fm-row .fm-col-size,
 .fm-row .fm-col-permissions {
-  display: none;
+  @apply hidden;
 }
 
 .fm-row-meta {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.3);
+  @apply mt-0.5 text-[0.6875rem] text-white/30;
   font-family: "JetBrains Mono", monospace;
-  margin-top: 0.125rem;
 }
 
 @media (min-width: 640px) {
   .fm-row {
+    @apply gap-3;
     grid-template-columns: 40px 1fr 90px;
-    gap: 0.75rem;
   }
 
   .fm-row .fm-col-checkbox {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
   }
+
   .fm-row .fm-col-size {
-    display: block;
+    @apply block;
   }
+
   .fm-row-meta {
-    display: none;
+    @apply hidden;
   }
 }
 
@@ -1173,433 +1032,261 @@ watch(showMediaViewer, (isOpen) => {
   .fm-row {
     grid-template-columns: 40px 1fr 90px 120px;
   }
+
   .fm-row .fm-col-permissions {
-    display: block;
+    @apply block;
   }
 }
 
 .fm-row:last-child {
-  border-bottom: none;
-}
-.fm-row:hover {
-  background: rgba(30, 35, 42, 0.5);
-}
-.fm-row-selected {
-  background: rgba(107, 140, 174, 0.12);
-}
-.fm-row-selected:hover {
-  background: rgba(107, 140, 174, 0.18);
+  @apply border-b-0;
 }
 
-/* ── Row cells ───────────────────────────────────────────────────────────────*/
+.fm-row:hover {
+  @apply bg-[rgba(30,35,42,0.5)];
+}
+
+.fm-row-selected {
+  @apply bg-[#6b8cae1f];
+}
+
+.fm-row-selected:hover {
+  @apply bg-[#6b8cae2e];
+}
 
 .fm-col-name {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  min-width: 0;
+  @apply flex min-w-0 items-center gap-2.5;
 }
 
 .fm-icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  @apply h-[18px] w-[18px] shrink-0;
 }
+
 .fm-icon-folder {
-  color: #e8c368;
+  @apply text-[#e8c368];
 }
+
 .fm-icon-file {
-  color: #7fa1c3;
+  @apply text-[#7fa1c3];
 }
 
 .fm-name-dir {
-  color: white;
-  font-weight: 600;
-  font-size: 0.875rem;
+  @apply text-sm font-semibold text-white;
 }
 
 .fm-name-file {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.875rem;
+  @apply text-sm text-white/80;
 }
 
 .fm-col-size,
 .fm-col-permissions {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.75rem;
+  @apply text-xs text-white/40;
   font-family: "JetBrains Mono", monospace;
 }
 
 .fm-checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
+  @apply h-4 w-4 cursor-pointer;
   accent-color: #7fa1c3;
 }
 
-/* ── Selection status bar ────────────────────────────────────────────────────*/
-
 .fm-status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  margin-top: 0.5rem;
-  background: rgba(127, 161, 195, 0.08);
-  border: 1px solid rgba(127, 161, 195, 0.2);
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.7);
-  flex-shrink: 0;
+  @apply mt-2 flex shrink-0 items-center justify-between rounded-lg border border-[#7fa1c333] bg-[#7fa1c314] px-4 py-2 text-[0.8125rem] text-white/70;
 }
 
 .fm-status-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  @apply flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-white/70 transition-all;
   font-family: inherit;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-  transition: all 0.2s;
 }
 
 .fm-status-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  @apply bg-white/10 text-white;
 }
 
 .fm-status-btn-danger {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.08);
-  border-color: rgba(248, 113, 113, 0.2);
+  @apply border-red-400/20 bg-red-400/8 text-red-400;
 }
 
 .fm-status-btn-danger:hover {
-  background: rgba(248, 113, 113, 0.15);
+  @apply bg-red-400/15;
 }
 
 .status-bar-enter-active,
 .status-bar-leave-active {
   transition: all 0.2s ease;
 }
+
 .status-bar-enter-from,
 .status-bar-leave-to {
   opacity: 0;
   transform: translateY(4px);
 }
 
-/* ── Modals ──────────────────────────────────────────────────────────────────
-   NOTE: These are teleported to <body>, so they are NOT scoped to .file-manager.
-   The z-index: 9999 ensures they always render above the sidebar (z-index: 2)
-   and the mobile stats drawer (z-index: 50) in MainPage.vue.
-*/
-
 .fm-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.8);
+  @apply fixed inset-0 z-[9999] flex items-end justify-center bg-black/80 p-0;
   backdrop-filter: blur(8px);
 }
 
 @media (min-width: 640px) {
   .fm-modal-overlay {
-    align-items: center;
-    padding: 1.5rem;
+    @apply items-center p-6;
   }
 }
 
 .fm-modal {
-  position: relative;
-  width: 100%;
-  background: #0d1117;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 16px 16px 0 0;
-  max-height: 92vh;
+  @apply relative flex w-full max-h-[92vh] flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d1117] shadow-[0_20px_60px_rgba(0,0,0,0.5)];
 }
 
 @media (min-width: 640px) {
   .fm-modal {
-    border-radius: 16px;
-    max-width: 800px;
-    max-height: none;
+    @apply max-w-[800px] max-h-none rounded-2xl;
   }
 }
 
 .fm-modal-large {
-  height: 92vh;
+  @apply h-[92vh];
 }
 
 @media (min-width: 640px) {
   .fm-modal-large {
-    max-width: 90vw;
-    height: 85vh;
+    @apply h-[85vh] max-w-[90vw];
   }
 }
 
 @media (min-width: 640px) {
   .fm-modal-small {
-    max-width: 420px;
+    @apply max-w-[420px];
   }
 }
 
 .fm-modal-media {
-  height: 92vh;
-  background: black;
+  @apply h-[92vh] bg-black;
 }
 
 @media (min-width: 640px) {
   .fm-modal-media {
-    max-width: 90vw;
-    max-height: 90vh;
-    height: auto;
+    @apply h-auto max-h-[90vh] max-w-[90vw];
   }
 }
 
 .fm-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  background: #161b22;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-@media (min-width: 640px) {
-  .fm-modal-header {
-    padding: 1.25rem 1.5rem;
-  }
+  @apply flex shrink-0 items-center justify-between gap-3 border-b border-white/6 bg-[#161b22] px-5 py-4 sm:px-6 sm:py-5;
 }
 
 .fm-modal-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: white;
+  @apply text-[0.9375rem] font-semibold text-white;
 }
 
 .fm-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  @apply flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/8 bg-white/5 text-white/60 transition-all;
 }
 
 .fm-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  @apply bg-white/10 text-white;
 }
 
 .fm-monaco-container {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  background: #0d1117;
+  @apply min-h-0 w-full flex-1 bg-[#0d1117];
 }
 
 .fm-input {
-  background: #161b22;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: white;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  @apply rounded-lg border border-white/10 bg-[#161b22] px-4 py-3 text-sm text-white outline-none transition-colors;
   font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s;
 }
 
 .fm-input:focus {
-  border-color: #58a6ff;
+  @apply border-[#58a6ff];
 }
 
 .fm-modal-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  @apply flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3.5 py-2 text-[0.8125rem] font-semibold text-white transition-all;
   font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
 }
 
 .fm-modal-btn-primary {
-  background: #238636;
-  border-color: rgba(240, 246, 252, 0.1);
-}
-.fm-modal-btn-primary:hover {
-  background: #2ea043;
+  @apply border-[#f0f6fc1a] bg-[#238636];
 }
 
-/* ── Media viewer ────────────────────────────────────────────────────────────*/
+.fm-modal-btn-primary:hover {
+  @apply bg-[#2ea043];
+}
 
 .fm-media-container {
-  position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: black;
-  overflow: hidden;
-  min-height: 0;
+  @apply relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black;
 }
 
 .fm-media {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  @apply max-h-full max-w-full object-contain;
 }
 
 .fm-media-zoomed {
-  max-width: none;
-  max-height: none;
-  cursor: zoom-out;
+  @apply max-h-none max-w-none cursor-zoom-out;
 }
 
 .zoom-in {
-  cursor: zoom-in;
+  @apply cursor-zoom-in;
 }
 
 .fm-audio {
-  width: 80%;
-  max-width: 500px;
+  @apply w-[80%] max-w-[500px];
 }
 
 .fm-media-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 10;
+  @apply absolute top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-black/40 text-white opacity-0 transition-opacity;
 }
 
 @media (hover: none) {
   .fm-media-nav {
-    opacity: 1;
+    @apply opacity-100;
   }
 }
 
 .fm-media-container:hover .fm-media-nav {
-  opacity: 1;
+  @apply opacity-100;
 }
+
 .fm-media-nav-prev {
-  left: 12px;
+  @apply left-3;
 }
+
 .fm-media-nav-next {
-  right: 12px;
+  @apply right-3;
 }
 
 .fm-media-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 0.875rem;
-  background: #161b22;
-  flex-shrink: 0;
+  @apply flex shrink-0 items-center justify-center gap-6 bg-[#161b22] p-3.5;
 }
 
 .fm-btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 6px;
-  transition: all 0.2s;
+  @apply flex cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-1 text-white/60 transition-all;
 }
 
 .fm-btn-icon:hover {
-  color: white;
+  @apply text-white;
   transform: scale(1.15);
 }
 
-/* ── Toast ───────────────────────────────────────────────────────────────────*/
-
 .fm-toast {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
-  border-radius: 10px;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  @apply pointer-events-none fixed bottom-6 left-1/2 z-[99999] flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-[10px] px-4 py-2.5 text-[0.8125rem] font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.4)];
   font-family: "Outfit", sans-serif;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .fm-toast-success {
-  background: rgba(22, 163, 74, 0.15);
-  border: 1px solid rgba(22, 163, 74, 0.35);
-  color: #4ade80;
+  @apply border border-green-600/35 bg-green-600/15 text-green-400;
 }
 
 .fm-toast-error {
-  background: rgba(220, 38, 38, 0.15);
-  border: 1px solid rgba(220, 38, 38, 0.35);
-  color: #f87171;
+  @apply border border-red-600/35 bg-red-600/15 text-red-400;
 }
 
 .fm-toast-icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
+  @apply h-[15px] w-[15px] shrink-0;
 }
 
 .toast-slide-enter-active,
 .toast-slide-leave-active {
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 .toast-slide-enter-from,
 .toast-slide-leave-to {
   opacity: 0;
