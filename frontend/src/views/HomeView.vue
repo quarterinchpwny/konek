@@ -46,65 +46,6 @@
       </div>
 
       <section v-else class="dashboard-grid">
-        <article class="panel panel-primary">
-          <div class="panel-head">
-            <h3>{{ selectedHost?.alias || "Host Overview" }}</h3>
-            <span
-              class="status-pill"
-              :class="statusClass(selectedHost?.status)"
-              >{{ selectedHost?.status || "unknown" }}</span
-            >
-          </div>
-
-          <p class="host-meta">
-            {{ selectedHost?.username || "root" }}@{{
-              selectedHost?.hostname || "n/a"
-            }}:{{ selectedHost?.port || 22 }}
-          </p>
-
-          <div class="meter-row">
-            <div class="meter-label">
-              <span>CPU</span
-              ><span>{{ toPct(selectedHost?.stats?.cpu?.usagePercent) }}</span>
-            </div>
-            <div class="meter-track">
-              <div
-                class="meter-fill cpu"
-                :style="{
-                  width: `${clamp(selectedHost?.stats?.cpu?.usagePercent)}%`,
-                }"
-              ></div>
-            </div>
-          </div>
-          <div class="meter-row">
-            <div class="meter-label">
-              <span>RAM</span
-              ><span>{{ toPct(selectedHost?.stats?.memory?.percent) }}</span>
-            </div>
-            <div class="meter-track">
-              <div
-                class="meter-fill mem"
-                :style="{
-                  width: `${clamp(selectedHost?.stats?.memory?.percent)}%`,
-                }"
-              ></div>
-            </div>
-          </div>
-
-          <div class="panel-list">
-            <button
-              v-for="host in hostStore.hosts"
-              :key="host.id"
-              class="list-row"
-              :class="{ active: host.id === selectedHostId }"
-              @click="selectHost(host)"
-            >
-              <span>{{ host.alias }}</span>
-              <span>{{ toPct(host.stats?.cpu?.usagePercent) }}</span>
-            </button>
-          </div>
-        </article>
-
         <article class="panel">
           <div class="panel-head">
             <h3>Infrastructure</h3>
@@ -154,38 +95,6 @@
 
         <article class="panel">
           <div class="panel-head">
-            <h3>Service Summary</h3>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell">
-              <span>Online</span><strong>{{ onlineHosts }}</strong>
-            </div>
-            <div class="stat-cell">
-              <span>Offline</span
-              ><strong>{{ hostStore.hosts.length - onlineHosts }}</strong>
-            </div>
-            <div class="stat-cell">
-              <span>SSH Enabled</span><strong>{{ sshEnabledHosts }}</strong>
-            </div>
-            <div class="stat-cell">
-              <span>WOL Ready</span><strong>{{ wolHosts }}</strong>
-            </div>
-          </div>
-          <div class="quick-list">
-            <div class="quick-row">
-              <HardDrive :size="14" /> Storage health monitored
-            </div>
-            <div class="quick-row">
-              <Activity :size="14" /> Bulk checks every 5s
-            </div>
-            <div class="quick-row">
-              <Wifi :size="14" /> Network map available
-            </div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head">
             <h3>Bookmarks</h3>
           </div>
           <div class="bookmark-grid">
@@ -216,22 +125,6 @@
           <RecentActivity :hostId="selectedHost?.id" />
         </article>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h3>SSH</h3>
-          </div>
-          <div class="ssh-list">
-            <button
-              v-for="host in sshHosts"
-              :key="`ssh-${host.id}`"
-              class="ssh-row"
-              @click="selectHost(host)"
-            >
-              <span>{{ host.alias }}</span>
-              <span class="muted">{{ host.online ? "online" : "idle" }}</span>
-            </button>
-          </div>
-        </article>
       </section>
     </div>
 
@@ -355,6 +248,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useHostStore, type Host } from "@/stores/hostStore";
 import RecentActivity from "@/components/RecentActivity.vue";
 import {
@@ -364,9 +258,6 @@ import {
   X,
   Zap,
   Pencil,
-  HardDrive,
-  Activity,
-  Wifi,
   Bookmark,
   ExternalLink,
 } from "lucide-vue-next";
@@ -376,6 +267,7 @@ const props = defineProps<{
 }>();
 
 const hostStore = useHostStore();
+const router = useRouter();
 
 const topNav = ["Main", "Media", "Reddit", "News", "AI", "Kanban", "Others"];
 const defaultBookmarks = [
@@ -443,25 +335,13 @@ const fetchMediaBookmarks = async () => {
 
 watch(() => selectedHost.value?.id, fetchMediaBookmarks);
 
-const onlineHosts = computed(
-  () => hostStore.hosts.filter((h) => h.online).length,
-);
-const sshEnabledHosts = computed(
-  () => hostStore.hosts.filter((h) => h.sshEnabled).length,
-);
-const wolHosts = computed(
-  () => hostStore.hosts.filter((h) => !!h.macAddress).length,
-);
-const sshHosts = computed(() => hostStore.hosts.filter((h) => h.sshEnabled));
-
 const clamp = (val?: number) =>
   Math.min(100, Math.max(0, Math.round(val || 0)));
-const toPct = (val?: number) => `${clamp(val)}%`;
 
 const statusClass = (status?: Host["status"]) => {
   if (status === "online") return "ok";
   if (status === "offline") return "off";
-  if (status === "error" || status === "auth_failed") return "err";
+  if (status === "error") return "err";
   return "unknown";
 };
 
@@ -486,6 +366,9 @@ async function selectHost(host: Host) {
   if (!host.id) return;
   selectedHostId.value = host.id;
   await hostStore.setSelectedHost(host);
+  if (!props.embedded) {
+    await router.push({ name: "dashboard" });
+  }
 }
 
 function resetForm() {
@@ -756,10 +639,6 @@ async function deleteHost(id: number) {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.panel-primary {
-  grid-row: span 2;
-}
-
 .panel-activity {
   grid-column: span 2;
 }
@@ -784,116 +663,25 @@ async function deleteHost(id: number) {
   font-size: 0.72rem;
 }
 
-/* ── Status pills ────────────────────────────────────────────── */
-.status-pill {
-  font-size: 0.62rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  border: 1px solid;
-}
-
-.status-pill.ok,
+/* ── Host status ─────────────────────────────────────────────── */
 .mini-status.ok {
   color: #8bd5a8;
   border-color: rgba(139, 213, 168, 0.35);
   background: rgba(139, 213, 168, 0.08);
 }
-.status-pill.off,
 .mini-status.off {
   color: #f2b4b4;
   border-color: rgba(242, 180, 180, 0.35);
   background: rgba(242, 180, 180, 0.08);
 }
-.status-pill.err,
 .mini-status.err {
   color: #f2cf8d;
   border-color: rgba(242, 207, 141, 0.35);
   background: rgba(242, 207, 141, 0.08);
 }
-.status-pill.unknown,
 .mini-status.unknown {
   color: rgba(255, 255, 255, 0.4);
   border-color: rgba(255, 255, 255, 0.12);
-}
-
-/* ── Host meta ───────────────────────────────────────────────── */
-.host-meta {
-  margin: 0 0 0.75rem;
-  font-size: 0.7rem;
-  font-family: "JetBrains Mono", monospace;
-  color: rgba(255, 255, 255, 0.35);
-  font-weight: 400;
-}
-
-/* ── Meters ──────────────────────────────────────────────────── */
-.meter-row {
-  margin-bottom: 0.55rem;
-}
-
-.meter-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.68rem;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.meter-track {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.meter-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-.meter-fill.cpu {
-  background: linear-gradient(to right, #7fa1c3, #a3c4e8);
-}
-.meter-fill.mem {
-  background: linear-gradient(to right, #8bd5a8, #b0e8c4);
-}
-
-/* ── Panel list ──────────────────────────────────────────────── */
-.panel-list {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.list-row {
-  display: flex;
-  justify-content: space-between;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.7);
-  border-radius: 6px;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  letter-spacing: -0.01em;
-}
-
-.list-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.list-row.active {
-  border-color: rgba(127, 161, 195, 0.45);
-  background: rgba(127, 161, 195, 0.08);
-  color: #7fa1c3;
 }
 
 /* ── Host cards ──────────────────────────────────────────────── */
@@ -988,54 +776,6 @@ async function deleteHost(id: number) {
   border-color: rgba(242, 180, 180, 0.2);
 }
 
-/* ── Stat grid ───────────────────────────────────────────────── */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
-}
-
-.stat-cell {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.stat-cell span {
-  display: block;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.65rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.2rem;
-}
-
-.stat-cell strong {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-/* ── Quick list ──────────────────────────────────────────────── */
-.quick-list {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.quick-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.72rem;
-  font-weight: 500;
-}
-
 /* ── Bookmarks ───────────────────────────────────────────────── */
 .bookmark-grid {
   display: grid;
@@ -1076,33 +816,6 @@ async function deleteHost(id: number) {
   border-color: rgba(127, 161, 195, 0.3);
 }
 
-/* ── SSH list ────────────────────────────────────────────────── */
-.ssh-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.ssh-row {
-  display: flex;
-  justify-content: space-between;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.7);
-  border-radius: 6px;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  letter-spacing: -0.01em;
-}
-
-.ssh-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.9);
-}
 
 /* ── Empty state ─────────────────────────────────────────────── */
 .empty-state {
@@ -1346,9 +1059,6 @@ input:checked + .toggle-slider {
   .dashboard-grid {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
-  }
-  .panel-primary {
-    grid-row: auto;
   }
 }
 

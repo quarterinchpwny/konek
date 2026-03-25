@@ -22,13 +22,6 @@ const routes = [
     component: () => import("../views/NetworkMapView.vue"),
     meta: { layout: DashboardLayout, requiresHost: true, willShowSavedHost: false },
   },
-  {
-    path: "/dashboard/tmux-manager",
-    name: "tmux-manager",
-    component: () => import("../views/TmuxView.vue"),
-    meta: { layout: DashboardLayout, requiresHost: true, willShowSavedHost: true },
-  },
-
 ];
 
 const router = createRouter({

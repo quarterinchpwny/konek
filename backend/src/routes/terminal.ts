@@ -7,8 +7,21 @@ import { HTTPException } from "hono/http-exception";
 import { db } from "../db";
 import { serverHosts } from "../db/schema";
 import { decryptSecret } from "../lib/crypto";
+import {
+  createPersistentTerminalSession,
+  ensurePersistentTerminalAvailable,
+  getPersistentTerminalSocketName,
+  killPersistentTerminalSession,
+} from "../lib/persistent-terminal";
 import { getRequestAuthSessionId } from "../middleware/auth";
 import { getOwnedSession, sessions } from "../services/session";
+import {
+  clearTerminalTabs,
+  createTerminalTab,
+  deleteTerminalTab,
+  getTerminalTab,
+  listTerminalTabs,
+} from "../services/terminal-tabs";
 
 const terminalRoute = new Hono();
 
@@ -48,6 +61,11 @@ terminalRoute.post("/connect", async (c) => {
           sessionId,
         })
       );
+    });
+
+    client.on("close", () => {
+      sessions.delete(sessionId);
+      clearTerminalTabs(sessionId);
     });
 
     client.on("error", (e) => {
@@ -107,6 +125,75 @@ terminalRoute.get("/sessions", async (c) => {
     .map(([id, s]) => ({ sessionId: id, host: s.host }));
 
   return c.json({ sessions: activeSessions });
+});
+
+terminalRoute.get("/tabs", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) {
+    throw new HTTPException(400, { message: "sessionId is required" });
+  }
+
+  getOwnedSession(sessionId, ownerId);
+  return c.json({ tabs: listTerminalTabs(sessionId) });
+});
+
+terminalRoute.post("/tabs", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
+  const { sessionId, name } = await c.req.json<{
+    sessionId?: string;
+    name?: string;
+  }>();
+
+  if (!sessionId) {
+    throw new HTTPException(400, { message: "sessionId is required" });
+  }
+
+  const session = getOwnedSession(sessionId, ownerId);
+  const socketName = getPersistentTerminalSocketName(sessionId);
+  let createdTabId: string | null = null;
+
+  try {
+    await ensurePersistentTerminalAvailable(session.client);
+    const tab = createTerminalTab(sessionId, name);
+    createdTabId = tab.id;
+    await createPersistentTerminalSession(session.client, socketName, tab.sessionName);
+    return c.json({ tab });
+  } catch (error) {
+    if (createdTabId) {
+      deleteTerminalTab(sessionId, createdTabId);
+    }
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to create terminal tab",
+      },
+      500,
+    );
+  }
+});
+
+terminalRoute.post("/tabs/close", async (c) => {
+  const ownerId = getRequestAuthSessionId(c);
+  const { sessionId, terminalTabId } = await c.req.json<{
+    sessionId?: string;
+    terminalTabId?: string;
+  }>();
+
+  if (!sessionId || !terminalTabId) {
+    throw new HTTPException(400, { message: "sessionId and terminalTabId are required" });
+  }
+
+  const session = getOwnedSession(sessionId, ownerId);
+  const tab = getTerminalTab(sessionId, terminalTabId);
+  const socketName = getPersistentTerminalSocketName(sessionId);
+
+  try {
+    await killPersistentTerminalSession(session.client, socketName, tab.sessionName);
+  } finally {
+    deleteTerminalTab(sessionId, terminalTabId);
+  }
+
+  return c.json({ status: "closed" });
 });
 
 /**
@@ -196,6 +283,13 @@ terminalRoute.post("/disconnect", async (c) => {
     : undefined;
 
   if (session && session.ownerId === getRequestAuthSessionId(c)) {
+    const terminalTabs = clearTerminalTabs(sessionId);
+    const socketName = getPersistentTerminalSocketName(sessionId);
+    await Promise.allSettled(
+      terminalTabs.map((tab) =>
+        killPersistentTerminalSession(session.client, socketName, tab.sessionName),
+      ),
+    );
     session.client.end();
     sessions.delete(sessionId);
   }

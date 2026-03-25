@@ -10,6 +10,20 @@ import {
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
+const parseResponseMessage = async (response: Response) => {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json().catch(() => null) as
+      | { message?: string; error?: string }
+      | null;
+    return payload?.message || payload?.error || null;
+  }
+
+  const text = await response.text().catch(() => "");
+  return text || null;
+};
+
 const stringifyError = (error: unknown) => {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -22,6 +36,7 @@ export const useMediaConfigs = () => {
   const configs = ref<MediaConfig[]>([]);
   const isLoading = ref(false);
   const isSaving = ref(false);
+  const isDeleting = ref(false);
   const isTestingConnection = ref(false);
   const isModalOpen = ref(false);
   const modalStep = ref<"list" | "form">("list");
@@ -99,7 +114,8 @@ export const useMediaConfigs = () => {
       return;
     }
 
-    if (!configForm.value.url || !configForm.value.apiKey) {
+    const existingConfig = configsByService.value[configForm.value.serviceType];
+    if (!configForm.value.url || (!configForm.value.apiKey && !existingConfig?.hasApiKey)) {
       testResult.value = { success: false, message: "URL and API key are required" };
       return;
     }
@@ -115,7 +131,8 @@ export const useMediaConfigs = () => {
       });
 
       if (!response.ok) {
-        throw new MediaRequestError("Connection test failed", response.status);
+        const message = await parseResponseMessage(response);
+        throw new MediaRequestError(message || "Connection test failed", response.status);
       }
 
       testResult.value = (await response.json()) as TestConnectionResult;
@@ -146,7 +163,8 @@ export const useMediaConfigs = () => {
       });
 
       if (!response.ok) {
-        throw new MediaRequestError("Save failed", response.status);
+        const message = await parseResponseMessage(response);
+        throw new MediaRequestError(message || "Save failed", response.status);
       }
 
       await onSaved();
@@ -158,12 +176,46 @@ export const useMediaConfigs = () => {
     }
   };
 
+  const deleteConfig = async (hostId: number | undefined, onDeleted: () => Promise<void>) => {
+    if (!hostId) {
+      return;
+    }
+
+    const existingConfig = configsByService.value[editingService.value];
+    if (!existingConfig?.id) {
+      testResult.value = { success: false, message: "Config not found" };
+      return;
+    }
+
+    isDeleting.value = true;
+    testResult.value = null;
+
+    try {
+      const response = await fetch(`${baseUrl}/hosts/${hostId}/media/${existingConfig.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const message = await parseResponseMessage(response);
+        throw new MediaRequestError(message || "Delete failed", response.status);
+      }
+
+      await onDeleted();
+      closeModal();
+    } catch (error) {
+      testResult.value = { success: false, message: stringifyError(error) };
+    } finally {
+      isDeleting.value = false;
+    }
+  };
+
   return {
     configs,
     configsByService,
     hasAnyConfigured,
     isLoading,
     isSaving,
+    isDeleting,
     isTestingConnection,
     isModalOpen,
     modalStep,
@@ -177,5 +229,6 @@ export const useMediaConfigs = () => {
     closeModal,
     testConnection,
     saveConfig,
+    deleteConfig,
   };
 };

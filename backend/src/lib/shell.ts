@@ -1,6 +1,5 @@
 import { HTTPException } from "hono/http-exception";
 
-const tmuxSessionPattern = /^[A-Za-z0-9_-]+$/;
 const dockerPattern = /^[A-Za-z0-9_.-]+$/;
 const pidPattern = /^\d+$/;
 const archivePattern = /^[A-Za-z0-9._-]+$/;
@@ -16,13 +15,6 @@ const allowedSignals = new Set([
 
 export const shellEscape = (value: string) =>
   `'${value.replace(/'/g, `'\\''`)}'`;
-
-export const assertTmuxSessionName = (value: string) => {
-  if (!tmuxSessionPattern.test(value)) {
-    throw new HTTPException(400, { message: "Invalid tmux session name" });
-  }
-  return value;
-};
 
 export const assertDockerIdentifier = (value: string) => {
   if (!dockerPattern.test(value)) {

@@ -3,15 +3,18 @@
     <div class="auth-panel">
       <div class="auth-kicker">Konek Security</div>
       <h1>Unlock dashboard access</h1>
-      <p>Enter the backend password configured in `KONEK_AUTH_PASSWORD`.</p>
+      <p>Enter the backend password</p>
       <form class="auth-form" @submit.prevent="submit">
         <input
           v-model="password"
           type="password"
           autocomplete="current-password"
           placeholder="Password"
+        />
+        <button
+          :disabled="authStore.isLoading || password.length === 0"
+          type="submit"
         >
-        <button :disabled="authStore.isLoading || password.length === 0" type="submit">
           {{ authStore.isLoading ? "Checking..." : "Sign in" }}
         </button>
       </form>
@@ -41,7 +44,7 @@ const submit = async () => {
   place-items: center;
   padding: 2rem;
   background:
-    radial-gradient(circle at top, rgba(65, 184, 131, 0.18), transparent 35%),
+    radial-gradient(circle at top, rgba(14, 44, 90, 0.18), transparent 35%),
     linear-gradient(160deg, #07111a 0%, #0e1d26 45%, #07111a 100%);
 }
 

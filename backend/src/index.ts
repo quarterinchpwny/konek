@@ -8,8 +8,14 @@ import { RawData, WebSocketServer } from "ws";
 
 import { getAuthSession } from "./services/auth";
 import { requireAuth } from "./middleware/auth";
-import { assertDockerIdentifier, assertTmuxSessionName } from "./lib/shell";
+import { assertDockerIdentifier } from "./lib/shell";
 import { sessions } from "./services/session";
+import {
+  buildPersistentTerminalAttachCommand,
+  getPersistentTerminalSocketName,
+  resizeTmuxSession,
+} from "./lib/persistent-terminal";
+import { touchTerminalTab } from "./services/terminal-tabs";
 import authRoute from "./routes/auth";
 import hostsRoute from "./routes/hosts";
 import filesRoute from "./routes/files";
@@ -48,6 +54,20 @@ const server = serve({
   hostname: '0.0.0.0'
 }) as HttpServer;
 
+const applyStreamResize = async (
+  stream: { setWindow: (rows: number, cols: number) => void },
+  resize: () => Promise<void>,
+  cols?: number,
+  rows?: number,
+) => {
+  if (!cols || !rows) {
+    return;
+  }
+
+  stream.setWindow(rows, cols);
+  await resize();
+};
+
 const extractWebSocketToken = (request: IncomingMessage) => {
   const protocols = request.headers["sec-websocket-protocol"];
   if (!protocols) {
@@ -69,14 +89,16 @@ const wss = new WebSocketServer({
   },
 });
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", async (ws, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
   const authToken = extractWebSocketToken(req);
   const sid = url.searchParams.get("sessionId");
   const dockerId = url.searchParams.get("dockerId");
-  const tmuxSessionName = url.searchParams.get("tmuxSessionName");
+  const terminalTabId = url.searchParams.get("terminalTabId");
   const cols = url.searchParams.get("cols");
   const rows = url.searchParams.get("rows");
+  const parsedCols = cols ? parseInt(cols, 10) : undefined;
+  const parsedRows = rows ? parseInt(rows, 10) : undefined;
 
   if (!authToken) return ws.close();
   const authSession = getAuthSession(authToken);
@@ -105,54 +127,70 @@ wss.on("connection", (ws, req) => {
         ws.on("close", () => stream.end());
       }
     );
-  } else if (tmuxSessionName) {
+  } else if (terminalTabId) {
     try {
-      assertTmuxSessionName(tmuxSessionName);
+      const terminalTab = touchTerminalTab(sid, terminalTabId);
+      const socketName = getPersistentTerminalSocketName(sid);
+      const execOptions: any = {
+        pty: true,
+        term: "xterm-256color",
+      };
+
+      if (parsedCols && parsedRows) {
+        execOptions.cols = parsedCols;
+        execOptions.rows = parsedRows;
+      }
+
+      session.client.exec(
+        buildPersistentTerminalAttachCommand(socketName, terminalTab.sessionName),
+        execOptions,
+        (err: Error | undefined, stream: any) => {
+          if (err) {
+            ws.send(`\x1b[31mError attaching to terminal tab: ${err.message}\x1b[0m\r\n`);
+            return ws.close();
+          }
+
+          ws.on("message", (data: RawData) => {
+            try {
+              const msg = JSON.parse(data.toString());
+              if (msg.type === "resize" && msg.cols && msg.rows) {
+                stream.setWindow(msg.rows, msg.cols);
+                void resizeTmuxSession(
+                  session.client,
+                  terminalTab.sessionName,
+                  msg.cols,
+                  msg.rows,
+                  socketName,
+                );
+                return;
+              }
+            } catch {}
+            stream.write(data as Buffer);
+          });
+
+          void applyStreamResize(
+            stream,
+            () =>
+              resizeTmuxSession(
+                session.client,
+                terminalTab.sessionName,
+                parsedCols,
+                parsedRows,
+                socketName,
+              ),
+            parsedCols,
+            parsedRows,
+          );
+
+          stream.on("data", (d: Buffer) => ws.send(d.toString()));
+          stream.stderr.on("data", (d: Buffer) => ws.send(d.toString()));
+          stream.on("close", () => ws.close());
+          ws.on("close", () => stream.end());
+        },
+      );
     } catch {
       return ws.close();
     }
-
-    // ------------------ Tmux attach stream ------------------
-
-    const execOptions: any = {
-      pty: true,
-      term: "xterm-256color",
-    };
-
-    // Add window size if provided
-    if (cols && rows) {
-      execOptions.cols = parseInt(cols);
-      execOptions.rows = parseInt(rows);
-    }
-
-    session.client.exec(
-      `tmux attach -t ${tmuxSessionName}`,
-      execOptions,
-      (err: Error | undefined, stream: any) => {
-        if (err) {
-          ws.send(`\x1b[31mError attaching to tmux session: ${err.message}\x1b[0m\r\n`);
-          return ws.close();
-        }
-
-        ws.on("message", (data: RawData) => {
-          // Handle resize messages from frontend
-          try {
-            const msg = JSON.parse(data.toString());
-            if (msg.type === 'resize' && msg.cols && msg.rows) {
-              stream.setWindow(msg.rows, msg.cols);
-              return;
-            }
-          } catch (e) {
-            // Not JSON, treat as regular input
-          }
-          stream.write(data as Buffer);
-        });
-
-        stream.on("data", (d: Buffer) => ws.send(d.toString()));
-        stream.on("close", () => ws.close());
-        ws.on("close", () => stream.end());
-      }
-    );
   } else {
     // ------------------ Terminal shell ------------------
 

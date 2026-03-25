@@ -95,6 +95,8 @@
           :missing-count="sonarrMissingCount"
           :queue="queue"
         />
+        <RequestsFeedWidget class="span-two" :requests="requestFeed" />
+        <ArrHealthWidget class="span-two" :items="arrHealth" />
         <RadarrWidget
           v-if="configsByService.radarr?.enabled"
           :config-url="configsByService.radarr?.url"
@@ -104,17 +106,6 @@
           :movie-count="movieCount"
           :available-count="radarrAvailableCount"
           :missing-count="radarrMissingCount"
-        />
-        <JellyseerrWidget
-          v-if="configsByService.jellyseerr?.enabled"
-          :config-url="configsByService.jellyseerr?.url"
-          :status-class="runtimeMap.jellyseerr.state"
-          :status-text="statusText('jellyseerr')"
-          :meta="serviceMeta('jellyseerr')"
-          :pending="pending"
-          :approved="approved"
-          :available="available"
-          :requests="requests"
         />
         <JellyfinWidget
           v-if="configsByService.jellyfin?.enabled"
@@ -128,9 +119,18 @@
           :active="active"
           :now-playing="nowPlaying"
         />
-        <RequestsFeedWidget class="span-two" :requests="requestFeed" />
-        <RecentlyAddedWidget class="span-two" :items="recentMedia" />
-        <ArrHealthWidget class="span-two" :items="arrHealth" />
+        <JellyseerrWidget
+          v-if="configsByService.jellyseerr?.enabled"
+          :config-url="configsByService.jellyseerr?.url"
+          :status-class="runtimeMap.jellyseerr.state"
+          :status-text="statusText('jellyseerr')"
+          :meta="serviceMeta('jellyseerr')"
+          :pending="pending"
+          :approved="approved"
+          :available="available"
+          :requests="requests"
+        />
+        <RecentlyAddedWidget :items="recentMedia" />
       </div>
     </div>
 
@@ -144,10 +144,12 @@
       :is-api-key-visible="isApiKeyVisible"
       :test-result="testResult"
       :is-saving="isSaving"
+      :is-deleting="isDeleting"
       :is-testing-connection="isTestingConnection"
       @close="closeModal"
       @back="goBackToServiceList"
       @edit-service="editService"
+      @delete-config="deleteConfig"
       @toggle-api-key="toggleApiKeyVisibility"
       @test-connection="testConnection"
       @save="saveConfig"
@@ -236,12 +238,14 @@ const {
   isApiKeyVisible,
   testResult,
   isSaving,
+  isDeleting,
   isTestingConnection,
   open: openModal,
   editService,
   close: closeModal,
   testConnection,
   save: saveConfig,
+  delete: deleteConfig,
 } = modal;
 
 const goBackToServiceList = () => {
@@ -261,5 +265,177 @@ const updateField = (
 </script>
 
 <style scoped>
-@import "@/components/media/media-manager.css";
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
+
+.media-manager {
+  --media-gap: 0.8rem;
+  --media-widget-min-height: 210px;
+  --media-modal-width: 560px;
+  width: 100%;
+  height: 100%;
+  color: #d4d9e6;
+  background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
+  font-family:
+    "Outfit",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+.main-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--media-gap);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 161, 195, 0.4) rgba(255, 255, 255, 0.04);
+}
+
+.main-content::-webkit-scrollbar {
+  width: 10px;
+}
+.main-content::-webkit-scrollbar-thumb {
+  background: rgba(127, 161, 195, 0.35);
+  border-radius: 999px;
+}
+.main-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+.page-header,
+.empty-card,
+.state-panel {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(20, 25, 32, 0.8);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem;
+}
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kicker,
+.page-subtitle,
+.empty-text {
+  color: rgba(255, 255, 255, 0.45);
+}
+.kicker {
+  margin: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.page-title {
+  margin: 0.2rem 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.3rem;
+}
+.page-subtitle {
+  margin: 0;
+  font-size: 0.68rem;
+}
+.config-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(127, 161, 195, 0.12);
+  color: #7fa1c3;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.48rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.config-btn:focus-visible {
+  outline: 2px solid rgba(127, 161, 195, 0.5);
+  outline-offset: 2px;
+}
+.config-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-auto-flow: dense;
+  gap: 0.75rem;
+}
+.span-two {
+  grid-column: span 2;
+}
+.calendar-card {
+  min-height: 0;
+}
+.state-panel,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  text-align: center;
+  min-height: calc(100% - 92px);
+  padding: 1.5rem;
+}
+.empty-state {
+  height: 100%;
+}
+.empty-card {
+  padding: 1.4rem;
+}
+.empty-icon {
+  font-size: 54px;
+  color: #7fa1c3;
+}
+.empty-title {
+  margin: 0.3rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.loader {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #7fa1c3;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-actions,
+  .config-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .widgets-grid {
+    grid-template-columns: 1fr;
+  }
+  .span-two {
+    grid-column: auto;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>

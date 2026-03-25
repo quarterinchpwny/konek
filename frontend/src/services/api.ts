@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const storageKey = "authToken";
+const apiBaseUrl = new URL(import.meta.env.VITE_API_BASE_URL, window.location.href);
 
 export const getAuthToken = () => localStorage.getItem(storageKey);
 
@@ -19,10 +20,35 @@ const injectAuthHeader = (headers: Headers, token: string | null) => {
   }
 };
 
+const resolveRequestUrl = (input: RequestInfo | URL | string) => {
+  if (input instanceof URL) {
+    return input;
+  }
+
+  if (typeof input === "string") {
+    return new URL(input, window.location.href);
+  }
+
+  return new URL(input.url, window.location.href);
+};
+
+const isBackendRequest = (input: RequestInfo | URL | string) => {
+  const requestUrl = resolveRequestUrl(input);
+  const apiPath = apiBaseUrl.pathname.endsWith("/")
+    ? apiBaseUrl.pathname
+    : `${apiBaseUrl.pathname}/`;
+
+  return (
+    requestUrl.origin === apiBaseUrl.origin &&
+    (requestUrl.pathname === apiBaseUrl.pathname || requestUrl.pathname.startsWith(apiPath))
+  );
+};
+
 export const setupApiAuth = () => {
   axios.interceptors.request.use((config) => {
     const token = getAuthToken();
-    if (token) {
+    const requestUrl = config.url ? resolveRequestUrl(config.url) : null;
+    if (token && requestUrl && isBackendRequest(requestUrl)) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,12 +57,19 @@ export const setupApiAuth = () => {
 
   const nativeFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const headers = new Headers(init?.headers);
+    if (!isBackendRequest(input)) {
+      return nativeFetch(input, init);
+    }
+
+    const request = new Request(input, init);
+    const headers = new Headers(request.headers);
     injectAuthHeader(headers, getAuthToken());
-    return nativeFetch(input, {
-      ...init,
-      headers,
-    });
+
+    return nativeFetch(
+      new Request(request, {
+        headers,
+      }),
+    );
   };
 };
 

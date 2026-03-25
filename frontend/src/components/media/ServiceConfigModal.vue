@@ -54,6 +54,7 @@
               </button>
             </div>
             <p v-if="editingService === 'qbittorrent'" class="field-hint">Use `username:password` for qBittorrent.</p>
+            <p v-if="hasStoredCredential" class="field-hint">Leave blank to keep the stored credential.</p>
           </div>
 
           <label class="checkbox-row">
@@ -72,6 +73,10 @@
           <button v-if="step === 'form'" class="secondary-btn" :disabled="isTestingConnection" @click="$emit('testConnection')">
             <Icon :icon="isTestingConnection ? 'mdi:loading' : 'mdi:wifi'" :class="{ spin: isTestingConnection }" />
             Test
+          </button>
+          <button v-if="showDeleteAction" class="danger-btn" :disabled="isDeleting" @click="$emit('deleteConfig')">
+            <Icon :icon="isDeleting ? 'mdi:loading' : 'mdi:trash-can-outline'" :class="{ spin: isDeleting }" />
+            Delete
           </button>
           <button class="secondary-btn" @click="$emit('close')">Cancel</button>
           <button v-if="step === 'form'" class="primary-btn" :disabled="isSaving" @click="$emit('save')">
@@ -105,6 +110,7 @@ const props = defineProps<{
   isApiKeyVisible: boolean;
   testResult: TestConnectionResult | null;
   isSaving: boolean;
+  isDeleting: boolean;
   isTestingConnection: boolean;
 }>();
 
@@ -112,6 +118,7 @@ const emit = defineEmits<{
   close: [];
   back: [];
   save: [];
+  deleteConfig: [];
   toggleApiKey: [];
   testConnection: [];
   editService: [service: MediaServiceType];
@@ -127,7 +134,19 @@ const credentialLabel = computed(() => {
 });
 
 const credentialPlaceholder = computed(() => {
+  if (hasStoredCredential.value) {
+    return props.editingService === "qbittorrent" ? "Stored credentials" : "Stored API key";
+  }
+
   return props.editingService === "qbittorrent" ? "admin:password" : "Your API key";
+});
+
+const hasStoredCredential = computed(() => {
+  return Boolean(props.configsByService[props.editingService]?.hasApiKey);
+});
+
+const showDeleteAction = computed(() => {
+  return props.step === "form" && Boolean(props.configsByService[props.editingService]?.id);
 });
 
 const updateField = (field: keyof SaveConfigPayload, value: string | boolean) => {
@@ -177,7 +196,7 @@ onUnmounted(() => document.removeEventListener("keydown", handleEscape));
 .modal-subtitle, .service-url { margin: 0.25rem 0 0; color: rgba(255, 255, 255, 0.45); font-size: 0.72rem; }
 .modal-body { padding: 1rem 1.1rem; }
 .service-list { display: flex; flex-direction: column; gap: 0.6rem; }
-.service-row, .secondary-btn, .primary-btn, .toggle-btn, .close-btn { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; }
+.service-row, .secondary-btn, .primary-btn, .danger-btn, .toggle-btn, .close-btn { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; }
 .service-row {
   display: flex;
   align-items: center;
@@ -218,7 +237,7 @@ onUnmounted(() => document.removeEventListener("keydown", handleEscape));
 
 .test-result.success { background: rgba(139, 213, 168, 0.08); color: #8bd5a8; }
 .test-result.error { background: rgba(242, 180, 180, 0.08); color: #f2b4b4; }
-.secondary-btn, .primary-btn, .toggle-btn, .close-btn {
+.secondary-btn, .primary-btn, .danger-btn, .toggle-btn, .close-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -231,9 +250,10 @@ onUnmounted(() => document.removeEventListener("keydown", handleEscape));
 
 .toggle-btn, .close-btn { width: 42px; height: 42px; padding: 0; }
 .primary-btn { background: rgba(139, 213, 168, 0.14); color: #8bd5a8; }
-.secondary-btn:disabled, .primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.service-row:hover, .secondary-btn:hover, .primary-btn:hover, .toggle-btn:hover, .close-btn:hover { border-color: rgba(127, 161, 195, 0.3); }
-.form-input:focus-visible, .service-row:focus-visible, .secondary-btn:focus-visible, .primary-btn:focus-visible, .toggle-btn:focus-visible, .close-btn:focus-visible {
+.danger-btn { background: rgba(242, 180, 180, 0.14); color: #f2b4b4; }
+.secondary-btn:disabled, .primary-btn:disabled, .danger-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.service-row:hover, .secondary-btn:hover, .primary-btn:hover, .danger-btn:hover, .toggle-btn:hover, .close-btn:hover { border-color: rgba(127, 161, 195, 0.3); }
+.form-input:focus-visible, .service-row:focus-visible, .secondary-btn:focus-visible, .primary-btn:focus-visible, .danger-btn:focus-visible, .toggle-btn:focus-visible, .close-btn:focus-visible {
   outline: 2px solid rgba(127, 161, 195, 0.5);
   outline-offset: 2px;
 }

@@ -1,0 +1,103 @@
+.terminal-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #0a0e12;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.terminal-bg,
+.terminal-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.terminal-bg {
+  background: linear-gradient(180deg, rgba(15, 20, 25, 0.86), rgba(10, 14, 18, 0.94));
+}
+
+.terminal-noise {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 0.5px, transparent 0.5px);
+  background-size: 8px 8px;
+  opacity: 0.18;
+}
+
+.status-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 25, 32, 0.88);
+  font-size: 0.78rem;
+}
+
+.status-connected {
+  border-bottom-color: rgba(139, 196, 160, 0.3);
+}
+
+.status-indicator,
+.status-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.status-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #d68a8a;
+}
+
+.status-connected .status-dot {
+  background: #8bc4a0;
+}
+
+.status-label {
+  color: rgba(255, 255, 255, 0.48);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.status-value,
+.status-text {
+  color: #e8e8e8;
+}
+
+.status-action {
+  margin-left: auto;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgba(127, 161, 195, 0.35);
+  border-radius: 999px;
+  background: rgba(127, 161, 195, 0.12);
+  color: #dfe9f3;
+}
+
+.xterm-container {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  padding: 0.85rem;
+}
+
+@media (max-width: 767px) {
+  .status-bar {
+    flex-wrap: wrap;
+  }
+
+  .status-action {
+    margin-left: 0;
+  }
+
+  .xterm-container {
+    padding: 0.65rem;
+  }
+}

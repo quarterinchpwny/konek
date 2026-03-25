@@ -113,19 +113,6 @@
                 </div>
               </button>
               <router-link
-                :to="{ name: 'tmux-manager' }"
-                class="action-card"
-                @click="emit('close')"
-              >
-                <div class="action-card-icon"><Terminal :size="20" /></div>
-                <div class="action-card-content">
-                  <div class="action-card-title">Tmux Manager</div>
-                  <div class="action-card-subtitle">
-                    Manage background sessions
-                  </div>
-                </div>
-              </router-link>
-              <router-link
                 :to="{ name: 'network-map' }"
                 class="action-card"
                 @click="emit('close')"
@@ -185,8 +172,6 @@
               </div>
             </div>
           </div>
-
-          <RecentActivity />
         </div>
       </template>
     </div>
@@ -203,14 +188,14 @@
           >Disconnect from {{ hostStore.selectedHost.alias }}</span
         >
       </button>
-      <div class="profile-card">
+      <button class="profile-card" type="button" @click="logout">
         <div class="profile-avatar">JD</div>
         <div class="profile-info">
           <p class="profile-name">Local User</p>
-          <p class="profile-subtitle">Settings & Profile</p>
+          <p class="profile-subtitle">Sign out of Konek</p>
         </div>
-        <Settings :size="14" class="profile-icon" />
-      </div>
+        <LogOut :size="14" class="profile-icon" />
+      </button>
     </div>
   </aside>
 
@@ -343,7 +328,6 @@ import {
   Plus,
   Server,
   Terminal,
-  Settings,
   Trash2,
   X,
   Zap,
@@ -351,11 +335,15 @@ import {
   Activity,
   AlertCircle,
   Network,
+  LogOut,
 } from "lucide-vue-next";
-import RecentActivity from "../RecentActivity.vue";
 import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/authStore";
+import { useSshStore } from "@/stores/SSHStore";
 
 const hostStore = useHostStore();
+const authStore = useAuthStore();
+const sshStore = useSshStore();
 const route = useRoute();
 const router = useRouter();
 const emit = defineEmits(["close"]);
@@ -432,6 +420,14 @@ function setActiveHost(host: Host) {
 
 function disconnectHost() {
   hostStore.setSelectedHost(null);
+  emit("close");
+  router.push({ name: "home" });
+}
+
+async function logout() {
+  hostStore.setSelectedHost(null);
+  sshStore.disconnect();
+  await authStore.logout();
   emit("close");
   router.push({ name: "home" });
 }
@@ -961,10 +957,27 @@ async function deleteHost(id: number) {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  width: 100%;
   padding: 0.75rem;
   background: rgba(20, 25, 32, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+.profile-card:hover {
+  background: rgba(27, 34, 43, 0.82);
+  border-color: rgba(127, 161, 195, 0.22);
+}
+
+.profile-card:active {
+  transform: translateY(1px);
 }
 
 .profile-avatar {
@@ -1005,7 +1018,7 @@ async function deleteHost(id: number) {
 
 .profile-icon {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* ── Modal ───────────────────────────────────────────────────────────────────*/

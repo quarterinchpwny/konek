@@ -23,9 +23,12 @@ export interface MediaServiceDefinition {
 }
 
 export interface MediaConfig {
+  id?: number;
+  hostId?: number;
   serviceType: MediaServiceType;
   url: string;
   apiKey?: string;
+  hasApiKey?: boolean;
   enabled: boolean;
 }
 

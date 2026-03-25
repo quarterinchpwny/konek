@@ -27,6 +27,20 @@ const testPaths: Record<string, string> = {
   qbittorrent: "/api/v2/transfer/info",
 };
 
+const normalizeServiceUrl = (value: string) => {
+  const normalized = new URL(value);
+  normalized.pathname = normalized.pathname.replace(/\/+$/, "");
+  return normalized.toString();
+};
+
+const buildServiceUrl = (base: string, path: string, query?: string) => {
+  const target = new URL(base);
+  const basePath = target.pathname === "/" ? "" : target.pathname.replace(/\/+$/, "");
+  target.pathname = `${basePath}${path}`;
+  target.search = query || "";
+  return target.toString();
+};
+
 const parseQbittorrentCredentials = (value: string) => {
   const separator = value.indexOf(":");
   if (separator <= 0) {
@@ -56,19 +70,21 @@ const createProxyHeaders = async (serviceType: string, url: string, apiKey: stri
 
   if (serviceType === "qbittorrent") {
     const { username, password } = parseQbittorrentCredentials(apiKey);
-    const loginResponse = await fetch(`${url}/api/v2/auth/login`, {
+    const serviceUrl = new URL(url);
+    const loginResponse = await fetch(buildServiceUrl(url, "/api/v2/auth/login"), {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         Referer: url,
-        Origin: url,
+        Origin: serviceUrl.origin,
       },
       body: new URLSearchParams({ username, password }),
     });
 
     const loginText = await loginResponse.text();
     if (!loginResponse.ok || loginText.trim() !== "Ok.") {
-      throw new HTTPException(401, { message: "qBittorrent authentication failed" });
+      const loginMessage = loginText.trim() || loginResponse.statusText || "empty response";
+      throw new HTTPException(401, { message: `qBittorrent authentication failed (${loginResponse.status}: ${loginMessage})` });
     }
 
     const cookie = loginResponse.headers.get("set-cookie");
@@ -78,7 +94,7 @@ const createProxyHeaders = async (serviceType: string, url: string, apiKey: stri
 
     headers.set("Cookie", cookie.split(";")[0]);
     headers.set("Referer", url);
-    headers.set("Origin", url);
+    headers.set("Origin", serviceUrl.origin);
     return headers;
   }
 
@@ -104,7 +120,7 @@ const proxyRequest = async ({
   body?: string;
 }) => {
   const headers = await createProxyHeaders(serviceType, url, apiKey);
-  const response = await fetch(`${url}${path}${query ? `?${query}` : ""}`, {
+  const response = await fetch(buildServiceUrl(url, path, query), {
     method,
     headers,
     body: ['POST', 'PUT', 'PATCH'].includes(method) ? body : undefined,
@@ -122,6 +138,24 @@ const proxyRequest = async ({
   }
 
   return payload;
+};
+
+const resolveApiKey = async (
+  hostId: number,
+  serviceType: string,
+  apiKey: string | undefined,
+) => {
+  if (typeof apiKey === "string" && apiKey.length > 0) {
+    return apiKey;
+  }
+
+  const existing = await db
+    .select()
+    .from(mediaConfigs)
+    .where(and(eq(mediaConfigs.hostId, hostId), eq(mediaConfigs.serviceType, serviceType)))
+    .get();
+
+  return decryptSecret(existing?.apiKey) || "";
 };
 
 // GET / - List all media configs for a host
@@ -153,10 +187,13 @@ media.post('/', async (c) => {
     .get();
 
   if (existing) {
-    const nextApiKey = typeof apiKey === 'string' && apiKey.length > 0 ? apiKey : existing.apiKey;
+    const nextApiKey =
+      typeof apiKey === 'string' && apiKey.length > 0
+        ? encryptSecret(apiKey) ?? ''
+        : existing.apiKey;
     const updated = await db
       .update(mediaConfigs)
-      .set({ url, apiKey: encryptSecret(nextApiKey) ?? '', enabled: enabled ? 1 : 0 })
+      .set({ url: normalizeServiceUrl(url), apiKey: nextApiKey, enabled: enabled ? 1 : 0 })
       .where(eq(mediaConfigs.id, existing.id))
       .returning();
     return c.json(toSafeMediaConfig(updated[0]));
@@ -166,7 +203,7 @@ media.post('/', async (c) => {
       .values({
         hostId,
         serviceType,
-        url,
+        url: normalizeServiceUrl(url),
         apiKey: encryptSecret(apiKey || '') || '',
         enabled: enabled !== false ? 1 : 0,
       })
@@ -177,13 +214,26 @@ media.post('/', async (c) => {
 
 // DELETE /:id - Remove a media config
 media.delete('/:id', async (c) => {
+  const hostId = Number(c.req.param('hostId'));
   const id = Number(c.req.param('id'));
-  const deleted = await db.delete(mediaConfigs).where(eq(mediaConfigs.id, id)).returning();
+  if (Number.isNaN(hostId) || Number.isNaN(id)) {
+    throw new HTTPException(400, { message: 'Invalid media config reference' });
+  }
+
+  const deleted = await db
+    .delete(mediaConfigs)
+    .where(and(eq(mediaConfigs.hostId, hostId), eq(mediaConfigs.id, id)))
+    .returning();
   if (deleted.length === 0) throw new HTTPException(404, { message: 'Config not found' });
   return c.json({ message: 'Deleted', config: toSafeMediaConfig(deleted[0]) });
 });
 
 media.post('/test', async (c) => {
+  const hostId = Number(c.req.param('hostId'));
+  if (Number.isNaN(hostId)) {
+    throw new HTTPException(400, { message: 'Invalid host ID' });
+  }
+
   const { serviceType, url, apiKey } = await c.req.json();
 
   if (!serviceType || !url) {
@@ -196,10 +246,11 @@ media.post('/test', async (c) => {
   }
 
   try {
+    const resolvedApiKey = await resolveApiKey(hostId, serviceType, apiKey);
     await proxyRequest({
       serviceType,
-      url,
-      apiKey: apiKey || '',
+      url: normalizeServiceUrl(url),
+      apiKey: resolvedApiKey,
       method: 'GET',
       path,
     });
@@ -233,7 +284,7 @@ media.all('/proxy/:serviceType/:any{.+}', async (c) => {
   try {
     const payload = await proxyRequest({
       serviceType,
-      url: config.url,
+      url: normalizeServiceUrl(config.url),
       apiKey: decryptSecret(config.apiKey) || '',
       method: c.req.method,
       path,

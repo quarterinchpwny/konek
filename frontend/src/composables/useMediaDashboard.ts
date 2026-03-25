@@ -284,12 +284,17 @@ export const useMediaDashboard = (hostId: Ref<number | undefined>) => {
       isApiKeyVisible: configState.isApiKeyVisible,
       testResult: configState.testResult,
       isSaving: configState.isSaving,
+      isDeleting: configState.isDeleting,
       isTestingConnection: configState.isTestingConnection,
       open: configState.openModal,
       editService: configState.editService,
       close: configState.closeModal,
       testConnection: () => configState.testConnection(hostId.value),
       save: () => configState.saveConfig(hostId.value, async () => {
+        await loadConfigs();
+        await runRefreshCycle();
+      }),
+      delete: () => configState.deleteConfig(hostId.value, async () => {
         await loadConfigs();
         await runRefreshCycle();
       }),
