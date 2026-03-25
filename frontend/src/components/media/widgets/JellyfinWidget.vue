@@ -2,7 +2,7 @@
   <MediaWidget
     title="Jellyfin"
     icon="simple-icons:jellyfin"
-    accent-class="jellyfin"
+    accent-class="text-[#9eb1c5]"
     :status-class="statusClass"
     :status-text="statusText"
     :meta="meta"
@@ -10,21 +10,34 @@
     external-label="Open Jellyfin"
   >
     <template #stats>
-      <div class="widget-stats">
-        <div class="stat-box"><span class="stat-label">Version</span><span class="stat-value small">{{ version || "-" }}</span></div>
-        <div class="stat-box"><span class="stat-label">Users</span><span class="stat-value">{{ users }}</span></div>
-        <div class="stat-box"><span class="stat-label">Now Playing</span><span class="stat-value success">{{ active }}</span></div>
+      <div class="mb-3 grid grid-cols-3 gap-2">
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Version</span>
+          <span class="block text-[0.85rem] font-bold text-white/90">{{ version || "-" }}</span>
+        </div>
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Users</span>
+          <span class="block text-[1.2rem] font-bold text-white/90">{{ users }}</span>
+        </div>
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Now Playing</span>
+          <span class="block text-[1.2rem] font-bold text-[#8bd5a8]">{{ active }}</span>
+        </div>
       </div>
     </template>
 
-    <div v-if="nowPlaying.length" class="widget-section">
-      <h4 class="section-title">Now Playing</h4>
-      <div class="play-items">
-        <div v-for="item in nowPlaying.slice(0, mediaItemLimits.nowPlaying)" :key="item.id" class="play-item">
-          <Icon icon="mdi:play-circle" class="play-icon" />
-          <div class="play-info">
-            <span class="play-title">{{ item.title }}</span>
-            <span class="play-user">{{ item.user }}</span>
+    <div v-if="nowPlaying.length">
+      <h4 class="mb-[0.45rem] text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Now Playing</h4>
+      <div class="flex flex-col gap-[0.35rem]">
+        <div
+          v-for="item in nowPlaying.slice(0, mediaItemLimits.nowPlaying)"
+          :key="item.id"
+          class="flex gap-2 rounded-lg border border-white/6 bg-white/2 px-2 py-[0.42rem]"
+        >
+          <Icon icon="mdi:play-circle" class="text-[18px] text-[#7fa1c3]" />
+          <div class="flex min-w-0 flex-col gap-[0.15rem]">
+            <span class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.7rem] text-white/85">{{ item.title }}</span>
+            <span class="text-[0.58rem] text-white/40">{{ item.user }}</span>
           </div>
         </div>
       </div>
@@ -49,21 +62,3 @@ defineProps<{
   nowPlaying: NowPlayingItem[];
 }>();
 </script>
-
-<style scoped>
-.jellyfin { color: #9eb1c5; }
-.widget-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
-.stat-box, .play-item { border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(255, 255, 255, 0.02); border-radius: 8px; }
-.stat-box { padding: 0.45rem; }
-.stat-label, .section-title, .play-user { color: rgba(255, 255, 255, 0.4); font-size: 0.58rem; }
-.stat-label, .section-title { text-transform: uppercase; letter-spacing: 0.04em; }
-.section-title { margin: 0 0 0.45rem; }
-.stat-value { display: block; color: rgba(255, 255, 255, 0.9); font-weight: 700; font-size: 1.2rem; }
-.small { font-size: 0.85rem; }
-.success { color: #8bd5a8; }
-.play-items { display: flex; flex-direction: column; gap: 0.35rem; }
-.play-item { padding: 0.42rem 0.5rem; display: flex; gap: 0.5rem; }
-.play-icon { font-size: 18px; color: #7fa1c3; }
-.play-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.play-title { color: rgba(255, 255, 255, 0.85); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-</style>

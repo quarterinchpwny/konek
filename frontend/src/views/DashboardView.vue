@@ -291,7 +291,7 @@ watch(activeTab, (tab) => {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
+@reference "../assets/css/main.css";
 
 .main-page {
   font-family:
@@ -302,84 +302,51 @@ watch(activeTab, (tab) => {
 }
 
 .main-bg {
-  position: absolute;
-  inset: 0;
   background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
-  z-index: 0;
+  @apply absolute inset-0 z-0;
 }
 
 .main-noise {
-  position: absolute;
-  inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   pointer-events: none;
-  z-index: 1;
+  @apply absolute inset-0 z-[1];
 }
 
 .main-header {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  padding: 0.5rem 1rem;
   background: rgba(20, 25, 32, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-  backdrop-filter: blur(12px);
-  gap: 0.375rem;
+  @apply relative z-10 flex shrink-0 flex-col gap-[0.375rem] border-b border-white/6 px-4 py-2 backdrop-blur-[12px];
 }
 
 @media (min-width: 768px) {
   .main-header {
-    padding: 0 1.5rem;
-    flex-direction: row;
-    align-items: center;
-    height: 56px;
-    gap: 1rem;
+    @apply h-14 flex-row items-center gap-4 px-6 py-0;
   }
 }
 
 .header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  @apply flex items-center justify-between gap-2;
 }
 
 @media (min-width: 768px) {
   .header-top {
-    flex: 0 0 auto;
-    justify-content: flex-start;
+    @apply flex-none justify-start;
   }
 }
 
 .breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  min-width: 0;
+  @apply flex min-w-0 items-center gap-2 text-[0.8125rem];
 }
 
 .breadcrumb-item {
-  color: rgba(255, 255, 255, 0.4);
-  font-weight: 500;
-  white-space: nowrap;
+  @apply whitespace-nowrap font-medium text-white/40;
 }
 
 .breadcrumb-separator {
-  color: rgba(255, 255, 255, 0.2);
-  flex-shrink: 0;
+  @apply shrink-0 text-white/20;
 }
 
 .breadcrumb-current {
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 40vw;
+  @apply max-w-[40vw] overflow-hidden text-ellipsis whitespace-nowrap font-semibold tracking-[-0.01em] text-white/90;
 }
 
 @media (min-width: 768px) {
@@ -389,18 +356,8 @@ watch(activeTab, (tab) => {
 }
 
 .stats-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
   background: rgba(127, 161, 195, 0.1);
-  border: 1px solid rgba(127, 161, 195, 0.2);
-  color: #7fa1c3;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
+  @apply flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#7fa1c3]/20 text-[#7fa1c3] transition-colors duration-200;
 }
 
 .stats-toggle:hover {
@@ -408,14 +365,8 @@ watch(activeTab, (tab) => {
 }
 
 .tabs-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  @apply flex items-center justify-start gap-2 overflow-x-auto overflow-y-hidden pr-[0.125rem];
   -webkit-overflow-scrolling: touch;
-  padding-right: 0.125rem;
   scrollbar-width: none;
 }
 
@@ -425,90 +376,53 @@ watch(activeTab, (tab) => {
 
 @media (min-width: 768px) {
   .tabs-row {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    flex: 1 1 auto;
-    margin-left: auto;
-    overflow: visible;
+    @apply ml-auto flex-[1_1_auto] justify-end overflow-visible;
   }
 
   .tabs-container {
-    margin-left: auto;
+    @apply ml-auto;
   }
 }
 
 .tabs-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 0 0 auto;
+  @apply flex flex-none items-center gap-2;
 }
 
 .tabs-container {
-  display: flex;
-  align-items: center;
-  gap: 0.125rem;
-  padding: 0.25rem;
   background: rgba(30, 35, 42, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  min-width: max-content;
+  @apply flex min-w-max items-center gap-[0.125rem] rounded-[10px] border border-white/6 p-1;
 }
 
 .tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-
-  padding: 0.5rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  @apply relative flex min-h-9 touch-manipulation items-center gap-[0.375rem] whitespace-nowrap rounded-lg border-none bg-transparent px-3 py-2 text-[0.8125rem] font-semibold tracking-[-0.01em] text-white/50 transition-all duration-200;
   font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-
-  min-height: 36px;
-  touch-action: manipulation;
 }
 
 @media (min-width: 640px) {
   .tab {
-    padding: 0.625rem 1rem;
+    @apply px-4 py-2.5;
   }
 }
 
 .tab:hover {
-  color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.03);
+  @apply text-white/80;
 }
 
 .tab-active {
-  color: #7fa1c3;
   background: rgba(127, 161, 195, 0.12);
+  @apply text-[#7fa1c3];
 }
 
 .tab-active:hover {
-  color: #7fa1c3;
   background: rgba(127, 161, 195, 0.15);
+  @apply text-[#7fa1c3];
 }
 
 .tab-indicator {
-  position: absolute;
-  bottom: -1px;
-  left: 0.5rem;
-  right: 0.5rem;
-  height: 2px;
   background: linear-gradient(to right, transparent, #7fa1c3, transparent);
-  border-radius: 1px;
   animation: tab-indicator-slide 0.3s ease;
+  @apply absolute bottom-[-1px] left-2 right-2 h-0.5 rounded-[1px];
 }
 
 @keyframes tab-indicator-slide {
@@ -523,104 +437,57 @@ watch(activeTab, (tab) => {
 }
 
 .content-wrapper {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+  @apply relative z-[2] flex min-h-0 flex-[1_1_0] overflow-hidden;
 }
 
 .content-main {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
+  @apply relative flex min-h-0 min-w-0 flex-[1_1_0] flex-col overflow-hidden;
 }
 
 .panel-full {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: auto;
-  position: relative;
-  z-index: 1;
+  @apply relative z-[1] min-h-0 flex-[1_1_0] overflow-auto;
 }
 
 .panel-empty {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 0.875rem;
+  @apply flex h-full flex-col items-center justify-center gap-3 text-sm text-white/30;
 }
 
 .panel-empty-icon {
-  opacity: 0.4;
+  @apply opacity-40;
 }
 
 .sidebar-desktop {
-  display: none;
+  @apply hidden;
 }
 
 @media (min-width: 1024px) {
   .sidebar-desktop {
-    display: block;
-    flex: 0 0 260px;
-    width: 260px;
-    border-left: 1px solid rgba(255, 255, 255, 0.05);
     background: rgba(0, 0, 0, 0.2);
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-bottom: 1rem;
+    @apply block w-[260px] flex-[0_0_260px] overflow-x-hidden overflow-y-auto border-l border-white/5 pb-4;
   }
 }
 
 .stats-backdrop {
-  position: fixed;
-  inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 40;
+  @apply fixed inset-0 z-40;
 }
 
 .stats-drawer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
   background: rgba(14, 18, 24, 0.98);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px 16px 0 0;
-  max-height: 70vh;
-  display: flex;
-  flex-direction: column;
+  @apply fixed inset-x-0 bottom-0 z-50 flex max-h-[70vh] flex-col rounded-t-2xl border-t border-white/8;
 }
 
 .stats-drawer-handle {
-  display: flex;
-  justify-content: center;
-  padding: 0.75rem;
-  cursor: pointer;
-  flex-shrink: 0;
+  @apply flex shrink-0 cursor-pointer justify-center p-3;
 }
 
 .handle-bar {
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
   background: rgba(255, 255, 255, 0.2);
+  @apply h-1 w-10 rounded-[2px];
 }
 
 .stats-drawer-content {
-  overflow-y: auto;
-  flex: 1;
-  padding: 0 1rem 1.5rem;
+  @apply flex-1 overflow-y-auto px-4 pb-6;
 }
 
 .drawer-enter-active,

@@ -1,12 +1,22 @@
 <template>
-  <article class="media-widget">
-    <header class="widget-header">
-      <div class="widget-title-group">
-        <Icon :icon="icon" class="widget-icon" :class="accentClass" />
+  <article class="min-h-[var(--media-widget-min-height)] rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-3 backdrop-blur-[8px] transition-colors duration-200 hover:border-white/10">
+    <header class="mb-3 flex items-start justify-between gap-2">
+      <div class="flex items-start gap-2">
+        <Icon :icon="icon" class="mt-[0.1rem] text-[20px]" :class="accentClass" />
         <div>
-          <h3 class="widget-title">{{ title }}</h3>
-          <span class="widget-status" :class="statusClass">{{ statusText }}</span>
-          <span v-if="meta" class="widget-meta">{{ meta }}</span>
+          <h3 class="text-[0.82rem] text-white/90">{{ title }}</h3>
+          <span
+            class="mt-[0.2rem] inline-flex items-center rounded-full border px-[0.38rem] py-[0.08rem] text-[0.62rem] capitalize tracking-[0.04em]"
+            :class="statusClasses"
+          >
+            {{ statusText }}
+          </span>
+          <span
+            v-if="meta"
+            class="mt-[0.22rem] block max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap text-[0.62rem] text-white/40"
+          >
+            {{ meta }}
+          </span>
         </div>
       </div>
       <a
@@ -14,7 +24,7 @@
         :href="href"
         target="_blank"
         rel="noopener noreferrer"
-        class="widget-link"
+        class="inline-flex h-7 w-7 items-center justify-center rounded-[7px] border border-white/8 bg-white/2 text-white/60 transition-all duration-200 hover:border-[#7fa1c3]/30 hover:bg-[#7fa1c3]/10 hover:text-[#7fa1c3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fa1c3]/50"
         :aria-label="externalLabel"
       >
         <Icon icon="mdi:open-in-new" />
@@ -27,9 +37,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { Icon } from "@iconify/vue";
 
-defineProps<{
+const props = defineProps<{
   title: string;
   icon: string;
   statusClass: string;
@@ -39,126 +50,19 @@ defineProps<{
   externalLabel: string;
   accentClass?: string;
 }>();
+
+const statusClassMap: Record<string, string> = {
+  online: "border-[#8bd5a8]/35 bg-[#8bd5a8]/8 text-[#8bd5a8]",
+  offline: "border-[#f2b4b4]/35 bg-[#f2b4b4]/8 text-[#f2b4b4]",
+  timeout: "border-[#f2b4b4]/35 bg-[#f2b4b4]/8 text-[#f2b4b4]",
+  auth_error: "border-[#f2b4b4]/35 bg-[#f2b4b4]/8 text-[#f2b4b4]",
+  degraded: "border-[#f2cf8d]/35 bg-[#f2cf8d]/8 text-[#f2cf8d]",
+  checking: "border-[#9eb1c5]/35 bg-[#9eb1c5]/8 text-[#9eb1c5]",
+  unknown: "border-white/14 bg-white/2 text-white/45",
+  disabled: "border-white/14 bg-white/2 text-white/45",
+};
+
+const statusClasses = computed(
+  () => statusClassMap[props.statusClass] ?? statusClassMap.unknown,
+);
 </script>
-
-<style scoped>
-.media-widget {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(20, 25, 32, 0.8);
-  padding: 0.75rem;
-  min-height: var(--media-widget-min-height);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: border-color 0.2s ease;
-}
-
-.media-widget:hover {
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.widget-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.widget-title-group {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.widget-icon {
-  font-size: 20px;
-  margin-top: 0.1rem;
-}
-
-.widget-title {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.82rem;
-}
-
-.widget-status {
-  display: inline-flex;
-  align-items: center;
-  text-transform: capitalize;
-  letter-spacing: 0.04em;
-  font-size: 0.62rem;
-  margin-top: 0.2rem;
-  border: 1px solid;
-  border-radius: 999px;
-  padding: 0.08rem 0.38rem;
-}
-
-.widget-meta {
-  display: block;
-  margin-top: 0.22rem;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.62rem;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.widget-status.online {
-  color: #8bd5a8;
-  border-color: rgba(139, 213, 168, 0.35);
-  background: rgba(139, 213, 168, 0.08);
-}
-
-.widget-status.offline,
-.widget-status.timeout,
-.widget-status.auth_error {
-  color: #f2b4b4;
-  border-color: rgba(242, 180, 180, 0.35);
-  background: rgba(242, 180, 180, 0.08);
-}
-
-.widget-status.degraded {
-  color: #f2cf8d;
-  border-color: rgba(242, 207, 141, 0.35);
-  background: rgba(242, 207, 141, 0.08);
-}
-
-.widget-status.checking {
-  color: #9eb1c5;
-  border-color: rgba(158, 177, 197, 0.35);
-  background: rgba(158, 177, 197, 0.08);
-}
-
-.widget-status.unknown,
-.widget-status.disabled {
-  color: rgba(255, 255, 255, 0.45);
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.widget-link {
-  color: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.widget-link:hover {
-  color: #7fa1c3;
-  border-color: rgba(127, 161, 195, 0.3);
-  background: rgba(127, 161, 195, 0.1);
-}
-
-.widget-link:focus-visible {
-  outline: 2px solid rgba(127, 161, 195, 0.5);
-  outline-offset: 2px;
-}
-</style>

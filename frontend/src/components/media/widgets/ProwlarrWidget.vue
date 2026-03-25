@@ -2,7 +2,7 @@
   <MediaWidget
     title="Prowlarr"
     icon="mdi:satellite-variant"
-    accent-class="prowlarr"
+    accent-class="text-[#ffca7a]"
     :status-class="statusClass"
     :status-text="statusText"
     :meta="meta"
@@ -10,20 +10,38 @@
     external-label="Open Prowlarr"
   >
     <template #stats>
-      <div class="widget-stats">
-        <div class="stat-box"><span class="stat-label">Indexers</span><span class="stat-value">{{ total }}</span></div>
-        <div class="stat-box"><span class="stat-label">Healthy</span><span class="stat-value success">{{ healthy }}</span></div>
-        <div class="stat-box"><span class="stat-label">Failing</span><span class="stat-value warning">{{ failing }}</span></div>
+      <div class="mb-3 grid grid-cols-3 gap-2">
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Indexers</span>
+          <span class="block text-[1.2rem] font-bold text-white/90">{{ total }}</span>
+        </div>
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Healthy</span>
+          <span class="block text-[1.2rem] font-bold text-[#8bd5a8]">{{ healthy }}</span>
+        </div>
+        <div class="rounded-lg border border-white/6 bg-white/2 p-[0.45rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Failing</span>
+          <span class="block text-[1.2rem] font-bold text-[#f2cf8d]">{{ failing }}</span>
+        </div>
       </div>
     </template>
 
-    <div v-if="indexers.length" class="widget-section">
-      <h4 class="section-title">Status</h4>
-      <div class="indexer-items">
-        <div v-for="item in indexers.slice(0, mediaItemLimits.indexers)" :key="item.id" class="indexer-item">
-          <span class="indexer-name">{{ item.name }}</span>
-          <span class="indexer-latency">{{ item.latency }}</span>
-          <span class="indexer-status" :class="item.status">{{ item.status }}</span>
+    <div v-if="indexers.length">
+      <h4 class="mb-[0.45rem] text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Status</h4>
+      <div class="flex flex-col gap-[0.35rem]">
+        <div
+          v-for="item in indexers.slice(0, mediaItemLimits.indexers)"
+          :key="item.id"
+          class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-[0.45rem] rounded-lg border border-white/6 bg-white/2 px-2 py-[0.45rem]"
+        >
+          <span class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.68rem] text-white/88">{{ item.name }}</span>
+          <span class="text-[0.58rem] text-white/40">{{ item.latency }}</span>
+          <span
+            class="border px-[0.3rem] py-[0.08rem] text-[0.56rem] uppercase"
+            :class="indexerStatusClasses(item.status)"
+          >
+            {{ item.status }}
+          </span>
         </div>
       </div>
     </div>
@@ -45,23 +63,9 @@ defineProps<{
   failing: number;
   indexers: IndexerStatusItem[];
 }>();
-</script>
 
-<style scoped>
-.prowlarr { color: #ffca7a; }
-.widget-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
-.stat-box, .indexer-item { border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(255, 255, 255, 0.02); border-radius: 8px; }
-.stat-box { padding: 0.45rem; }
-.stat-label, .section-title, .indexer-latency { color: rgba(255, 255, 255, 0.4); font-size: 0.58rem; }
-.stat-label, .section-title { text-transform: uppercase; letter-spacing: 0.04em; }
-.section-title { margin: 0 0 0.45rem; }
-.stat-value { display: block; color: rgba(255, 255, 255, 0.9); font-weight: 700; font-size: 1.2rem; }
-.success { color: #8bd5a8; }
-.warning { color: #f2cf8d; }
-.indexer-items { display: flex; flex-direction: column; gap: 0.35rem; }
-.indexer-item { padding: 0.45rem 0.5rem; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.45rem; align-items: center; }
-.indexer-name { color: rgba(255, 255, 255, 0.88); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.indexer-status { font-size: 0.56rem; text-transform: uppercase; padding: 0.08rem 0.3rem; border: 1px solid transparent; }
-.indexer-status.ok { color: #8bd5a8; border-color: rgba(139, 213, 168, 0.35); }
-.indexer-status.failing { color: #f2cf8d; border-color: rgba(242, 207, 141, 0.35); }
-</style>
+const indexerStatusClasses = (status: string) =>
+  status === "ok"
+    ? "border-[#8bd5a8]/35 text-[#8bd5a8]"
+    : "border-[#f2cf8d]/35 text-[#f2cf8d]";
+</script>

@@ -1,24 +1,38 @@
 <template>
-  <article class="health-widget">
-    <header class="health-header">
+  <article class="rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-3">
+    <header class="mb-[0.7rem] flex items-start justify-between gap-3">
       <div>
-        <p class="health-kicker">Health</p>
-        <h3>ARR Warnings</h3>
+        <p class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">Health</p>
+        <h3 class="mt-[0.15rem] text-[0.95rem] text-white/90">ARR Warnings</h3>
       </div>
-      <span class="health-count">{{ items.length }}</span>
+      <span class="text-base font-bold text-[#f2cf8d]">{{ items.length }}</span>
     </header>
 
-    <div v-if="items.length" class="health-items">
-      <div v-for="item in items" :key="item.id" class="health-item">
-        <span class="health-source" :class="item.source">{{ item.source }}</span>
-        <div class="health-copy">
-          <span class="health-type">{{ item.type }}</span>
-          <span class="health-message">{{ item.message }}</span>
+    <div v-if="items.length" class="flex flex-col gap-[0.35rem]">
+      <div
+        v-for="item in items"
+        :key="item.id"
+        class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-[0.45rem] rounded-lg border border-white/6 bg-white/2 p-2"
+      >
+        <span
+          class="border px-[0.28rem] py-[0.06rem] text-[0.54rem] uppercase tracking-[0.08em]"
+          :class="healthSourceClasses(item.source)"
+        >
+          {{ item.source }}
+        </span>
+        <div class="flex min-w-0 flex-col gap-[0.18rem]">
+          <span class="text-[0.58rem] uppercase tracking-[0.04em] text-white/40">{{ item.type }}</span>
+          <span class="text-[0.68rem] text-white/86">{{ item.message }}</span>
         </div>
-        <span class="health-level" :class="item.level">{{ item.level }}</span>
+        <span
+          class="border px-[0.28rem] py-[0.06rem] text-[0.54rem] uppercase tracking-[0.08em]"
+          :class="healthLevelClasses(item.level)"
+        >
+          {{ item.level }}
+        </span>
       </div>
     </div>
-    <div v-else class="health-empty">No ARR health warnings.</div>
+    <div v-else class="text-[0.72rem] text-white/45">No ARR health warnings.</div>
   </article>
 </template>
 
@@ -26,23 +40,21 @@
 import type { HealthIssue } from "@/types/media";
 
 defineProps<{ items: HealthIssue[] }>();
-</script>
 
-<style scoped>
-.health-widget { border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(20, 25, 32, 0.8); border-radius: 12px; padding: 0.75rem; }
-.health-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.7rem; }
-.health-kicker, .health-type { color: rgba(255, 255, 255, 0.4); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.health-header h3 { margin: 0.15rem 0 0; color: rgba(255, 255, 255, 0.9); font-size: 0.95rem; }
-.health-count { color: #f2cf8d; font-size: 1rem; font-weight: 700; }
-.health-items { display: flex; flex-direction: column; gap: 0.35rem; }
-.health-item { border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(255, 255, 255, 0.02); border-radius: 8px; padding: 0.5rem; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.45rem; align-items: flex-start; }
-.health-source, .health-level { font-size: 0.54rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.06rem 0.28rem; border: 1px solid transparent; }
-.health-source.sonarr { color: #7fa1c3; border-color: rgba(127, 161, 195, 0.35); }
-.health-source.radarr { color: #a3c4e8; border-color: rgba(163, 196, 232, 0.35); }
-.health-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
-.health-message { color: rgba(255, 255, 255, 0.86); font-size: 0.68rem; }
-.health-level.warning { color: #f2cf8d; border-color: rgba(242, 207, 141, 0.35); }
-.health-level.error { color: #f2b4b4; border-color: rgba(242, 180, 180, 0.35); }
-.health-level.info { color: #9eb1c5; border-color: rgba(158, 177, 197, 0.35); }
-.health-empty { color: rgba(255, 255, 255, 0.45); font-size: 0.72rem; }
-</style>
+const healthSourceClasses = (source: string) =>
+  source === "sonarr"
+    ? "border-[#7fa1c3]/35 text-[#7fa1c3]"
+    : "border-[#a3c4e8]/35 text-[#a3c4e8]";
+
+const healthLevelClasses = (level: string) => {
+  if (level === "warning") {
+    return "border-[#f2cf8d]/35 text-[#f2cf8d]";
+  }
+
+  if (level === "error") {
+    return "border-[#f2b4b4]/35 text-[#f2b4b4]";
+  }
+
+  return "border-[#9eb1c5]/35 text-[#9eb1c5]";
+};
+</script>

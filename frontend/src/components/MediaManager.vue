@@ -1,63 +1,86 @@
 <template>
-  <div class="media-manager">
-    <div v-if="!hostId" class="empty-state">
-      <div class="empty-card">
-        <Icon icon="mdi:television-play" class="empty-icon" />
-        <p class="empty-title">No Host Selected</p>
-        <p class="empty-text">Select a host to view media services.</p>
+  <div
+    class="h-full w-full bg-[linear-gradient(180deg,#0a0e12_0%,#0f1419_100%)] font-['Outfit',sans-serif] text-[#d4d9e6]"
+    style="--media-widget-min-height: 210px; --media-modal-width: 560px"
+  >
+    <div v-if="!hostId" class="flex h-full flex-col items-center justify-center gap-[0.7rem] text-center">
+      <div class="rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-[1.4rem] backdrop-blur-[8px]">
+        <Icon icon="mdi:television-play" class="text-[54px] text-[#7fa1c3]" />
+        <p class="mt-[0.3rem] uppercase tracking-[0.1em]">No Host Selected</p>
+        <p class="text-white/45">Select a host to view media services.</p>
       </div>
     </div>
 
-    <div v-else class="main-content">
-      <header class="page-header">
+    <div v-else class="h-full overflow-y-auto p-[0.8rem]">
+      <header class="mb-[0.9rem] flex items-center justify-between gap-4 rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-[0.8rem] backdrop-blur-[8px] max-sm:flex-col max-sm:items-stretch">
         <div>
-          <p class="kicker">{{ healthKicker }}</p>
-          <h1 class="page-title">Consumer</h1>
-          <p class="page-subtitle">
+          <p class="m-0 text-[0.62rem] uppercase tracking-[0.08em] text-white/45">{{ healthKicker }}</p>
+          <h1 class="my-[0.2rem] text-[1.3rem] text-white/90">Consumer</h1>
+          <p class="m-0 text-[0.68rem] text-white/45">
             Quick access and media stack telemetry · {{ lastRefreshLabel }}
           </p>
         </div>
-        <div class="header-actions">
+        <div class="inline-flex items-center gap-2 max-sm:w-full">
           <button
-            class="config-btn"
+            class="inline-flex items-center gap-[0.35rem] rounded-lg border border-white/10 bg-[#7fa1c3]/12 px-[0.75rem] py-[0.48rem] text-[0.72rem] font-semibold text-[#7fa1c3] transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fa1c3]/50 disabled:cursor-not-allowed disabled:opacity-60 max-sm:w-full max-sm:justify-center"
             :disabled="isRefreshing"
             @click="refreshNow"
           >
-            <Icon icon="mdi:refresh" :class="{ spin: isRefreshing }" />
+            <Icon icon="mdi:refresh" :class="{ 'animate-spin': isRefreshing }" />
             <span>{{ isRefreshing ? "Refreshing" : "Refresh" }}</span>
           </button>
-          <button class="config-btn" @click="openModal">
+          <button
+            class="inline-flex items-center gap-[0.35rem] rounded-lg border border-white/10 bg-[#7fa1c3]/12 px-[0.75rem] py-[0.48rem] text-[0.72rem] font-semibold text-[#7fa1c3] transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fa1c3]/50 max-sm:w-full max-sm:justify-center"
+            @click="openModal"
+          >
             <Icon icon="mdi:cog" />
             <span>Configure</span>
           </button>
         </div>
       </header>
 
-      <div v-if="isLoadingConfigs" class="state-panel">
-        <div class="loader"></div>
+      <div
+        v-if="isLoadingConfigs"
+        class="flex min-h-[calc(100%-92px)] flex-col items-center justify-center gap-[0.7rem] rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-6 text-center backdrop-blur-[8px]"
+      >
+        <div class="h-9 w-9 animate-spin rounded-full border-[3px] border-white/12 border-t-[#7fa1c3]"></div>
         <p>Loading services...</p>
       </div>
-      <div v-else-if="dashboardError" class="state-panel">
-        <Icon icon="mdi:alert-octagon-outline" class="empty-icon" />
+      <div
+        v-else-if="dashboardError"
+        class="flex min-h-[calc(100%-92px)] flex-col items-center justify-center gap-[0.7rem] rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-6 text-center backdrop-blur-[8px]"
+      >
+        <Icon icon="mdi:alert-octagon-outline" class="text-[54px] text-[#7fa1c3]" />
         <h3>Media dashboard unavailable</h3>
-        <p class="empty-text">{{ dashboardError }}</p>
-        <button class="config-btn" @click="refreshNow">Retry</button>
+        <p class="text-white/45">{{ dashboardError }}</p>
+        <button
+          class="inline-flex items-center gap-[0.35rem] rounded-lg border border-white/10 bg-[#7fa1c3]/12 px-[0.75rem] py-[0.48rem] text-[0.72rem] font-semibold text-[#7fa1c3] transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fa1c3]/50"
+          @click="refreshNow"
+        >
+          Retry
+        </button>
       </div>
-      <div v-else-if="!hasAnyConfigured" class="state-panel">
-        <Icon icon="mdi:server-off" class="empty-icon" />
+      <div
+        v-else-if="!hasAnyConfigured"
+        class="flex min-h-[calc(100%-92px)] flex-col items-center justify-center gap-[0.7rem] rounded-xl border border-white/6 bg-[rgba(20,25,32,0.8)] p-6 text-center backdrop-blur-[8px]"
+      >
+        <Icon icon="mdi:server-off" class="text-[54px] text-[#7fa1c3]" />
         <h3>No Services Configured</h3>
-        <p class="empty-text">
+        <p class="text-white/45">
           Add Sonarr, Radarr, Jellyfin, Jellyseerr, Prowlarr, or qBittorrent to
           begin.
         </p>
-        <button class="config-btn" @click="openModal">
+        <button
+          class="inline-flex items-center gap-[0.35rem] rounded-lg border border-white/10 bg-[#7fa1c3]/12 px-[0.75rem] py-[0.48rem] text-[0.72rem] font-semibold text-[#7fa1c3] transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7fa1c3]/50"
+          @click="openModal"
+        >
           <Icon icon="mdi:plus" />Add Service
         </button>
       </div>
 
-      <div v-else class="widgets-grid">
+      <div v-else class="grid auto-flow-dense grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-3 max-sm:grid-cols-1">
         <ArrScheduleWidget
-          class="calendar-card span-two"
+          class="min-h-0 md:col-span-2"
           :entries="combinedSchedule"
           :loading="isRefreshing"
         />
@@ -85,7 +108,7 @@
         />
         <SonarrWidget
           v-if="configsByService.sonarr?.enabled"
-          class="span-two"
+          class="md:col-span-2"
           :config-url="configsByService.sonarr?.url"
           :status-class="runtimeMap.sonarr.state"
           :status-text="statusText('sonarr')"
@@ -95,8 +118,8 @@
           :missing-count="sonarrMissingCount"
           :queue="queue"
         />
-        <RequestsFeedWidget class="span-two" :requests="requestFeed" />
-        <ArrHealthWidget class="span-two" :items="arrHealth" />
+        <RequestsFeedWidget class="md:col-span-2" :requests="requestFeed" />
+        <ArrHealthWidget class="md:col-span-2" :items="arrHealth" />
         <RadarrWidget
           v-if="configsByService.radarr?.enabled"
           :config-url="configsByService.radarr?.url"
@@ -109,7 +132,7 @@
         />
         <JellyfinWidget
           v-if="configsByService.jellyfin?.enabled"
-          class="span-two"
+          class="md:col-span-2"
           :config-url="configsByService.jellyfin?.url"
           :status-class="runtimeMap.jellyfin.state"
           :status-text="statusText('jellyfin')"
@@ -263,179 +286,3 @@ const updateField = (
   configForm.value[field] = value as never;
 };
 </script>
-
-<style scoped>
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap");
-
-.media-manager {
-  --media-gap: 0.8rem;
-  --media-widget-min-height: 210px;
-  --media-modal-width: 560px;
-  width: 100%;
-  height: 100%;
-  color: #d4d9e6;
-  background: linear-gradient(180deg, #0a0e12 0%, #0f1419 100%);
-  font-family:
-    "Outfit",
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
-}
-
-.main-content {
-  height: 100%;
-  overflow-y: auto;
-  padding: var(--media-gap);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(127, 161, 195, 0.4) rgba(255, 255, 255, 0.04);
-}
-
-.main-content::-webkit-scrollbar {
-  width: 10px;
-}
-.main-content::-webkit-scrollbar-thumb {
-  background: rgba(127, 161, 195, 0.35);
-  border-radius: 999px;
-}
-.main-content::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-}
-.page-header,
-.empty-card,
-.state-panel {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(20, 25, 32, 0.8);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.9rem;
-  padding: 0.8rem;
-}
-.header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.kicker,
-.page-subtitle,
-.empty-text {
-  color: rgba(255, 255, 255, 0.45);
-}
-.kicker {
-  margin: 0;
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.page-title {
-  margin: 0.2rem 0;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 1.3rem;
-}
-.page-subtitle {
-  margin: 0;
-  font-size: 0.68rem;
-}
-.config-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(127, 161, 195, 0.12);
-  color: #7fa1c3;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 0.48rem 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.config-btn:focus-visible {
-  outline: 2px solid rgba(127, 161, 195, 0.5);
-  outline-offset: 2px;
-}
-.config-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.widgets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  grid-auto-flow: dense;
-  gap: 0.75rem;
-}
-.span-two {
-  grid-column: span 2;
-}
-.calendar-card {
-  min-height: 0;
-}
-.state-panel,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  text-align: center;
-  min-height: calc(100% - 92px);
-  padding: 1.5rem;
-}
-.empty-state {
-  height: 100%;
-}
-.empty-card {
-  padding: 1.4rem;
-}
-.empty-icon {
-  font-size: 54px;
-  color: #7fa1c3;
-}
-.empty-title {
-  margin: 0.3rem 0 0;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-.loader {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #7fa1c3;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@media (max-width: 640px) {
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .header-actions,
-  .config-btn {
-    width: 100%;
-    justify-content: center;
-  }
-  .widgets-grid {
-    grid-template-columns: 1fr;
-  }
-  .span-two {
-    grid-column: auto;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

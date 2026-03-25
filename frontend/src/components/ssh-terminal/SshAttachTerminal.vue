@@ -1,21 +1,31 @@
 <template>
-  <div class="terminal-wrapper">
-    <div class="terminal-bg"></div>
-    <div class="terminal-noise"></div>
-    <div class="status-bar" :class="{ 'status-connected': isConnected }">
-      <div class="status-indicator">
-        <div class="status-dot"></div>
-        <span class="status-text">{{ statusMessage }}</span>
+  <div class="relative flex h-full w-full flex-col overflow-hidden bg-[#0a0e12] font-['JetBrains_Mono',monospace]">
+    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,20,25,0.86),rgba(10,14,18,0.94))]"></div>
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.04)_0.5px,transparent_0.5px)] [background-size:8px_8px] opacity-[0.18]"></div>
+    <div
+      class="relative z-[1] flex items-center gap-3 border-b border-white/8 bg-[rgba(20,25,32,0.88)] px-[0.9rem] py-[0.7rem] text-[0.78rem] max-md:flex-wrap"
+      :class="isConnected ? 'border-b-[#8bc4a0]/30' : ''"
+    >
+      <div class="flex shrink-0 items-center gap-[0.45rem] whitespace-nowrap">
+        <div
+          class="h-[0.55rem] w-[0.55rem] rounded-full"
+          :class="isConnected ? 'bg-[#8bc4a0]' : 'bg-[#d68a8a]'"
+        ></div>
+        <span class="text-[#e8e8e8]">{{ statusMessage }}</span>
       </div>
-      <div class="status-meta">
-        <span class="status-label">{{ headerLabel }}</span>
-        <span class="status-value">{{ headerValue }}</span>
+      <div class="flex min-w-0 items-center gap-[0.45rem] whitespace-nowrap">
+        <span class="uppercase tracking-[0.08em] text-white/[0.48]">{{ headerLabel }}</span>
+        <span class="overflow-hidden text-ellipsis text-[#e8e8e8]">{{ headerValue }}</span>
       </div>
-      <button class="status-action" type="button" @click="reconnectTerminal">
+      <button
+        class="ml-auto shrink-0 rounded-full border border-[#7fa1c3]/35 bg-[#7fa1c3]/12 px-[0.7rem] py-[0.4rem] text-[#dfe9f3] transition-colors duration-150 hover:bg-[#7fa1c3]/20 max-md:ml-0"
+        type="button"
+        @click="reconnectTerminal"
+      >
         Reconnect
       </button>
     </div>
-    <div ref="terminalContainer" class="xterm-container"></div>
+    <div ref="terminalContainer" class="relative z-[1] min-h-0 flex-1 p-[0.65rem] md:p-[0.85rem]"></div>
   </div>
 </template>
 
@@ -25,7 +35,6 @@ import axios from "axios";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import "./ssh-attach-terminal.css";
 import { buildBackendWebSocketUrl, createAuthenticatedWebSocket } from "../../services/api";
 
 const props = defineProps<{

@@ -1,16 +1,15 @@
 <template>
-  <div class="app-shell">
-    <!-- Mobile Header -->
-    <header class="mobile-header">
-      <div class="mobile-header-brand">
-        <div class="brand-icon">
+  <div class="relative flex h-dvh w-full flex-col overflow-hidden bg-[#0a0a0c] font-sans text-slate-300 md:flex-row">
+    <header class="relative z-30 flex shrink-0 items-center justify-between border-b border-white/5 bg-[#0f1419] px-4 py-3.5 md:hidden">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400">
           <Terminal :size="16" />
         </div>
-        <span class="brand-name">Konek</span>
+        <span class="text-base font-bold tracking-[-0.02em] text-white">Konek</span>
       </div>
-      <div class="mobile-header-actions">
+      <div class="flex items-center gap-2">
         <button
-          class="mobile-menu-btn"
+          class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/7 bg-white/5 text-slate-400 transition-colors duration-150 hover:bg-white/10 hover:text-white"
           @click="isMobileMenuOpen = !isMobileMenuOpen"
           :aria-label="isMobileMenuOpen ? 'Close menu' : 'Open menu'"
           :aria-expanded="isMobileMenuOpen"
@@ -21,30 +20,29 @@
       </div>
     </header>
 
-    <!-- Sidebar overlay (mobile backdrop) -->
-    <Transition name="backdrop">
+    <Transition
+      enter-active-class="transition-opacity duration-200 ease-out"
+      enter-from-class="opacity-0"
+      leave-active-class="transition-opacity duration-200 ease-in"
+      leave-to-class="opacity-0"
+    >
       <div
         v-if="isMobileMenuOpen"
-        class="sidebar-backdrop"
+        class="fixed inset-0 z-[39] bg-black/60 backdrop-blur-sm"
         @click="isMobileMenuOpen = false"
         aria-hidden="true"
       />
     </Transition>
 
-    <!-- Sidebar -->
-    <Transition name="sidebar-slide">
-      <aside
-        v-show="true"
-        class="sidebar-wrapper"
-        :class="{ 'sidebar-open': isMobileMenuOpen }"
-        aria-label="Navigation"
-      >
-        <DashboardSideBar @close="isMobileMenuOpen = false" />
-      </aside>
-    </Transition>
+    <aside
+      class="fixed inset-y-0 left-0 z-40 w-max max-w-[85vw] -translate-x-full transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] md:static md:max-w-none md:translate-x-0 md:shrink-0"
+      :class="{ 'translate-x-0': isMobileMenuOpen }"
+      aria-label="Navigation"
+    >
+      <DashboardSideBar @close="isMobileMenuOpen = false" />
+    </aside>
 
-    <!-- Main content -->
-    <main class="main-content">
+    <main class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <router-view />
     </main>
   </div>
@@ -66,163 +64,3 @@ watch(
   },
 );
 </script>
-
-<style scoped>
-/* ── Shell ───────────────────────────────────────────────────────────────────*/
-
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh; /* use dvh so mobile browser chrome is accounted for */
-  width: 100%;
-  background: #0a0a0c;
-  color: #cbd5e1;
-  font-family: sans-serif;
-  overflow: hidden;
-  position: relative;
-}
-
-@media (min-width: 768px) {
-  .app-shell {
-    flex-direction: row;
-  }
-}
-
-/* ── Mobile header ───────────────────────────────────────────────────────────*/
-
-.mobile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1rem;
-  background: #0f1419;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  flex-shrink: 0;
-  z-index: 30;
-  position: relative;
-}
-
-/* Hide on desktop — sidebar is always visible there */
-@media (min-width: 768px) {
-  .mobile-header {
-    display: none;
-  }
-}
-
-.mobile-header-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.mobile-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.brand-icon {
-  width: 32px;
-  height: 32px;
-  background: rgba(59, 130, 246, 0.15);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #60a5fa;
-}
-
-.brand-name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: white;
-  letter-spacing: -0.02em;
-}
-
-.mobile-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  color: #94a3b8;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.mobile-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: white;
-}
-
-/* ── Backdrop ────────────────────────────────────────────────────────────────*/
-
-.sidebar-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 39;
-}
-
-.backdrop-enter-active,
-.backdrop-leave-active {
-  transition: opacity 0.25s ease;
-}
-
-.backdrop-enter-from,
-.backdrop-leave-to {
-  opacity: 0;
-}
-
-/* ── Sidebar ─────────────────────────────────────────────────────────────────*/
-
-.sidebar-wrapper {
-  /* Mobile: off-canvas, slides in from the left */
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 40;
-  transform: translateX(-100%);
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-  /* Don't let the sidebar exceed ~80% of screen on mobile */
-  max-width: 85vw;
-  width: max-content;
-}
-
-.sidebar-wrapper.sidebar-open {
-  transform: translateX(0);
-}
-
-/* Desktop: always visible, part of normal flow */
-@media (min-width: 768px) {
-  .sidebar-wrapper {
-    position: relative;
-    top: auto;
-    left: auto;
-    bottom: auto;
-    transform: none !important;
-    max-width: none;
-    flex-shrink: 0;
-    z-index: auto;
-  }
-}
-
-/* ── Main content ────────────────────────────────────────────────────────────*/
-
-.main-content {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-</style>
