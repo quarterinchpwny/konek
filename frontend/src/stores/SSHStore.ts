@@ -4,6 +4,30 @@ import { fetchAuthorizedBlob } from '../services/api';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
+type DeleteFilesResult = {
+  path: string;
+  status: 'deleted' | 'error';
+  error?: string;
+};
+
+type DeleteFilesResponse = {
+  status: 'success' | 'partial' | 'error';
+  message: string;
+  results: DeleteFilesResult[];
+  deletedCount: number;
+  failedCount: number;
+};
+
+type DeleteFilesError = Error & {
+  details?: DeleteFilesResponse;
+};
+
+const createDeleteFilesError = (details: DeleteFilesResponse) => {
+  const error = new Error(details.message) as DeleteFilesError;
+  error.details = details;
+  return error;
+};
+
 export const useSshStore = defineStore('ssh', {
 
   state: () => {
@@ -150,11 +174,20 @@ export const useSshStore = defineStore('ssh', {
 
       this.isLoading = true;
       try {
-        await axios.post(`${API_URL}/files/delete`, {
+        const response = await axios.post<DeleteFilesResponse>(`${API_URL}/files/delete`, {
           sessionId: this.sessionId,
           items,
         });
+        if (response.data.status !== 'success') {
+          throw createDeleteFilesError(response.data);
+        }
+        return response.data;
       } catch (e) {
+        if (axios.isAxiosError<DeleteFilesResponse>(e) && e.response?.data) {
+          const deleteError = createDeleteFilesError(e.response.data);
+          console.error('Delete files error', deleteError);
+          throw deleteError;
+        }
         console.error('Delete files error', e);
         throw e;
       } finally {

@@ -16,12 +16,6 @@ const routes = [
     component: () => import("../views/DashboardView.vue"),
     meta: { layout: DashboardLayout, requiresHost: true, willShowSavedHost: true },
   },
-  {
-    path: "/network-map",
-    name: "network-map",
-    component: () => import("../views/NetworkMapView.vue"),
-    meta: { layout: DashboardLayout, requiresHost: true, willShowSavedHost: false },
-  },
 ];
 
 const router = createRouter({

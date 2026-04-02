@@ -112,19 +112,6 @@
                   <div class="action-card-subtitle">Configure connection</div>
                 </div>
               </button>
-              <router-link
-                :to="{ name: 'network-map' }"
-                class="action-card"
-                @click="emit('close')"
-              >
-                <div class="action-card-icon"><Network :size="20" /></div>
-                <div class="action-card-content">
-                  <div class="action-card-title">Network Map</div>
-                  <div class="action-card-subtitle">
-                    Visualize your infrastructure
-                  </div>
-                </div>
-              </router-link>
             </div>
           </div>
 
@@ -334,7 +321,6 @@ import {
   Pencil,
   Activity,
   AlertCircle,
-  Network,
   LogOut,
 } from "lucide-vue-next";
 import { useRoute, useRouter } from "vue-router";

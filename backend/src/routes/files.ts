@@ -4,6 +4,36 @@ import { assertArchiveName, shellEscape } from "../lib/shell";
 import { getOwnedSession } from "../services/session";
 import path from "path";
 
+type FileDeleteResult = {
+  path: string;
+  status: "deleted" | "error";
+  error?: string;
+};
+
+const summarizeDeleteResults = (results: PromiseSettledResult<FileDeleteResult>[]) => {
+  const normalizedResults = results.map((result) =>
+    result.status === "fulfilled" ? result.value : (result.reason as FileDeleteResult)
+  );
+  const deletedCount = normalizedResults.filter((result) => result.status === "deleted").length;
+  const failedCount = normalizedResults.length - deletedCount;
+  const status =
+    failedCount === 0 ? "success" : deletedCount === 0 ? "error" : "partial";
+  const message =
+    status === "success"
+      ? `Deleted ${deletedCount} item${deletedCount === 1 ? "" : "s"}.`
+      : status === "partial"
+        ? `Deleted ${deletedCount} item${deletedCount === 1 ? "" : "s"}; ${failedCount} failed.`
+        : `Failed to delete ${failedCount} item${failedCount === 1 ? "" : "s"}.`;
+
+  return {
+    status,
+    message,
+    results: normalizedResults,
+    deletedCount,
+    failedCount,
+  };
+};
+
 const getMimeType = (filePath: string): string => {
   const ext = path.extname(filePath).toLowerCase();
   const mimeTypes: Record<string, string> = {
@@ -277,8 +307,10 @@ filesRoute.post("/delete", async (c) => {
       });
 
       const results = await Promise.allSettled(deletePromises);
+      const summary = summarizeDeleteResults(results);
       sftp.end();
-      resolve(c.json({ message: "Delete process finished.", results }));
+      const statusCode = summary.status === "error" ? 500 : 200;
+      resolve(c.json(summary, statusCode));
     });
   });
 });

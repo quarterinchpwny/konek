@@ -4,11 +4,13 @@
       <header class="mb-3 flex items-center justify-between">
         <h3 class="text-sm font-semibold text-white/90">System Stats</h3>
       </header>
-      <div
-        v-if="hostId != null && sessionId"
-        class="stats-embed"
-      >
-        <ServerStats :host-id="hostId" compact :show-header="false" :show-docker="false" />
+      <div v-if="hostId != null && sessionId" class="stats-embed">
+        <ServerStats
+          :host-id="hostId"
+          compact
+          :show-header="false"
+          :show-docker="false"
+        />
       </div>
       <div
         v-else
@@ -83,8 +85,14 @@
         <header class="mb-3 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-white/90">Services</h3>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-white/40">{{ topServices.length }} shown</span>
-            <button class="service-link-btn" type="button" @click="emit('open-tab', 'docker')">
+            <span class="text-xs text-white/40"
+              >{{ topServices.length }} shown</span
+            >
+            <button
+              class="service-link-btn"
+              type="button"
+              @click="emit('open-tab', 'docker')"
+            >
               More info
             </button>
           </div>

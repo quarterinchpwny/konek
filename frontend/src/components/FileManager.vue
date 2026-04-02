@@ -411,6 +411,21 @@ import * as monaco from "monaco-editor";
 const sshStore = useSshStore();
 const props = defineProps<{ hostId?: number }>();
 
+type DeleteFailureResult = {
+  path: string;
+  status: "deleted" | "error";
+  error?: string;
+};
+
+type DeleteFailureDetails = {
+  message: string;
+  results: DeleteFailureResult[];
+};
+
+type DeleteFailureError = Error & {
+  details?: DeleteFailureDetails;
+};
+
 // --- UI State ---
 const searchQuery = ref("");
 const selectedFiles = ref<any[]>([]);
@@ -462,7 +477,7 @@ const confirmationTitle = ref("");
 const confirmationMessage = ref("");
 const confirmationText = ref("Confirm");
 const confirmationButtonClass = ref("");
-const confirmationAction = ref<(() => void) | null>(null);
+const confirmationAction = ref<(() => void | Promise<void>) | null>(null);
 
 // --- Upload ---
 const showUploadModal = ref(false);
@@ -790,13 +805,23 @@ const promptDelete = () => {
   confirmationTitle.value = "Confirm Deletion";
   confirmationMessage.value = `Delete ${selectedFiles.value.length} item${selectedFiles.value.length === 1 ? "" : "s"}?`;
   confirmationAction.value = async () => {
-    await sshStore.deleteFiles(
-      selectedFiles.value.map((f) => ({
-        path: f.path,
-        type: f.isDirectory ? "directory" : "file",
-      })),
-    );
-    await refreshAndClearSelection();
+    try {
+      const response = await sshStore.deleteFiles(
+        selectedFiles.value.map((f) => ({
+          path: f.path,
+          type: f.isDirectory ? "directory" : "file",
+        })),
+      );
+      if (!response) {
+        throw new Error("No session");
+      }
+      showToast(response.message);
+    } catch (error) {
+      console.error("Failed to delete files", error);
+      showToast(getDeleteFailureMessage(error), "error");
+    } finally {
+      await refreshAndClearSelection();
+    }
   };
   showConfirmation.value = true;
 };
@@ -806,9 +831,23 @@ const promptDeleteSingle = (file: any) => {
   promptDelete();
 };
 
-const handleConfirm = () => {
-  confirmationAction.value?.();
+const getDeleteFailureMessage = (error: unknown) => {
+  const details = (error as DeleteFailureError | undefined)?.details;
+  const failedResult = details?.results.find((result) => result.status === "error");
+  if (failedResult?.error) {
+    return `${details?.message ?? "Delete failed."} ${failedResult.path}: ${failedResult.error}`;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Delete failed.";
+};
+
+const handleConfirm = async () => {
+  const action = confirmationAction.value;
   showConfirmation.value = false;
+  if (!action) return;
+  await action();
 };
 const handleCancel = () => (showConfirmation.value = false);
 
