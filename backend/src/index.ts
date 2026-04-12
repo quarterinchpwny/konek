@@ -1,186 +1,230 @@
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { Client as SSHClient } from 'ssh2';
-import { v4 as uuidv4 } from 'uuid';
+import "dotenv/config";
 
-// Types
-interface SSHSession {
-  client: SSHClient;
-  isConnected: boolean;
-  lastActive: number;
-}
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { IncomingMessage, Server as HttpServer } from "node:http";
+import { RawData, WebSocketServer } from "ws";
 
-// State - Keeping it simple (In-Memory) as per your original design
-const sessions = new Map<string, SSHSession>();
+import { getAuthSession } from "./services/auth";
+import { requireAuth } from "./middleware/auth";
+import { assertDockerIdentifier } from "./lib/shell";
+import { sessions } from "./services/session";
+import {
+  buildPersistentTerminalAttachCommand,
+  getPersistentTerminalSocketName,
+  resizeTmuxSession,
+} from "./lib/persistent-terminal";
+import { touchTerminalTab } from "./services/terminal-tabs";
+import authRoute from "./routes/auth";
+import hostsRoute from "./routes/hosts";
+import filesRoute from "./routes/files";
+import terminalRoute from "./routes/terminal";
+import statsRoute from "./routes/stats";
+import dockerRoute from "./routes/docker";
+import activityRoute from "./routes/activity";
 
 const app = new Hono();
 
-// Middleware
-app.use('/*', cors({
-  origin: ['http://localhost:5173'], // Your Vue App URL
-  credentials: true,
-}));
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowHeaders: ["Authorization", "Content-Type"],
+  })
+);
 
-// Helper: Cleanup Session
-const cleanupSession = (sessionId: string) => {
-  const session = sessions.get(sessionId);
-  if (session) {
-    session.client.end();
-    sessions.delete(sessionId);
-    console.log(`Session ${sessionId} closed`);
-  }
-};
+app.use("/api/*", requireAuth);
+app.route("/api/auth", authRoute);
 
-/**
- * 1. CONNECT Endpoint
- * Handles SSH connection and stores the client instance in memory.
- */
-app.post('/api/connect', async (c) => {
-  const body = await c.req.json();
-  const { host, port, username, password, privateKey } = body;
-
-  return new Promise((resolve) => {
-    const client = new SSHClient();
-    const sessionId = uuidv4();
-
-    client.on('ready', () => {
-      sessions.set(sessionId, {
-        client,
-        isConnected: true,
-        lastActive: Date.now(),
-      });
-      
-      resolve(c.json({ 
-        status: 'success', 
-        sessionId, 
-        message: 'Connected successfully' 
-      }));
-    });
-
-    client.on('error', (err) => {
-      resolve(c.json({ status: 'error', message: err.message }, 500));
-    });
-
-    // Connection Config
-    const config: any = {
-      host,
-      port: port || 22,
-      username,
-      readyTimeout: 20000,
-    };
-
-    if (privateKey) config.privateKey = privateKey;
-    else if (password) config.password = password;
-
-    try {
-      client.connect(config);
-    } catch (err: any) {
-      resolve(c.json({ status: 'error', message: err.message }, 500));
-    }
-  });
-});
-
-/**
- * 2. LIST FILES Endpoint
- * Equivalent to your `listFiles` route.
- */
-app.get('/api/files/list', async (c) => {
-  const sessionId = c.req.query('sessionId');
-  const path = c.req.query('path') || '/';
-
-  if (!sessionId || !sessions.has(sessionId)) {
-    return c.json({ error: 'Session not found or disconnected' }, 401);
-  }
-
-  const session = sessions.get(sessionId)!;
-  session.lastActive = Date.now();
-
-  return new Promise((resolve) => {
-    // Using 'ls -la' just like your original code
-    // In a production app, consider using SFTP.readdir for better parsing
-    const cmd = `ls -la --time-style=long-iso "${path}"`;
-
-    session.client.exec(cmd, (err, stream) => {
-      if (err) return resolve(c.json({ error: err.message }, 500));
-
-      let output = '';
-      stream.on('data', (data: Buffer) => output += data.toString());
-      
-      stream.on('close', (code: number) => {
-        if (code !== 0) return resolve(c.json({ error: 'Command failed' }, 500));
-        
-        // Simple Parser (You can swap this with your complex parser)
-        const lines = output.split('\n').slice(1); // Skip total
-        const files = lines
-          .filter(line => line.trim().length > 0)
-          .map(line => {
-            const parts = line.split(/\s+/);
-            const permissions = parts[0];
-            const name = parts.slice(7).join(' '); // Rough estimation
-            return {
-              name,
-              permissions,
-              isDirectory: permissions.startsWith('d'),
-              size: parts[4],
-              path: path === '/' ? `/${name}` : `${path}/${name}`
-            };
-          })
-          .filter(f => f.name !== '.' && f.name !== '..');
-
-        resolve(c.json({ path, files }));
-      });
-    });
-  });
-});
-
-/**
- * 3. READ FILE Endpoint
- * Streams content back to the frontend.
- */
-app.get('/api/files/read', async (c) => {
-  const sessionId = c.req.query('sessionId');
-  const filePath = c.req.query('path');
-
-  if (!sessionId || !sessions.has(sessionId)) return c.json({ error: 'No Session' }, 401);
-  if (!filePath) return c.json({ error: 'No path provided' }, 400);
-
-  const session = sessions.get(sessionId)!;
-  
-  // We use SFTP here for safer file reading compared to 'cat'
-  return new Promise((resolve) => {
-    session.client.sftp((err, sftp) => {
-      if (err) return resolve(c.json({ error: 'SFTP not available' }, 500));
-
-      // Hono streaming response
-      const stream = sftp.createReadStream(filePath);
-      
-      // We wrap the Node stream into a Hono-friendly response
-      // For simple text files, we can just buffer it (easier for text editors)
-      const chunks: Buffer[] = [];
-      stream.on('data', chunk => chunks.push(chunk));
-      stream.on('end', () => {
-        const content = Buffer.concat(chunks).toString('utf-8');
-        resolve(c.json({ content }));
-      });
-      stream.on('error', (e) => resolve(c.json({ error: e.message }, 500)));
-    });
-  });
-});
-
-/**
- * 4. DISCONNECT
- */
-app.post('/api/disconnect', async (c) => {
-  const { sessionId } = await c.req.json();
-  cleanupSession(sessionId);
-  return c.json({ status: 'disconnected' });
-});
+app.route("/api/hosts", hostsRoute);
+app.route("/api/files", filesRoute);
+app.route("/api/docker", dockerRoute);
+app.route("/api/terminal", terminalRoute);
+app.route("/api/stats", statsRoute);
+app.route("/api/activity", activityRoute);
 
 const port = 3000;
-console.log(`Server is running on port ${port}`);
 
-serve({
+const server = serve({
   fetch: app.fetch,
-  port
+  port,
+  hostname: '0.0.0.0'
+}) as HttpServer;
+
+const applyStreamResize = async (
+  stream: { setWindow: (rows: number, cols: number) => void },
+  resize: () => Promise<void>,
+  cols?: number,
+  rows?: number,
+) => {
+  if (!cols || !rows) {
+    return;
+  }
+
+  stream.setWindow(rows, cols);
+  await resize();
+};
+
+const extractWebSocketToken = (request: IncomingMessage) => {
+  const protocols = request.headers["sec-websocket-protocol"];
+  if (!protocols) {
+    return null;
+  }
+
+  const value = Array.isArray(protocols) ? protocols[0] : protocols;
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .find(Boolean) || null;
+};
+
+const wss = new WebSocketServer({
+  server,
+  handleProtocols(protocols) {
+    const [first] = Array.from(protocols);
+    return first || false;
+  },
 });
+
+wss.on("connection", async (ws, req) => {
+  const url = new URL(req.url || "", `http://${req.headers.host}`);
+  const authToken = extractWebSocketToken(req);
+  const sid = url.searchParams.get("sessionId");
+  const dockerId = url.searchParams.get("dockerId");
+  const terminalTabId = url.searchParams.get("terminalTabId");
+  const cols = url.searchParams.get("cols");
+  const rows = url.searchParams.get("rows");
+  const parsedCols = cols ? parseInt(cols, 10) : undefined;
+  const parsedRows = rows ? parseInt(rows, 10) : undefined;
+
+  if (!authToken) return ws.close();
+  const authSession = getAuthSession(authToken);
+  if (!authSession) return ws.close();
+
+  if (!sid || !sessions.has(sid)) return ws.close();
+  const session = sessions.get(sid)!;
+  if (session.ownerId !== authSession.id) return ws.close();
+
+  if (dockerId) {
+    try {
+      assertDockerIdentifier(dockerId);
+    } catch {
+      return ws.close();
+    }
+
+    // ------------------ Docker logs stream ------------------
+    session.client.exec(
+      `docker logs -f --tail 50 ${dockerId}`,
+      (err: Error | undefined, stream: any) => {
+        if (err) return ws.close();
+
+        stream.on("data", (d: Buffer) => ws.send(d.toString()));
+        stream.stderr.on("data", (d: Buffer) => ws.send(d.toString()));
+
+        ws.on("close", () => stream.end());
+      }
+    );
+  } else if (terminalTabId) {
+    try {
+      const terminalTab = touchTerminalTab(sid, terminalTabId);
+      const socketName = getPersistentTerminalSocketName(sid);
+      const execOptions: any = {
+        pty: true,
+        term: "xterm-256color",
+      };
+
+      if (parsedCols && parsedRows) {
+        execOptions.cols = parsedCols;
+        execOptions.rows = parsedRows;
+      }
+
+      session.client.exec(
+        buildPersistentTerminalAttachCommand(socketName, terminalTab.sessionName),
+        execOptions,
+        (err: Error | undefined, stream: any) => {
+          if (err) {
+            ws.send(`\x1b[31mError attaching to terminal tab: ${err.message}\x1b[0m\r\n`);
+            return ws.close();
+          }
+
+          ws.on("message", (data: RawData) => {
+            try {
+              const msg = JSON.parse(data.toString());
+              if (msg.type === "resize" && msg.cols && msg.rows) {
+                stream.setWindow(msg.rows, msg.cols);
+                void resizeTmuxSession(
+                  session.client,
+                  terminalTab.sessionName,
+                  msg.cols,
+                  msg.rows,
+                  socketName,
+                );
+                return;
+              }
+            } catch {}
+            stream.write(data as Buffer);
+          });
+
+          void applyStreamResize(
+            stream,
+            () =>
+              resizeTmuxSession(
+                session.client,
+                terminalTab.sessionName,
+                parsedCols,
+                parsedRows,
+                socketName,
+              ),
+            parsedCols,
+            parsedRows,
+          );
+
+          stream.on("data", (d: Buffer) => ws.send(d.toString()));
+          stream.stderr.on("data", (d: Buffer) => ws.send(d.toString()));
+          stream.on("close", () => ws.close());
+          ws.on("close", () => stream.end());
+        },
+      );
+    } catch {
+      return ws.close();
+    }
+  } else {
+    // ------------------ Terminal shell ------------------
+
+    const shellOptions: any = {
+      term: "xterm-256color",  // Upgraded from xterm-color
+    };
+
+    if (cols && rows) {
+      shellOptions.cols = parseInt(cols);
+      shellOptions.rows = parseInt(rows);
+    }
+
+    session.client.shell(shellOptions, (err: Error | undefined, stream: any) => {
+      if (err) return ws.close();
+
+      ws.on("message", (data: RawData) => {
+        // Handle resize messages
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'resize' && msg.cols && msg.rows) {
+            stream.setWindow(msg.rows, msg.cols);
+            return;
+          }
+        } catch (e) {
+          // Not JSON, regular input
+        }
+        stream.write(data as Buffer);
+      });
+
+      stream.on("data", (d: Buffer) => ws.send(d.toString()));
+      stream.on("close", () => ws.close());
+      ws.on("close", () => stream.end());
+    });
+  }
+});
+
+
+
+console.log(`Server running on port ${port}`);

@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  konek-backend:
+    image: konek/backend:latest
+    container_name: konek-backend
+    restart: unless-stopped
+    environment:
+      KONEK_AUTH_PASSWORD: ${KONEK_AUTH_PASSWORD}
+      KONEK_SECRET_KEY: ${KONEK_SECRET_KEY}
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    network_mode: "host"
+    volumes:
+      # This volume persists the SQLite database.
+      # It mounts the entire /app/backend directory.
+      # If you rebuild the backend image with code changes,
+      # you may need to remove this volume to see the changes:
+      # docker-compose down -v
+      - backend_data:/app/backend
+
+  konek-frontend:
+    image: konek/frontend:latest
+    container_name: konek-frontend
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    ports:
+      - "6060:80"
+    depends_on:
+      - konek-backend
+
+volumes:
+  backend_data:

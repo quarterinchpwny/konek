@@ -1,0 +1,41 @@
+version: '3.8'
+
+# This file provides overrides for development.
+# Use with the command:
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+services:
+  konek-backend:
+    environment:
+      KONEK_AUTH_PASSWORD: ${KONEK_AUTH_PASSWORD}
+      KONEK_SECRET_KEY: ${KONEK_SECRET_KEY}
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    network_mode: "host"
+    restart: unless-stopped
+    volumes:
+      # Mount local source code. Changes on the host are reflected in the container.
+      - ./backend:/app
+      # Anonymous volume for node_modules to prevent host's from overwriting.
+      - /app/node_modules
+    # The command 'npm run dev' uses 'tsx watch' for automatic restarts on code change.
+
+  konek-frontend:
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      # Target the 'develop' stage in the Dockerfile
+      target: develop
+    ports:
+      # Expose the Vite dev server port
+      - "5173:5173"
+    restart: unless-stopped
+    volumes:
+      # Mount local source code
+      - ./frontend:/app
+      # Anonymous volume for node_modules
+      - /app/node_modules
+    # The command is specified in the 'develop' stage of the Dockerfile

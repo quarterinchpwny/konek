@@ -1,0 +1,18 @@
+FROM node:24.5-bullseye
+
+WORKDIR /app
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install nba_api
+RUN pip3 install nba_api
+
+COPY backend/package.json backend/package-lock.json ./
+RUN npm install
+
+COPY backend/ ./
+
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
