@@ -1,13 +1,20 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { getRequestAuthSessionId } from "../middleware/auth";
 import { assertArchiveName, shellEscape } from "../lib/shell";
 import { getOwnedSession } from "../services/session";
 import path from "path";
+import type { ClientChannel } from "ssh2";
 
 type FileDeleteResult = {
   path: string;
   status: "deleted" | "error";
   error?: string;
+};
+
+type FileDeleteItem = {
+  path: string;
+  type: "file" | "directory";
 };
 
 const summarizeDeleteResults = (results: PromiseSettledResult<FileDeleteResult>[]) => {
@@ -50,6 +57,83 @@ const getMimeType = (filePath: string): string => {
   };
   return mimeTypes[ext] || "application/octet-stream";
 };
+
+const assertDeletePath = (value: string) => {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new HTTPException(400, { message: "Path is required" });
+  }
+
+  const normalizedPath = path.posix.normalize(value);
+
+  if (!normalizedPath.startsWith("/")) {
+    throw new HTTPException(400, { message: "Path must be absolute" });
+  }
+
+  if (normalizedPath === "/") {
+    throw new HTTPException(400, { message: "Refusing to delete root path" });
+  }
+
+  return normalizedPath;
+};
+
+const waitForChannelClose = (stream: ClientChannel) =>
+  new Promise<void>((resolve) => {
+    stream.on("close", () => resolve());
+  });
+
+const deleteDirectoryRecursively = (
+  session: ReturnType<typeof getOwnedSession>,
+  directoryPath: string,
+) =>
+  new Promise<FileDeleteResult>((resolve, reject) => {
+    const escapedPath = shellEscape(directoryPath);
+    const command = [
+      `if [ ! -d ${escapedPath} ]; then`,
+      `  printf '%s\\n' ${shellEscape(`Directory not found: ${directoryPath}`)} >&2;`,
+      "  exit 1;",
+      "fi;",
+      `rm -rf -- ${escapedPath}`,
+    ].join(" ");
+
+    session.client.exec(command, (err, stream) => {
+      if (err) {
+        reject({
+          path: directoryPath,
+          status: "error",
+          error: err.message,
+        });
+        return;
+      }
+
+      let stderr = "";
+      let exitCode: number | undefined;
+
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      stream.on("exit", (code) => {
+        if (typeof code === "number") {
+          exitCode = code;
+        }
+      });
+
+      void waitForChannelClose(stream).then(() => {
+        const normalizedExitCode = exitCode ?? 0;
+
+        if (normalizedExitCode === 0) {
+          resolve({ path: directoryPath, status: "deleted" });
+          return;
+        }
+
+        reject({
+          path: directoryPath,
+          status: "error",
+          error: stderr.trim() || `Delete failed with code ${normalizedExitCode}`,
+        });
+      });
+    });
+  });
 
 const filesRoute = new Hono();
 
@@ -249,7 +333,7 @@ filesRoute.post("/delete", async (c) => {
   const ownerId = getRequestAuthSessionId(c);
   const { sessionId, items } = await c.req.json<{
     sessionId: string;
-    items: { path: string; type: "file" | "directory" }[];
+    items: FileDeleteItem[];
   }>();
 
   if (!sessionId) {
@@ -260,6 +344,11 @@ filesRoute.post("/delete", async (c) => {
     return c.json({ error: "No items to delete provided" }, 400);
   }
 
+  const normalizedItems = items.map((item) => ({
+    path: assertDeletePath(item.path),
+    type: item.type,
+  }));
+
   const session = getOwnedSession(sessionId, ownerId);
 
   return new Promise<Response>((resolve) => {
@@ -268,7 +357,7 @@ filesRoute.post("/delete", async (c) => {
         return resolve(c.json({ error: "SFTP not available" }, 500));
       }
 
-      const deletePromises = items.map((item) => {
+      const deletePromises = normalizedItems.map((item) => {
         return new Promise((resolveFile, rejectFile) => {
           if (item.type === "file") {
             sftp.unlink(item.path, (unlinkErr) => {
@@ -283,19 +372,7 @@ filesRoute.post("/delete", async (c) => {
               }
             });
           } else if (item.type === "directory") {
-            // Need to handle recursive delete for directories via shell if they're not empty
-            // For now, simple rmdir
-            sftp.rmdir(item.path, (rmdirErr) => {
-              if (rmdirErr) {
-                rejectFile({
-                  path: item.path,
-                  status: "error",
-                  error: rmdirErr.message,
-                });
-              } else {
-                resolveFile({ path: item.path, status: "deleted" });
-              }
-            });
+            deleteDirectoryRecursively(session, item.path).then(resolveFile).catch(rejectFile);
           } else {
             rejectFile({
               path: item.path,
